@@ -1,0 +1,6 @@
+@FallenFaction.Server_HostAddress = http://localhost:5064
+
+GET {{FallenFaction.Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
