@@ -1,13 +1,36 @@
 <!DOCTYPE html>
-<html lang="">
+<html lang="en">
   <head>
     <meta charset="UTF-8">
-    <link rel="icon" href="">
+    <link rel="icon" href="/favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fallen Faction</title>
+    
+    <style>
+      body {
+        background-color: #000 !important;
+        margin: 0;
+        padding: 0;
+      }
+      
+      #app {
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+      
+      #app.loaded {
+        opacity: 1;
+      }
+    </style>
   </head>
   <body>
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
+    
+    <script>
+      setTimeout(() => {
+        document.getElementById('app').classList.add('loaded');
+      }, 100);
+    </script>
   </body>
 </html>

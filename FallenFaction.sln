@@ -4,6 +4,8 @@ VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FallenFaction.Server", "FallenFaction.Server\FallenFaction.Server.csproj", "{AAEBF8D7-7447-5C0B-66B4-8872E083E757}"
 EndProject
+Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "fallenfaction.client", "fallenfaction.client\fallenfaction.client.esproj", "{872A0C0E-D8C9-4291-9002-C1AF3743AE54}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -14,6 +16,12 @@ Global
 		{AAEBF8D7-7447-5C0B-66B4-8872E083E757}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AAEBF8D7-7447-5C0B-66B4-8872E083E757}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AAEBF8D7-7447-5C0B-66B4-8872E083E757}.Release|Any CPU.Build.0 = Release|Any CPU
+		{872A0C0E-D8C9-4291-9002-C1AF3743AE54}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{872A0C0E-D8C9-4291-9002-C1AF3743AE54}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{872A0C0E-D8C9-4291-9002-C1AF3743AE54}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{872A0C0E-D8C9-4291-9002-C1AF3743AE54}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{872A0C0E-D8C9-4291-9002-C1AF3743AE54}.Release|Any CPU.Build.0 = Release|Any CPU
+		{872A0C0E-D8C9-4291-9002-C1AF3743AE54}.Release|Any CPU.Deploy.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

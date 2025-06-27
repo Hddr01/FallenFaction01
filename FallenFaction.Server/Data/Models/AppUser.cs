@@ -23,10 +23,11 @@ namespace FallenFaction.Server.Data.Models
             IsOnline = true;
         }
 
-        public string? FirstName { get; set; }
-        public string? LastName { get; set; }
-        public DateTime DateOfBirth { get; set; }
-        public string ProfilePicturePath { get; set; }
+        public DateTime? DateOfBirth { get; set; } // Made nullable since it's optional
+
+        // FIXED: Use HTTPS for default profile picture to prevent mixed content warnings
+        public string ProfilePicturePath { get; set; } = "https://localhost:7217/img/default-avatar.png";
+
         public string? Bio { get; set; }
         public DateTime RegistrationDate { get; set; }
         public DateTime LastLoginDate { get; set; }
