@@ -1,10 +1,22 @@
 @import './base.css';
+@import "tailwindcss";
 
+/* Force pure black everywhere */
+html, body {
+  background: #000000;
+  color: var(--color-text);
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+/* Remove container styling from #app for full-width pages */
 #app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
   font-weight: normal;
+  background: transparent; /* Let it inherit from body */
+  color: var(--color-text);
+  min-height: 100vh;
+  width: 100%;
 }
 
 a,
@@ -18,18 +30,5 @@ a,
 @media (hover: hover) {
   a:hover {
     background-color: hsla(160, 100%, 37%, 0.2);
-  }
-}
-
-@media (min-width: 1024px) {
-  body {
-    display: flex;
-    place-items: center;
-  }
-
-  #app {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 0 2rem;
   }
 }

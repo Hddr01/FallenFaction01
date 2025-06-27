@@ -1,0 +1,630 @@
+// Services/AuthService.cs - UPDATED with HTTPS profile picture migration
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using AutoMapper;
+using FallenFaction.Server.Data.Models;
+using FallenFaction.Server.DTOs.Auth;
+using FallenFaction.Server.Services.Interfaces;
+
+namespace FallenFaction.Server.Services
+{
+    public class AuthService : IAuthService
+    {
+        private readonly UserManager<AppUser> _userManager;
+        private readonly SignInManager<AppUser> _signInManager;
+        private readonly ITokenService _tokenService;
+        private readonly IMapper _mapper;
+        private readonly ILogger<AuthService> _logger;
+        private readonly IConfiguration _configuration;
+
+        // Concurrent operation tracking
+        private readonly Dictionary<string, SemaphoreSlim> _userUpdateSemaphores = new();
+        private readonly SemaphoreSlim _semaphoreManagerLock = new(1, 1);
+
+        public AuthService(
+            UserManager<AppUser> userManager,
+            SignInManager<AppUser> signInManager,
+            ITokenService tokenService,
+            IMapper mapper,
+            ILogger<AuthService> logger,
+            IConfiguration configuration)
+        {
+            _userManager = userManager;
+            _signInManager = signInManager;
+            _tokenService = tokenService;
+            _mapper = mapper;
+            _logger = logger;
+            _configuration = configuration;
+        }
+
+        // Helper method to get the correct base URL for static assets
+        private string GetStaticAssetBaseUrl()
+        {
+            // Get from configuration, fallback to HTTPS localhost
+            return _configuration["StaticAssets:BaseUrl"] ?? "https://localhost:7217";
+        }
+
+        // Helper method to fix profile picture URLs
+        private string FixProfilePictureUrl(string currentUrl)
+        {
+            if (string.IsNullOrEmpty(currentUrl))
+            {
+                return $"{GetStaticAssetBaseUrl()}/img/default-avatar.png";
+            }
+
+            // Fix HTTP URLs to HTTPS
+            if (currentUrl.StartsWith("http://localhost:5064/img/"))
+            {
+                return currentUrl.Replace("http://localhost:5064", GetStaticAssetBaseUrl());
+            }
+
+            // Fix any other HTTP localhost variants
+            if (currentUrl.StartsWith("http://localhost:") && currentUrl.Contains("/img/"))
+            {
+                var pathPart = currentUrl.Substring(currentUrl.IndexOf("/img/"));
+                return $"{GetStaticAssetBaseUrl()}{pathPart}";
+            }
+
+            // If it's already HTTPS or a different format, return as-is
+            return currentUrl;
+        }
+
+        public async Task<AuthResponseDto> RegisterAsync(RegisterDto registerDto)
+        {
+            try
+            {
+                // Check if user already exists
+                if (await UserExistsAsync(registerDto.Email))
+                {
+                    return new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = "A user with this email already exists.",
+                        Errors = new List<string> { "Email is already registered." }
+                    };
+                }
+
+                // Check if username already exists
+                var existingUser = await _userManager.FindByNameAsync(registerDto.UserName);
+                if (existingUser != null)
+                {
+                    return new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = "This username is already taken.",
+                        Errors = new List<string> { "Username is already in use." }
+                    };
+                }
+
+                // Create new user with HTTPS profile picture
+                var user = new AppUser
+                {
+                    UserName = registerDto.UserName,
+                    Email = registerDto.Email,
+                    DateOfBirth = registerDto.DateOfBirth,
+                    Bio = registerDto.Bio,
+                    ProfilePicturePath = $"{GetStaticAssetBaseUrl()}/img/default-avatar.png",
+                    RegistrationDate = DateTime.UtcNow,
+                    LastActive = DateTime.UtcNow,
+                    IsActive = true,
+                    IsOnline = true,
+                    IsVerified = false,
+                    IsBannedFromComments = false
+                };
+
+                var result = await _userManager.CreateAsync(user, registerDto.Password);
+
+                if (!result.Succeeded)
+                {
+                    return new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = "Failed to create user account.",
+                        Errors = result.Errors.Select(e => e.Description).ToList()
+                    };
+                }
+
+                // Assign default role
+                await _userManager.AddToRoleAsync(user, "User");
+
+                // Generate JWT token
+                var roles = await _userManager.GetRolesAsync(user);
+                var token = _tokenService.GenerateJwtToken(user, roles);
+
+                // Map user to DTO
+                var userDto = _mapper.Map<UserDto>(user);
+                userDto.Roles = roles.ToList();
+
+                _logger.LogInformation("User {Email} registered successfully with username {UserName}", registerDto.Email, registerDto.UserName);
+
+                return new AuthResponseDto
+                {
+                    Success = true,
+                    Message = "Registration successful.",
+                    Token = token,
+                    TokenExpiration = DateTime.UtcNow.AddHours(24),
+                    User = userDto
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred during user registration for {Email}", registerDto.Email);
+                return new AuthResponseDto
+                {
+                    Success = false,
+                    Message = "An error occurred during registration.",
+                    Errors = new List<string> { "Internal server error occurred." }
+                };
+            }
+        }
+
+        public async Task<AuthResponseDto> LoginAsync(LoginDto loginDto)
+        {
+            try
+            {
+                var user = await _userManager.FindByEmailAsync(loginDto.Email);
+                if (user == null)
+                {
+                    return new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = "Invalid email or password.",
+                        Errors = new List<string> { "Authentication failed." }
+                    };
+                }
+
+                // Check if user is active
+                if (!user.IsActive)
+                {
+                    return new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = "Account is deactivated. Please contact support.",
+                        Errors = new List<string> { "Account deactivated." }
+                    };
+                }
+
+                var result = await _signInManager.CheckPasswordSignInAsync(user, loginDto.Password, lockoutOnFailure: true);
+
+                if (!result.Succeeded)
+                {
+                    var errorMessage = result.IsLockedOut
+                        ? "Account is locked out. Try again later."
+                        : "Invalid email or password.";
+
+                    return new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = errorMessage,
+                        Errors = new List<string> { "Authentication failed." }
+                    };
+                }
+
+                // Update login info with improved retry logic and profile picture fix
+                await UpdateUserWithSemaphoreAsync(user.Id, u =>
+                {
+                    u.LastLoginDate = DateTime.UtcNow;
+                    u.LastActive = DateTime.UtcNow;
+                    u.IsOnline = true;
+
+                    // Fix profile picture URL during login
+                    u.ProfilePicturePath = FixProfilePictureUrl(u.ProfilePicturePath);
+                });
+
+                // Generate JWT token
+                var roles = await _userManager.GetRolesAsync(user);
+                var token = _tokenService.GenerateJwtToken(user, roles);
+
+                // Map user to DTO with fixed profile picture URL
+                var userDto = _mapper.Map<UserDto>(user);
+                userDto.ProfilePicturePath = FixProfilePictureUrl(userDto.ProfilePicturePath);
+                userDto.Roles = roles.ToList();
+
+                _logger.LogInformation("User {Email} logged in successfully", loginDto.Email);
+
+                return new AuthResponseDto
+                {
+                    Success = true,
+                    Message = "Login successful.",
+                    Token = token,
+                    TokenExpiration = DateTime.UtcNow.AddHours(24),
+                    User = userDto
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred during user login for {Email}", loginDto.Email);
+                return new AuthResponseDto
+                {
+                    Success = false,
+                    Message = "An error occurred during login.",
+                    Errors = new List<string> { "Internal server error occurred." }
+                };
+            }
+        }
+
+        // Keep all other methods unchanged but add profile picture fixing to GetUserProfileAsync
+        public async Task<UserDto?> GetUserProfileAsync(string userId)
+        {
+            try
+            {
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null)
+                {
+                    return null;
+                }
+
+                var roles = await _userManager.GetRolesAsync(user);
+                var userDto = _mapper.Map<UserDto>(user);
+                userDto.ProfilePicturePath = FixProfilePictureUrl(userDto.ProfilePicturePath);
+                userDto.Roles = roles.ToList();
+
+                return userDto;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while getting user profile for {UserId}", userId);
+                return null;
+            }
+        }
+
+        // Rest of the methods remain the same...
+        public async Task<bool> LogoutAsync(string userId)
+        {
+            if (string.IsNullOrEmpty(userId))
+            {
+                _logger.LogWarning("LogoutAsync called with null or empty userId");
+                return true;
+            }
+
+            _logger.LogInformation("Processing logout for user {UserId}", userId);
+
+            try
+            {
+                // Use a dedicated fast path for logout to avoid conflicts with other operations
+                var success = await SetUserOfflineFastAsync(userId);
+
+                if (success)
+                {
+                    _logger.LogInformation("User {UserId} logged out successfully", userId);
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to update offline status for user {UserId} during logout, but allowing logout to proceed", userId);
+                }
+
+                // Always return true for logout - the client should clear its state regardless
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred during user logout for {UserId}", userId);
+                // Return true to allow client-side logout to proceed
+                return true;
+            }
+        }
+
+        public async Task<bool> UserExistsAsync(string email)
+        {
+            try
+            {
+                var user = await _userManager.FindByEmailAsync(email);
+                return user != null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while checking if user exists for {Email}", email);
+                return false;
+            }
+        }
+
+        public async Task<AuthResponseDto> RefreshTokenAsync(string refreshToken)
+        {
+            try
+            {
+                return new AuthResponseDto
+                {
+                    Success = false,
+                    Message = "Refresh token functionality not fully implemented.",
+                    Errors = new List<string> { "Feature not available." }
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred during token refresh");
+                return new AuthResponseDto
+                {
+                    Success = false,
+                    Message = "An error occurred during token refresh.",
+                    Errors = new List<string> { "Internal server error occurred." }
+                };
+            }
+        }
+
+        // Replace the UpdateOnlineStatusAsync method in your AuthService.cs
+        public async Task<bool> UpdateOnlineStatusAsync(string userId, bool isOnline)
+        {
+            try
+            {
+                _logger.LogInformation("Updating online status for user {UserId} to {IsOnline}", userId, isOnline);
+
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null)
+                {
+                    _logger.LogWarning("User {UserId} not found for online status update", userId);
+                    return false;
+                }
+
+                // Log current state
+                _logger.LogDebug("Current state - User {UserId}: IsOnline={CurrentIsOnline}, LastActive={CurrentLastActive}",
+                    user.Id, user.IsOnline, user.LastActive);
+
+                // Update the user properties
+                user.IsOnline = isOnline;
+                user.LastActive = DateTime.UtcNow;
+
+                // Save changes
+                var result = await _userManager.UpdateAsync(user);
+
+                if (result.Succeeded)
+                {
+                    _logger.LogInformation("Successfully updated online status for user {UserId} to {IsOnline}", userId, isOnline);
+                    return true;
+                }
+                else
+                {
+                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                    _logger.LogWarning("Failed to update online status for user {UserId}: {Errors}", userId, errors);
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating online status for user {UserId}", userId);
+                return false;
+            }
+        }
+
+        // Also replace UpdateLastActiveAsync with a simpler version
+        public async Task<bool> UpdateLastActiveAsync(string userId)
+        {
+            try
+            {
+                _logger.LogDebug("Updating last active for user {UserId}", userId);
+
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null)
+                {
+                    _logger.LogWarning("User {UserId} not found for last active update", userId);
+                    return false;
+                }
+
+                user.LastActive = DateTime.UtcNow;
+                user.IsOnline = true;
+
+                var result = await _userManager.UpdateAsync(user);
+
+                if (result.Succeeded)
+                {
+                    _logger.LogDebug("Successfully updated last active for user {UserId}", userId);
+                    return true;
+                }
+                else
+                {
+                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                    _logger.LogWarning("Failed to update last active for user {UserId}: {Errors}", userId, errors);
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating last active for user {UserId}", userId);
+                return false;
+            }
+        }
+
+        public async Task SetUserOfflineAsync(string userId)
+        {
+            try
+            {
+                await SetUserOfflineFastAsync(userId);
+                _logger.LogInformation("Set user {UserId} offline", userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error setting user {UserId} offline", userId);
+            }
+        }
+
+        public async Task<List<UserDto>> GetOnlineUsersAsync()
+        {
+            try
+            {
+                // Get users who are marked as online and have been active in the last 5 minutes
+                var cutoffTime = DateTime.UtcNow.AddMinutes(-5);
+                var onlineUsers = _userManager.Users
+                    .Where(u => u.IsOnline && u.LastActive > cutoffTime)
+                    .ToList();
+
+                var userDtos = new List<UserDto>();
+                foreach (var user in onlineUsers)
+                {
+                    var roles = await _userManager.GetRolesAsync(user);
+                    var userDto = _mapper.Map<UserDto>(user);
+                    userDto.ProfilePicturePath = FixProfilePictureUrl(userDto.ProfilePicturePath);
+                    userDto.Roles = roles.ToList();
+                    userDtos.Add(userDto);
+                }
+
+                return userDtos;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting online users");
+                return new List<UserDto>();
+            }
+        }
+
+
+
+        // NEW: Fast offline update specifically for logout scenarios
+        private async Task<bool> SetUserOfflineFastAsync(string userId)
+        {
+            try
+            {
+                // Use raw SQL for faster, more reliable logout updates
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null)
+                {
+                    _logger.LogWarning("User {UserId} not found during logout", userId);
+                    return false;
+                }
+
+                // Direct property update with immediate save
+                user.IsOnline = false;
+                user.LastActive = DateTime.UtcNow;
+
+                // Use a very short timeout for logout operations
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+
+                var result = await _userManager.UpdateAsync(user);
+
+                if (result.Succeeded)
+                {
+                    _logger.LogDebug("Successfully set user {UserId} offline for logout", userId);
+                    return true;
+                }
+                else
+                {
+                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                    _logger.LogWarning("Failed to set user {UserId} offline during logout: {Errors}", userId, errors);
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in fast offline update for user {UserId}", userId);
+                return false;
+            }
+        }
+
+        // NEW: Semaphore-based user update mechanism to prevent concurrency conflicts
+        private async Task<bool> UpdateUserWithSemaphoreAsync(string userId, Action<AppUser> updateAction, int maxRetries = 3)
+        {
+            if (string.IsNullOrEmpty(userId))
+            {
+                _logger.LogWarning("UpdateUserWithSemaphoreAsync called with null or empty userId");
+                return false;
+            }
+
+            // Get or create semaphore for this user
+            SemaphoreSlim userSemaphore;
+            await _semaphoreManagerLock.WaitAsync();
+            try
+            {
+                if (!_userUpdateSemaphores.TryGetValue(userId, out userSemaphore))
+                {
+                    userSemaphore = new SemaphoreSlim(1, 1);
+                    _userUpdateSemaphores[userId] = userSemaphore;
+                }
+            }
+            finally
+            {
+                _semaphoreManagerLock.Release();
+            }
+
+            // Use semaphore to ensure only one update per user at a time
+            await userSemaphore.WaitAsync(TimeSpan.FromSeconds(5)); // 5 second timeout
+            try
+            {
+                for (int attempt = 0; attempt < maxRetries; attempt++)
+                {
+                    try
+                    {
+                        // Get fresh user data for each attempt
+                        var user = await _userManager.FindByIdAsync(userId);
+                        if (user == null)
+                        {
+                            _logger.LogWarning("User {UserId} not found during update attempt {Attempt}", userId, attempt + 1);
+                            return false;
+                        }
+
+                        // Apply the update
+                        updateAction(user);
+
+                        // Try to save with timeout
+                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                        var result = await _userManager.UpdateAsync(user);
+
+                        if (result.Succeeded)
+                        {
+                            _logger.LogDebug("Successfully updated user {UserId} on attempt {Attempt}", userId, attempt + 1);
+                            return true;
+                        }
+                        else
+                        {
+                            var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                            _logger.LogWarning("Failed to update user {UserId} on attempt {Attempt}: {Errors}", userId, attempt + 1, errors);
+
+                            if (attempt == maxRetries - 1)
+                            {
+                                return false;
+                            }
+
+                            // Wait before retry
+                            await Task.Delay(100 * (attempt + 1));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        if (attempt < maxRetries - 1)
+                        {
+                            _logger.LogWarning(ex, "Error updating user {UserId} on attempt {Attempt}, retrying...", userId, attempt + 1);
+                            await Task.Delay(100 * (attempt + 1));
+                            continue;
+                        }
+                        else
+                        {
+                            _logger.LogError(ex, "Max retries exceeded for user {UserId} due to errors", userId);
+                            throw;
+                        }
+                    }
+                }
+
+                return false;
+            }
+            finally
+            {
+                userSemaphore.Release();
+
+                // Clean up semaphore if no one is waiting
+                await _semaphoreManagerLock.WaitAsync();
+                try
+                {
+                    if (userSemaphore.CurrentCount == 1) // No one waiting
+                    {
+                        _userUpdateSemaphores.Remove(userId);
+                        userSemaphore.Dispose();
+                    }
+                }
+                finally
+                {
+                    _semaphoreManagerLock.Release();
+                }
+            }
+        }
+
+
+
+        // Cleanup method for disposing semaphores
+        public void Dispose()
+        {
+            foreach (var semaphore in _userUpdateSemaphores.Values)
+            {
+                semaphore?.Dispose();
+            }
+            _userUpdateSemaphores.Clear();
+            _semaphoreManagerLock?.Dispose();
+        }
+    }
+}

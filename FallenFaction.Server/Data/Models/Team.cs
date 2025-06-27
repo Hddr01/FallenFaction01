@@ -1,3 +1,4 @@
+// Data/Models/Team.cs - Updated with proper relationships
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Collections.Generic;
@@ -18,14 +19,21 @@ namespace FallenFaction.Server.Data.Models
 
         public string CreatorId { get; set; }
 
+        // Add creation date for better tracking
+        public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+
+        // Navigation properties
         public ICollection<Title> Titles { get; set; } = new List<Title>();
         public ICollection<PendingTitle> PendingTitles { get; set; } = new List<PendingTitle>();
         public ICollection<UserTeamRole> UserTeamRoles { get; set; } = new List<UserTeamRole>();
+
+        // This should be configured as a many-to-many through UserTeamRoles
         public ICollection<AppUser> Members { get; set; } = new List<AppUser>();
 
-        // New Collections for Chapters
+        // Chapter collections
         public ICollection<Chapter> Chapters { get; set; } = new List<Chapter>();
         public ICollection<PendingChapter> PendingChapters { get; set; } = new List<PendingChapter>();
         public ICollection<RejectedChapter> RejectedChapters { get; set; } = new List<RejectedChapter>();
     }
 }
+
