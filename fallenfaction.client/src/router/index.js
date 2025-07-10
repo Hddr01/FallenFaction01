@@ -31,6 +31,10 @@ import AddArtist from '../components/artist/AddArtist.vue';
 import ArtistList from '../components/artist/ArtistList.vue';
 import AdminArtistManagement from '../components/admin/AdminArtistManagement.vue';
 
+import AdminUserManagement from '../components/admin/AdminUserManagement.vue';
+import AdminTeamManagement from '../components/admin/AdminTeamManagement.vue';
+
+
 const routes = [
   {
     path: '/',
@@ -254,7 +258,26 @@ const routes = [
       title: 'Admin - Title Management'
     }
   },
-
+  {
+    path: '/admin/users',
+    name: 'Admin User Management',
+    component: AdminUserManagement,
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Admin - User Management'
+    }
+  },
+  {
+    path: '/admin/teams',
+    name: 'Admin Team Management',
+    component: AdminTeamManagement,
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Admin - Team Management'
+    }
+  },
   // Error pages
   {
     path: '/error/:code',
