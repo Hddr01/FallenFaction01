@@ -11,6 +11,9 @@ import AddTitle from '../components/manga/AddTitle.vue';
 import AdminTitleManagement from '../components/admin/AdminTitleManagement.vue';
 import TitleManagement from '../components/admin/TitleManagement.vue';
 
+// Title Details Page
+import TitleDetailsPage from '../components/title-details/TitleDetailsPage.vue';
+
 // Team Components
 import TeamList from '../components/team/TeamList.vue';
 import AddTeam from '../components/team/AddTeam.vue';
@@ -278,6 +281,7 @@ const routes = [
       title: 'Admin - Team Management'
     }
   },
+
   // Error pages
   {
     path: '/error/:code',
@@ -290,6 +294,35 @@ const routes = [
       showRetry: route.query.retry === 'true'
     })
   },
+
+  // Title Details Route - This should be near the end but before the catch-all 404
+  {
+    path: '/:titleName',
+    name: 'TitleDetails',
+    component: TitleDetailsPage,
+    props: route => ({
+      titleName: decodeURIComponent(route.params.titleName)
+    }),
+    meta: {
+      title: 'Title Details'
+    },
+    // Add a beforeEnter guard to validate the title name format if needed
+    beforeEnter: (to, from, next) => {
+      const titleName = decodeURIComponent(to.params.titleName);
+
+      // Basic validation - reject if it looks like a system route
+      const systemRoutes = ['api', 'admin', 'account', 'user', 'team', 'manga', 'author', 'artist', 'publisher', 'error'];
+      const firstSegment = titleName.split('/')[0].toLowerCase();
+
+      if (systemRoutes.includes(firstSegment)) {
+        next('/404');
+        return;
+      }
+
+      next();
+    }
+  },
+
   // 404 - This should be the last route
   {
     path: '/:pathMatch(.*)*',

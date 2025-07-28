@@ -812,7 +812,13 @@
     display: block;
     scroll-snap-align: center;
     transition: transform 0.2s ease;
+    background: transparent !important;
   }
+
+    .manga-carousel-card:hover {
+      background: transparent !important;
+      box-shadow: none !important;
+    }
 
     .manga-carousel-card .manga-cover {
       position: relative;
@@ -823,6 +829,11 @@
       box-shadow: rgba(0, 0, 0, 0.12) 0 1px 3px;
       background-color: var(--color-background-mute);
     }
+
+      .manga-carousel-card .manga-cover:hover {
+        background: transparent !important;
+        box-shadow: rgba(0, 0, 0, 0.12) 0 1px 3px !important;
+      }
 
       .manga-carousel-card .manga-cover img {
         position: absolute;
@@ -838,6 +849,11 @@
 
         .manga-carousel-card .manga-cover img[src] {
           opacity: 1;
+        }
+
+        .manga-carousel-card .manga-cover img:hover {
+          background: transparent !important;
+          box-shadow: none !important;
         }
 
   .chapter-badge {
@@ -894,6 +910,19 @@
     color: inherit;
     display: block;
   }
+
+    .manga-link:hover {
+      text-decoration: none !important;
+      color: inherit !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+
+    .manga-link:focus {
+      outline: none !important;
+      box-shadow: none !important;
+      background: transparent !important;
+    }
 
   .manga-info-below {
     padding-top: 6px;
@@ -983,12 +1012,15 @@
     background: transparent;
     border-radius: 12px;
     overflow: visible;
-    transition: all 0.3s ease;
+    transition: transform 0.3s ease;
     width: 135px;
   }
 
+    /* Hover effect - only transform, no shadows or backgrounds */
     .manga-card:hover {
       transform: translateY(-8px);
+      background: transparent !important;
+      box-shadow: none !important;
     }
 
     .manga-card .manga-cover {
@@ -997,7 +1029,7 @@
       width: 135px;
       overflow: hidden;
       border-radius: 6px;
-      box-shadow: rgba(0, 0, 0, 0.12) 0 1px 3px;
+      box-shadow: none;
       background-color: var(--color-background-mute);
     }
 
@@ -1017,13 +1049,15 @@
           opacity: 1;
         }
 
-    .manga-card:hover .manga-cover img {
-      transform: scale(1.05);
+    /* Image hover effect - only transform, no shadows */
+    .manga-card:hover .manga-cover {
+      box-shadow: none !important;
+      background: transparent !important;
     }
 
-    .manga-card:hover .manga-cover {
-      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-    }
+      .manga-card:hover .manga-cover img {
+        transform: scale(1.05);
+      }
 
   /* Users Section */
   .users-section {
