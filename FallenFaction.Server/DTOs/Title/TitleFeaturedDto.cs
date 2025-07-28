@@ -12,5 +12,8 @@ namespace FallenFaction.Server.DTOs.Title
         public MangaType Type { get; set; }
         public string? LatestChapter { get; set; }
         public string Description { get; set; } = string.Empty;
+        public string ReleaseDate { get; set; } = string.Empty;
+        public int ChapterCount { get; set; }
+        public DateTime? LastUpdated { get; set; }
     }
 }
