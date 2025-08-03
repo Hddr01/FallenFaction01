@@ -97,9 +97,9 @@
                                     <div class="item-3im">
                                         <span class="cov-oga item-lnl">
                                             <div class="cov-oj9 _ratio-qka">
-                                                <img src="/img/logo.png"
+                                                <!--<img src="/img/logo.png"
                                                      class="cov-6id _lo-m2q"
-                                                     :alt="team.name">
+                                                     :alt="team.name">-->
                                             </div>
                                         </span>
                                     </div>
