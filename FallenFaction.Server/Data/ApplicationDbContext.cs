@@ -34,6 +34,7 @@ namespace FallenFaction.Server.Data
     public DbSet<BookmarkFolder> BookmarkFolders { get; set; }
     public DbSet<Bookmark> Bookmarks { get; set; }
     public DbSet<Rating> Ratings { get; set; }
+    public DbSet<ChapterView> ChapterViews { get; set; }
 
     public IQueryable<Chapter> GetUserChapters(string userId)
     {
