@@ -11,6 +11,9 @@ import AddTitle from '../components/manga/AddTitle.vue';
 import AdminTitleManagement from '../components/admin/AdminTitleManagement.vue';
 import TitleManagement from '../components/admin/TitleManagement.vue';
 
+// Title Details Page
+import TitleDetailsPage from '../components/title-details/TitleDetailsPage.vue';
+
 // Team Components
 import TeamList from '../components/team/TeamList.vue';
 import AddTeam from '../components/team/AddTeam.vue';
@@ -30,6 +33,10 @@ import AdminPublisherManagement from '../components/admin/AdminPublisherManageme
 import AddArtist from '../components/artist/AddArtist.vue';
 import ArtistList from '../components/artist/ArtistList.vue';
 import AdminArtistManagement from '../components/admin/AdminArtistManagement.vue';
+
+import AdminUserManagement from '../components/admin/AdminUserManagement.vue';
+import AdminTeamManagement from '../components/admin/AdminTeamManagement.vue';
+
 
 const routes = [
   {
@@ -254,6 +261,26 @@ const routes = [
       title: 'Admin - Title Management'
     }
   },
+  {
+    path: '/admin/users',
+    name: 'Admin User Management',
+    component: AdminUserManagement,
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Admin - User Management'
+    }
+  },
+  {
+    path: '/admin/teams',
+    name: 'Admin Team Management',
+    component: AdminTeamManagement,
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Admin - Team Management'
+    }
+  },
 
   // Error pages
   {
@@ -267,6 +294,35 @@ const routes = [
       showRetry: route.query.retry === 'true'
     })
   },
+
+  // Title Details Route - This should be near the end but before the catch-all 404
+  {
+    path: '/:titleName',
+    name: 'TitleDetails',
+    component: TitleDetailsPage,
+    props: route => ({
+      titleName: decodeURIComponent(route.params.titleName)
+    }),
+    meta: {
+      title: 'Title Details'
+    },
+    // Add a beforeEnter guard to validate the title name format if needed
+    beforeEnter: (to, from, next) => {
+      const titleName = decodeURIComponent(to.params.titleName);
+
+      // Basic validation - reject if it looks like a system route
+      const systemRoutes = ['api', 'admin', 'account', 'user', 'team', 'manga', 'author', 'artist', 'publisher', 'error'];
+      const firstSegment = titleName.split('/')[0].toLowerCase();
+
+      if (systemRoutes.includes(firstSegment)) {
+        next('/404');
+        return;
+      }
+
+      next();
+    }
+  },
+
   // 404 - This should be the last route
   {
     path: '/:pathMatch(.*)*',

@@ -335,6 +335,77 @@ namespace FallenFaction.Server.Controllers
             return Ok();
         }
 
+        // Replace the GetTopTeams method in your TeamController.cs
+        /// <summary>
+        /// Get top teams for homepage
+        /// GET: api/Team/TopTeams
+        /// </summary>
+        [HttpGet("TopTeams")]
+        [AllowAnonymous]
+        public async Task<ActionResult<IEnumerable<TeamTopDto>>> GetTopTeams()
+        {
+            try
+            {
+                var logger = HttpContext.RequestServices.GetService<ILogger<TeamController>>();
+                logger?.LogInformation("Fetching top teams");
+
+                var teamCount = await _context.Teams.CountAsync();
+                logger?.LogInformation($"Total teams in database: {teamCount}");
+
+                if (teamCount == 0)
+                {
+                    logger?.LogWarning("No teams found in database");
+                    return Ok(new List<TeamTopDto>());
+                }
+
+                // Get teams and randomize in memory to avoid database issues
+                var teams = await _context.Teams
+                    .Include(t => t.Members)
+                    .Include(t => t.Titles)
+                    .ToListAsync();
+
+                // Randomize in memory
+                var randomizedTeams = teams
+                    .OrderBy(t => Random.Shared.Next())
+                    .Take(6)
+                    .ToList();
+
+                var topTeams = randomizedTeams.Select(t => new TeamTopDto
+                {
+                    Id = t.Id,
+                    Name = t.Name ?? "Unknown Team",
+                    Avatar = "/uploads/default-team.png", // Default team avatar
+                    Level = GetTeamLevel(t.Id), // Mock level
+                    Progress = Random.Shared.Next(60, 95), // Mock progress
+                    Score = GetTeamScore(t.Id) // Mock score
+                }).ToList();
+
+                logger?.LogInformation($"Returning {topTeams.Count} top teams");
+                return Ok(topTeams);
+            }
+            catch (Exception ex)
+            {
+                var logger = HttpContext.RequestServices.GetService<ILogger<TeamController>>();
+                logger?.LogError(ex, "Error fetching top teams: {Error}", ex.Message);
+                return StatusCode(500, new { message = "Error fetching top teams", error = ex.Message });
+            }
+        }
+
+        // Also update these helper methods to be consistent
+        private int GetTeamLevel(int teamId)
+        {
+            // Mock level calculation based on team ID for consistency
+            return (teamId % 8) + 1; // Level 1-8
+        }
+
+        private string GetTeamScore(int teamId)
+        {
+            // Mock score based on team ID for consistency
+            var current = (teamId % 80) + 100; // 100-179
+            var max = (teamId % 50) + 200; // 200-249
+            return $"{current}/{max}";
+        }
+
 
         // GET: api/team/my-teams
         [HttpGet("my-teams")]

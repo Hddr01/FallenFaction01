@@ -4,6 +4,7 @@ using FallenFaction.Server.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FallenFaction.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250727191612_AddChapterViews")]
+    partial class AddChapterViews
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -278,7 +281,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasIndex("UpdatedByUserId");
 
-                    b.ToTable("ApprovedTitleChanges", (string)null);
+                    b.ToTable("ApprovedTitleChanges");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.Artist", b =>
@@ -308,7 +311,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasIndex("RejectedTitleId");
 
-                    b.ToTable("Artists", (string)null);
+                    b.ToTable("Artists");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.Author", b =>
@@ -338,7 +341,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasIndex("RejectedTitleId");
 
-                    b.ToTable("Authors", (string)null);
+                    b.ToTable("Authors");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.Bookmark", b =>
@@ -373,7 +376,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Bookmarks", (string)null);
+                    b.ToTable("Bookmarks");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.BookmarkFolder", b =>
@@ -402,7 +405,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("BookmarkFolders", (string)null);
+                    b.ToTable("BookmarkFolders");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.Category", b =>
@@ -424,7 +427,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasIndex("RejectedTitleId");
 
-                    b.ToTable("Categories", (string)null);
+                    b.ToTable("Categories");
 
                     b.HasData(
                         new
@@ -490,7 +493,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasIndex("UpdatedByUserId");
 
-                    b.ToTable("Chapters", (string)null);
+                    b.ToTable("Chapters");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.ChapterImage", b =>
@@ -525,7 +528,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasIndex("RejectedChapterId");
 
-                    b.ToTable("ChapterImages", (string)null);
+                    b.ToTable("ChapterImages");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.ChapterView", b =>
@@ -612,7 +615,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Comments", (string)null);
+                    b.ToTable("Comments");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.CommentReaction", b =>
@@ -643,7 +646,7 @@ namespace FallenFaction.Server.Migrations
                     b.HasIndex("UserId", "CommentId")
                         .IsUnique();
 
-                    b.ToTable("CommentReactions", (string)null);
+                    b.ToTable("CommentReactions");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.Format", b =>
@@ -665,7 +668,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasIndex("RejectedTitleId");
 
-                    b.ToTable("Formats", (string)null);
+                    b.ToTable("Formats");
 
                     b.HasData(
                         new
@@ -725,7 +728,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasIndex("UpdatedByUserId");
 
-                    b.ToTable("PendingChapters", (string)null);
+                    b.ToTable("PendingChapters");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.PendingTitle", b =>
@@ -784,7 +787,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("PendingTitles", (string)null);
+                    b.ToTable("PendingTitles");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.PendingTitleChange", b =>
@@ -829,7 +832,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasIndex("UpdatedByUserId");
 
-                    b.ToTable("PendingTitleChanges", (string)null);
+                    b.ToTable("PendingTitleChanges");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.Publisher", b =>
@@ -855,7 +858,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasIndex("RejectedTitleId");
 
-                    b.ToTable("Publishers", (string)null);
+                    b.ToTable("Publishers");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.Rating", b =>
@@ -888,7 +891,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Ratings", (string)null);
+                    b.ToTable("Ratings");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.RejectedChapter", b =>
@@ -936,7 +939,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasIndex("UpdatedByUserId");
 
-                    b.ToTable("RejectedChapters", (string)null);
+                    b.ToTable("RejectedChapters");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.RejectedTitle", b =>
@@ -995,7 +998,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("RejectedTitles", (string)null);
+                    b.ToTable("RejectedTitles");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.RejectedTitleChange", b =>
@@ -1051,7 +1054,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasIndex("UpdatedByUserId");
 
-                    b.ToTable("RejectedTitleChanges", (string)null);
+                    b.ToTable("RejectedTitleChanges");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.Tag", b =>
@@ -1073,7 +1076,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasIndex("RejectedTitleId");
 
-                    b.ToTable("Tags", (string)null);
+                    b.ToTable("Tags");
 
                     b.HasData(
                         new
@@ -1125,7 +1128,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasIndex("RejectedTitleId");
 
-                    b.ToTable("Teams", (string)null);
+                    b.ToTable("Teams");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.Title", b =>
@@ -1202,7 +1205,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Titles", (string)null);
+                    b.ToTable("Titles");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.TitleChangeLog", b =>
@@ -1259,7 +1262,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasIndex("UpdatedByUserId");
 
-                    b.ToTable("TitleChangeLogs", (string)null);
+                    b.ToTable("TitleChangeLogs");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.UserTeamPermission", b =>
@@ -1276,7 +1279,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("UserTeamPermissions", (string)null);
+                    b.ToTable("UserTeamPermissions");
 
                     b.HasData(
                         new
@@ -1321,7 +1324,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasIndex("TeamId");
 
-                    b.ToTable("UserTeamRoles", (string)null);
+                    b.ToTable("UserTeamRoles");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.UserTeamRolePermission", b =>
@@ -1339,7 +1342,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasIndex("PermissionId");
 
-                    b.ToTable("UserTeamRolePermission", (string)null);
+                    b.ToTable("UserTeamRolePermission");
                 });
 
             modelBuilder.Entity("FormatPendingTitle", b =>
