@@ -111,7 +111,7 @@
                                         <i class="circle-icon publisher-circle"></i>
                                         Add Publisher
                                     </router-link>
-                                    <router-link to="/people/create" class="grid-menu-item">
+                                    <router-link to="/artist/create" class="grid-menu-item">
                                         <i class="circle-icon artist-circle"></i>
                                         Add Artist
                                     </router-link>
