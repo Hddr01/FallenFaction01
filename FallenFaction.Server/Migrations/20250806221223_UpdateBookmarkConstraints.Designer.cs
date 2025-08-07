@@ -4,6 +4,7 @@ using FallenFaction.Server.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FallenFaction.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250806221223_UpdateBookmarkConstraints")]
+    partial class UpdateBookmarkConstraints
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -357,9 +360,6 @@ namespace FallenFaction.Server.Migrations
 
                     b.Property<int>("LastReadChapter")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("LastReadDate")
-                        .HasColumnType("datetime2");
 
                     b.Property<int>("TitleId")
                         .HasColumnType("int");
@@ -889,20 +889,13 @@ namespace FallenFaction.Server.Migrations
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<int>("Value")
-                        .HasColumnType("int")
-                        .HasAnnotation("Range", new[] { 1, 10 });
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatedAt")
-                        .HasDatabaseName("IX_Ratings_CreatedAt");
+                    b.HasIndex("TitleId");
 
-                    b.HasIndex("TitleId")
-                        .HasDatabaseName("IX_Ratings_TitleId");
-
-                    b.HasIndex("UserId", "TitleId")
-                        .IsUnique()
-                        .HasDatabaseName("IX_Ratings_UserId_TitleId");
+                    b.HasIndex("UserId");
 
                     b.ToTable("Ratings");
                 });
@@ -1999,7 +1992,7 @@ namespace FallenFaction.Server.Migrations
                     b.HasOne("FallenFaction.Server.Data.Models.AppUser", "User")
                         .WithMany("Ratings")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Title");
