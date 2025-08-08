@@ -295,21 +295,84 @@ namespace FallenFaction.Server.Data
             .HasForeignKey(t => t.ReviewedByUserId)
             .OnDelete(DeleteBehavior.NoAction);
 
-        builder.Entity<BookmarkFolder>()
+            builder.Entity<Rating>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                // Rating value must be between 1 and 10
+                entity.Property(e => e.Value)
+                    .IsRequired()
+                    .HasAnnotation("Range", new[] { 1, 10 });
+
+                // User ID is required
+                entity.Property(e => e.UserId).IsRequired();
+
+                // Title ID is required
+                entity.Property(e => e.TitleId).IsRequired();
+
+                // CreatedAt and UpdatedAt are required
+                entity.Property(e => e.CreatedAt).IsRequired();
+                entity.Property(e => e.UpdatedAt).IsRequired();
+
+                // Configure relationship with AppUser
+                entity.HasOne(r => r.User)
+                    .WithMany(u => u.Ratings)
+                    .HasForeignKey(r => r.UserId)
+                    .OnDelete(DeleteBehavior.NoAction); // Prevent cascade delete issues
+
+                // Configure relationship with Title
+                entity.HasOne(r => r.Title)
+                    .WithMany(t => t.Ratings)
+                    .HasForeignKey(r => r.TitleId)
+                    .OnDelete(DeleteBehavior.Cascade); // When title is deleted, delete ratings
+
+                // Add unique constraint - one rating per user per title
+                entity.HasIndex(r => new { r.UserId, r.TitleId })
+                    .IsUnique()
+                    .HasDatabaseName("IX_Ratings_UserId_TitleId");
+
+                // Add index for efficient querying by title
+                entity.HasIndex(r => r.TitleId)
+                    .HasDatabaseName("IX_Ratings_TitleId");
+
+                // Add index for efficient querying by creation date
+                entity.HasIndex(r => r.CreatedAt)
+                    .HasDatabaseName("IX_Ratings_CreatedAt");
+            });
+
+
+            builder.Entity<BookmarkFolder>()
             .HasMany(f => f.Bookmarks)
             .WithOne(b => b.Folder)
             .HasForeignKey(b => b.FolderId)
             .OnDelete(DeleteBehavior.Cascade);
+            builder.Entity<BookmarkFolder>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.UserId).IsRequired();
 
-        builder.Entity<Bookmark>(entity =>
-        {
-            entity.HasOne(b => b.Title)
-                .WithMany(t => t.Bookmarks)
-                .HasForeignKey(b => b.TitleId)
-                .OnDelete(DeleteBehavior.ClientSetNull);
-        });
+                // ADD this missing relationship to AppUser
+                entity.HasOne(e => e.User)
+                    .WithMany() // AppUser doesn't have BookmarkFolders navigation property
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
 
-        builder.Entity<Bookmark>()
+                // ADD this unique constraint to prevent duplicate folder names per user
+                entity.HasIndex(e => new { e.UserId, e.Name }).IsUnique();
+            });
+
+            builder.Entity<Bookmark>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.UserId).IsRequired();
+
+                // Your existing relationships are fine, but ADD this unique constraint:
+                // ADD this line - user can only bookmark a title once
+                entity.HasIndex(e => new { e.UserId, e.TitleId }).IsUnique();
+            });
+
+            builder.Entity<Bookmark>()
                .HasOne(b => b.User)
                .WithMany(u => u.Bookmarks)
                .HasForeignKey(b => b.UserId)

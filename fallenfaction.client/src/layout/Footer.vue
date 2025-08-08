@@ -44,160 +44,133 @@
             </ul>
           </div>
 
-          <!-- Content Management Section (Authenticated Users Only) -->
-          <div v-if="authStore.isAuthenticated" class="space-y-4">
+          <!-- Browse & Discover Section -->
+          <div class="space-y-4">
             <h3 class="text-lg font-semibold text-[var(--color-heading)] mb-4 pb-2 border-b-2 border-[var(--vt-c-indigo)] inline-block">
-              Content
+              Browse
+            </h3>
+            <ul class="space-y-3">
+              <li>
+                <router-link to="/authors"
+                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Authors
+                </router-link>
+              </li>
+              <li>
+                <router-link to="/artists"
+                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Artists
+                </router-link>
+              </li>
+              <li>
+                <router-link to="/publishers"
+                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Publishers
+                </router-link>
+              </li>
+              <li>
+                <router-link to="/teams"
+                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Teams
+                </router-link>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Content Creation Section (Authenticated Users Only) -->
+          <div v-if="authStore.isAuthenticated" class="space-y-4">
+            <h3 class="text-lg font-semibold text-[var(--color-heading)] mb-4 pb-2 border-b-2 border-green-500 inline-block">
+              Create Content
             </h3>
             <ul class="space-y-3">
               <li>
                 <router-link to="/manga/addtitle"
-                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
+                             class="text-[var(--color-text)] hover:text-green-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
                   Add Title
                 </router-link>
               </li>
               <li>
                 <router-link to="/author/createa"
-                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
+                             class="text-[var(--color-text)] hover:text-green-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
                   Add Author
                 </router-link>
               </li>
               <li>
                 <router-link to="/publisher/create"
-                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
+                             class="text-[var(--color-text)] hover:text-green-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
                   Add Publisher
                 </router-link>
               </li>
               <li>
-                <router-link to="/people/create"
-                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
+                <router-link to="/artist/create"
+                             class="text-[var(--color-text)] hover:text-green-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
                   Add Artist
                 </router-link>
               </li>
               <li>
-                <router-link to="/title/review-chapters"
-                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
-                  Review Chapters
+                <router-link to="/team/addteam"
+                             class="text-[var(--color-text)] hover:text-green-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Create Team
                 </router-link>
               </li>
             </ul>
           </div>
 
-          <!-- Admin Links Section (Admin Users Only) -->
-          <div v-if="authStore.isAuthenticated && authStore.isAdmin" class="space-y-4">
-            <h3 class="text-lg font-semibold text-[var(--color-heading)] mb-4 pb-2 border-b-2 border-[var(--vt-c-indigo)] inline-block">
-              Administration
+          <!-- Admin Management Section (Admin Users Only) -->
+          <div v-if="authStore.isAdmin" class="space-y-4">
+            <h3 class="text-lg font-semibold text-[var(--color-heading)] mb-4 pb-2 border-b-2 border-red-500 inline-block">
+              Admin Panel
             </h3>
             <ul class="space-y-3">
               <li>
-                <router-link to="/admin/login"
-                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
-                  Admin Login
+                <router-link to="/admin/titles/add"
+                             class="text-[var(--color-text)] hover:text-red-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Review Titles
                 </router-link>
               </li>
               <li>
-                <router-link to="/admin/users"
-                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
-                  Users Management
-                </router-link>
-              </li>
-              <li>
-                <router-link to="/admin/teams"
-                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
-                  Team Management
+                <router-link to="/admin/chapters"
+                             class="text-[var(--color-text)] hover:text-red-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Review Chapters
                 </router-link>
               </li>
               <li>
                 <router-link to="/admin/titles"
-                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
-                  Title Management
+                             class="text-[var(--color-text)] hover:text-red-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Manage Titles
                 </router-link>
               </li>
               <li>
-                <router-link to="/admin/titles/add"
-                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
-                  Add Title Management
+                <router-link to="/admin/users"
+                             class="text-[var(--color-text)] hover:text-red-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Manage Users
                 </router-link>
               </li>
-            </ul>
-          </div>
-
-          <!-- Additional Admin Tools -->
-          <div v-if="authStore.isAuthenticated && authStore.isAdmin" class="space-y-4">
-            <h3 class="text-lg font-semibold text-[var(--color-heading)] mb-4 pb-2 border-b-2 border-[var(--vt-c-indigo)] inline-block">
-              Admin Tools
-            </h3>
-            <ul class="space-y-3">
               <li>
-                <router-link to="/admin/artists"
-                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
-                  Artist Management
+                <router-link to="/admin/teams"
+                             class="text-[var(--color-text)] hover:text-red-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Manage Teams
                 </router-link>
               </li>
               <li>
                 <router-link to="/admin/authors"
-                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
-                  Author Management
+                             class="text-[var(--color-text)] hover:text-red-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Manage Authors
+                </router-link>
+              </li>
+              <li>
+                <router-link to="/admin/artists"
+                             class="text-[var(--color-text)] hover:text-red-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Manage Artists
                 </router-link>
               </li>
               <li>
                 <router-link to="/admin/publishers"
-                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
-                  Publisher Management
-                </router-link>
-              </li>
-              <li>
-                <router-link to="/admin/titles/changelog"
-                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
-                  Title Change Log
+                             class="text-[var(--color-text)] hover:text-red-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Manage Publishers
                 </router-link>
               </li>
             </ul>
-          </div>
-
-          <!-- Mobile: Condensed Links (Hidden on larger screens) -->
-          <div class="md:hidden space-y-4">
-            <h3 class="text-lg font-semibold text-[var(--color-heading)] mb-4 pb-2 border-b-2 border-[var(--vt-c-indigo)] inline-block">
-              Quick Links
-            </h3>
-            <div class="grid grid-cols-2 gap-2">
-              <!-- Essential Links -->
-              <router-link to="/home/privacy"
-                           class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:bg-[var(--color-background-mute)] transition-all duration-200 text-sm p-2 rounded bg-[var(--color-background-mute)]/50 text-center">
-                Privacy Policy
-              </router-link>
-              <router-link to="/home/fqa"
-                           class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:bg-[var(--color-background-mute)] transition-all duration-200 text-sm p-2 rounded bg-[var(--color-background-mute)]/50 text-center">
-                FAQ
-              </router-link>
-              <router-link to="/home/terms"
-                           class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:bg-[var(--color-background-mute)] transition-all duration-200 text-sm p-2 rounded bg-[var(--color-background-mute)]/50 text-center">
-                Terms of Usage
-              </router-link>
-              <router-link to="/home/dmca"
-                           class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:bg-[var(--color-background-mute)] transition-all duration-200 text-sm p-2 rounded bg-[var(--color-background-mute)]/50 text-center">
-                DMCA
-              </router-link>
-
-              <!-- Authenticated User Links -->
-              <template v-if="authStore.isAuthenticated">
-                <router-link to="/manga/addtitle"
-                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:bg-[var(--color-background-mute)] transition-all duration-200 text-sm p-2 rounded bg-[var(--color-background-mute)]/50 text-center">
-                  Add Title
-                </router-link>
-                <router-link to="/author/createa"
-                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:bg-[var(--color-background-mute)] transition-all duration-200 text-sm p-2 rounded bg-[var(--color-background-mute)]/50 text-center">
-                  Add Author
-                </router-link>
-
-                <!-- Admin Link (condensed) -->
-                <router-link v-if="authStore.user?.isAdmin"
-                             to="/admin/users"
-                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:bg-[var(--color-background-mute)] transition-all duration-200 text-sm p-2 rounded bg-[var(--color-background-mute)]/50 text-center col-span-2">
-                  Admin Panel
-                </router-link>
-              </template>
-            </div>
           </div>
 
         </div>

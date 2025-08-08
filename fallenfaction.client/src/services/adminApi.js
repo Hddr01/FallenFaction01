@@ -1,14 +1,14 @@
-// services/adminApi.js - Updated with title management methods
+// services/adminApi.js - Complete admin API service with chapter management
 import axios from 'axios';
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://localhost:7217/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5064/api',
   headers: {
     'Accept': 'application/json',
   },
   withCredentials: true,
-  timeout: 30000, // Increased timeout for file uploads
+  timeout: 10000, // 10 second timeout
 });
 
 // Request interceptor to add auth token
@@ -41,7 +41,9 @@ api.interceptors.response.use(
 );
 
 const adminApi = {
-  // Get all pending titles
+  // TITLE MANAGEMENT METHODS
+
+  // Get pending titles for approval
   async getPendingTitles() {
     try {
       const response = await api.get('/TitleApi/pending');
@@ -50,10 +52,9 @@ const adminApi = {
         data: response.data
       };
     } catch (error) {
-      console.error('Error fetching pending titles:', error);
       return {
         success: false,
-        error: error.response?.data?.message || error.message || 'Failed to fetch pending titles',
+        error: error.response?.data?.message || error.message,
         data: []
       };
     }
@@ -62,76 +63,57 @@ const adminApi = {
   // Get pending title details
   async getPendingTitleDetails(titleId) {
     try {
-      const response = await api.get(`/AdminTitle/GetPendingTitleDetails`, {
-        params: { id: titleId }
-      });
+      const response = await api.get(`/AdminTitle/GetPendingTitleDetails?id=${titleId}`);
       return {
         success: true,
         data: response.data
       };
     } catch (error) {
-      console.error('Error fetching pending title details:', error);
       return {
         success: false,
-        error: error.response?.data?.message || error.message || 'Failed to fetch title details'
+        error: error.response?.data?.message || error.message
       };
     }
   },
 
-  // NEW: Get approved title details for editing
-  async getTitleDetails(titleId) {
-    try {
-      const response = await api.get(`/AdminTitle/GetTitleDetails/${titleId}`);
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('Error fetching title details:', error);
-      return {
-        success: false,
-        error: error.response?.data?.message || error.message || 'Failed to fetch title details'
-      };
-    }
-  },
-
-  // Accept a pending title
+  // Accept pending title
   async acceptTitle(titleId) {
     try {
-      const response = await api.post('/TitleApi/approve/' + titleId);
+      const response = await api.post(`/TitleApi/approve/${titleId}`);
       return {
         success: true,
         message: response.data.message || 'Title approved successfully!',
         data: response.data
       };
     } catch (error) {
-      console.error('Error accepting title:', error);
       return {
         success: false,
-        error: error.response?.data?.message || error.message || 'Failed to accept title'
+        error: error.response?.data?.message || error.message
       };
     }
   },
 
-  // Reject a pending title
-  async rejectTitle(titleId) {
+  // Reject pending title
+  async rejectTitle(titleId, reason = '') {
     try {
-      const response = await api.post('/AdminTitle/RejectTitle', { id: titleId });
+      const response = await api.post('/AdminTitle/RejectTitle', {
+        id: titleId,
+        reason: reason
+      });
       return {
         success: true,
         message: response.data.message || 'Title rejected successfully!',
         data: response.data
       };
     } catch (error) {
-      console.error('Error rejecting title:', error);
       return {
         success: false,
-        error: error.response?.data?.message || error.message || 'Failed to reject title'
+        error: error.response?.data?.message || error.message
       };
     }
   },
 
-  // Get all approved titles (for main admin management)
+  // Get approved titles for management
   async getApprovedTitles() {
     try {
       const response = await api.get('/AdminTitle/AdminTitleManagement');
@@ -140,72 +122,90 @@ const adminApi = {
         data: response.data
       };
     } catch (error) {
-      console.error('Error fetching approved titles:', error);
       return {
         success: false,
-        error: error.response?.data?.message || error.message || 'Failed to fetch approved titles',
+        error: error.response?.data?.message || error.message,
         data: []
       };
     }
   },
 
-  // NEW: Update an existing title
-  async updateTitle(titleData) {
+  // Get title details for editing
+  async getTitleDetails(titleId) {
     try {
-      console.log('Updating title with data:', titleData);
+      const response = await api.get(`/AdminTitle/GetTitleDetails/${titleId}`);
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message
+      };
+    }
+  },
 
-      // Create FormData for file uploads
+  // Update title
+  async updateTitle(updateData) {
+    try {
       const formData = new FormData();
 
-      // Add basic fields
-      formData.append('id', titleData.id);
-      formData.append('originalTitle', titleData.originalTitle || '');
-      formData.append('englishTitle', titleData.englishTitle || '');
-      formData.append('alternativeNames', titleData.alternativeNames || '');
-      formData.append('releaseDate', titleData.releaseDate || '');
-      formData.append('type', String(titleData.type || 1));
-      formData.append('statusTitle', titleData.statusTitle || 'inproces');
-      formData.append('statusTranslation', titleData.statusTranslation || 'inproces');
-      formData.append('ageRestriction', String(titleData.ageRestriction || 0));
-      formData.append('description', titleData.description || '');
-      formData.append('isAvailable', String(titleData.isAvailable ?? true));
-      formData.append('areCommentsEnabled', String(titleData.areCommentsEnabled ?? true));
-      formData.append('areChapterCommentsEnabled', String(titleData.areChapterCommentsEnabled ?? true));
+      // Add files
+      if (updateData.coverImage) {
+        formData.append('coverImage', updateData.coverImage);
+      }
+      if (updateData.backgroundImage) {
+        formData.append('backgroundImage', updateData.backgroundImage);
+      }
 
-      // Add image files if provided
-      if (titleData.coverImage && titleData.coverImage instanceof File) {
-        formData.append('coverImage', titleData.coverImage);
-      }
-      if (titleData.backgroundImage && titleData.backgroundImage instanceof File) {
-        formData.append('backgroundImage', titleData.backgroundImage);
-      }
+      // Add simple fields
+      formData.append('id', updateData.id);
+      formData.append('originalTitle', updateData.originalTitle || '');
+      formData.append('englishTitle', updateData.englishTitle || '');
+      formData.append('alternativeNames', updateData.alternativeNames || '');
+      formData.append('releaseDate', updateData.releaseDate || '');
+      formData.append('description', updateData.description || '');
+      formData.append('statusTitle', updateData.statusTitle || 'inproces');
+      formData.append('statusTranslation', updateData.statusTranslation || 'inproces');
+      formData.append('type', updateData.type || '1');
+      formData.append('ageRestriction', updateData.ageRestriction || '0');
+      formData.append('isAvailable', updateData.isAvailable || false);
+      formData.append('areCommentsEnabled', updateData.areCommentsEnabled || false);
+      formData.append('areChapterCommentsEnabled', updateData.areChapterCommentsEnabled || false);
 
       // Add array fields
-      const arrayFields = ['authors', 'artists', 'publishers', 'teams', 'categories', 'tags', 'formats'];
-      arrayFields.forEach(fieldName => {
-        if (titleData[fieldName] && Array.isArray(titleData[fieldName])) {
-          titleData[fieldName].forEach(id => {
-            if (id !== null && id !== undefined && id !== '') {
-              formData.append(fieldName, String(id));
-            }
-          });
-        }
-      });
+      if (updateData.authors) {
+        updateData.authors.forEach(id => formData.append('authors', id));
+      }
+      if (updateData.artists) {
+        updateData.artists.forEach(id => formData.append('artists', id));
+      }
+      if (updateData.publishers) {
+        updateData.publishers.forEach(id => formData.append('publishers', id));
+      }
+      if (updateData.teams) {
+        updateData.teams.forEach(id => formData.append('teams', id));
+      }
+      if (updateData.categories) {
+        updateData.categories.forEach(id => formData.append('categories', id));
+      }
+      if (updateData.tags) {
+        updateData.tags.forEach(id => formData.append('tags', id));
+      }
+      if (updateData.formats) {
+        updateData.formats.forEach(id => formData.append('formats', id));
+      }
 
       // Add external links
-      if (titleData.externalLinks && Array.isArray(titleData.externalLinks)) {
-        titleData.externalLinks
-          .filter(link => link && link.trim())
-          .forEach(link => {
-            formData.append('externalLinks', link.trim());
-          });
+      if (updateData.externalLinks) {
+        updateData.externalLinks.forEach(link => formData.append('externalLinks', link));
       }
 
       const response = await api.post('/AdminTitle/UpdateTitle', formData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        timeout: 60000, // 60 second timeout for uploads
+          'Content-Type': undefined
+        }
       });
 
       return {
@@ -214,30 +214,26 @@ const adminApi = {
         data: response.data
       };
     } catch (error) {
-      console.error('Error updating title:', error);
       return {
         success: false,
-        error: error.response?.data?.message || error.message || 'Failed to update title'
+        error: error.response?.data?.message || error.message
       };
     }
   },
 
-  // Search titles
-  async searchTitles(searchString) {
+  // Delete title
+  async deleteTitle(titleId) {
     try {
-      const response = await api.get('/AdminTitle/SearchTitle', {
-        params: { searchString }
-      });
+      const response = await api.post('/AdminTitle/DeleteTitle', { id: titleId });
       return {
         success: true,
+        message: response.data.message || 'Title deleted successfully!',
         data: response.data
       };
     } catch (error) {
-      console.error('Error searching titles:', error);
       return {
         success: false,
-        error: error.response?.data?.message || error.message || 'Failed to search titles',
-        data: []
+        error: error.response?.data?.message || error.message
       };
     }
   },
@@ -248,13 +244,13 @@ const adminApi = {
       const response = await api.post('/AdminTitle/ToggleTitleAvailability', { id: titleId });
       return {
         success: true,
-        message: 'Title availability updated successfully!'
+        message: response.data.message || 'Title availability updated successfully!',
+        data: response.data
       };
     } catch (error) {
-      console.error('Error toggling title availability:', error);
       return {
         success: false,
-        error: error.response?.data?.message || error.message || 'Failed to update title availability'
+        error: error.response?.data?.message || error.message
       };
     }
   },
@@ -265,13 +261,13 @@ const adminApi = {
       const response = await api.post('/AdminTitle/ToggleTitleComments', { id: titleId });
       return {
         success: true,
-        message: 'Title comments updated successfully!'
+        message: response.data.message || 'Title comments updated successfully!',
+        data: response.data
       };
     } catch (error) {
-      console.error('Error toggling title comments:', error);
       return {
         success: false,
-        error: error.response?.data?.message || error.message || 'Failed to update title comments'
+        error: error.response?.data?.message || error.message
       };
     }
   },
@@ -282,34 +278,102 @@ const adminApi = {
       const response = await api.post('/AdminTitle/ToggleChapterComments', { id: titleId });
       return {
         success: true,
-        message: 'Chapter comments updated successfully!'
+        message: response.data.message || 'Chapter comments updated successfully!',
+        data: response.data
       };
     } catch (error) {
-      console.error('Error toggling chapter comments:', error);
       return {
         success: false,
-        error: error.response?.data?.message || error.message || 'Failed to update chapter comments'
+        error: error.response?.data?.message || error.message
       };
     }
   },
 
-  // Delete title permanently
-  async deleteTitle(titleId) {
+  // CHAPTER MANAGEMENT METHODS
+
+  // Get pending chapters for admin review
+  async getPendingChapters() {
     try {
-      const response = await api.post('/AdminTitle/DeleteTitle', { id: titleId });
+      const response = await api.get('/Titles/chapters/pending');
       return {
         success: true,
-        message: 'Title deleted successfully!'
+        data: response.data
       };
     } catch (error) {
-      console.error('Error deleting title:', error);
+      console.error('Error loading pending chapters:', error);
       return {
         success: false,
-        error: error.response?.data?.message || error.message || 'Failed to delete title'
+        error: error.response?.data?.message || error.message || 'Failed to load pending chapters',
+        data: []
       };
+    }
+  },
+
+  // Get detailed information about a specific pending chapter
+  async getPendingChapterDetails(chapterId) {
+    try {
+      const response = await api.get(`/Titles/chapters/pending/${chapterId}`);
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      console.error('Error loading pending chapter details:', error);
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message || 'Failed to load chapter details'
+      };
+    }
+  },
+
+  // Accept/approve a pending chapter
+  async acceptChapter(chapterId) {
+    try {
+      const response = await api.post(`/Titles/chapters/pending/${chapterId}/approve`);
+      return {
+        success: true,
+        message: response.data.message || 'Chapter accepted successfully!',
+        data: response.data
+      };
+    } catch (error) {
+      console.error('Error accepting chapter:', error);
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message || 'Failed to accept chapter'
+      };
+    }
+  },
+
+  // Reject a pending chapter
+  async rejectChapter(chapterId, reason = '') {
+    try {
+      const response = await api.post(`/Titles/chapters/pending/${chapterId}/reject`, {
+        reason: reason
+      });
+      return {
+        success: true,
+        message: response.data.message || 'Chapter rejected successfully!',
+        data: response.data
+      };
+    } catch (error) {
+      console.error('Error rejecting chapter:', error);
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message || 'Failed to reject chapter'
+      };
+    }
+  },
+
+  // Test API connectivity for chapters
+  async testChapterConnection() {
+    try {
+      const response = await api.get('/Titles/chapters/pending');
+      return response.status === 200;
+    } catch (error) {
+      console.error('Chapter API connection test failed:', error);
+      return false;
     }
   }
 };
 
 export default adminApi;
-
