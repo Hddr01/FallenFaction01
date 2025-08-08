@@ -17,5 +17,6 @@ namespace FallenFaction.Server.Data.Models
         public Title Title { get; set; }
         public BookmarkFolder Folder { get; set; }
         public AppUser User { get; set; }
+        public DateTime LastReadDate { get; internal set; }
     }
 }

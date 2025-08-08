@@ -10,6 +10,7 @@ import { useAuthStore } from '../stores/authStore';
 import AddTitle from '../components/manga/AddTitle.vue';
 import AdminTitleManagement from '../components/admin/AdminTitleManagement.vue';
 import TitleManagement from '../components/admin/TitleManagement.vue';
+import AdminChapterManagement from '../components/admin/AdminChapterManagement.vue';
 
 // Title Details Page
 import TitleDetailsPage from '../components/title-details/TitleDetailsPage.vue';
@@ -37,12 +38,34 @@ import AdminArtistManagement from '../components/admin/AdminArtistManagement.vue
 import AdminUserManagement from '../components/admin/AdminUserManagement.vue';
 import AdminTeamManagement from '../components/admin/AdminTeamManagement.vue';
 
+import AddChapter from '../components/title-details/AddChapter.vue'
+
+import ChapterReader from '../components/title-details/ChapterReader.vue';
+
+
+
 
 const routes = [
   {
     path: '/',
     name: 'Home',
     component: HomePage
+  },
+  {
+    path: '/:titleName/chapter/:chapterName/v:volumeNumber/t:teamId',
+    name: 'ChapterReader',
+    component: ChapterReader,
+    props: route => ({
+      titleName: decodeURIComponent(route.params.titleName),
+      chapterName: decodeURIComponent(route.params.chapterName),
+      volumeNumber: parseInt(route.params.volumeNumber),
+      teamId: parseInt(route.params.teamId)
+    }),
+    meta: {
+      title: 'Reading Chapter',
+      hideNavigation: true, // Hide main site navigation for full-screen reading
+      requiresAuth: false
+    }
   },
   // Authentication routes
   {
@@ -198,6 +221,15 @@ const routes = [
     }
   },
   {
+    path: '/:titleName/AddChapter',
+    name: 'Add Chapter',
+    component: AddChapter,
+    meta: {
+      requiresAuth: true,
+      title: 'Add Chapter'
+    }
+  },
+  {
     path: '/user/content/editteam/:id',
     name: 'Edit Team',
     component: TeamDetails,
@@ -259,6 +291,16 @@ const routes = [
       requiresAuth: true,
       requiresAdmin: true,
       title: 'Admin - Title Management'
+    }
+  },
+  {
+    path: '/admin/chapters',
+    name: 'Admin Chapter Management',
+    component: AdminChapterManagement,
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Admin - Chapter Management'
     }
   },
   {

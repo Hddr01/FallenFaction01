@@ -120,11 +120,12 @@ class TitleDetailsService {
     }
   }
 
-  // Get chapters for a title
+  // FIXED: Get chapters for a title using correct endpoint
   async getChapters(titleId) {
     try {
       console.log('Fetching chapters for title ID:', titleId);
-      const response = await this.apiClient.get(`/Titles/GetChapters?titleId=${titleId}`);
+      // Fixed endpoint: Use the correct route from TitlesController
+      const response = await this.apiClient.get(`/Titles/${titleId}/chapters`);
 
       return {
         success: true,
@@ -162,15 +163,32 @@ class TitleDetailsService {
     }
   }
 
-  // Submit a rating for a title
+  // =============================================================================
+  // RATING METHODS - Updated with comprehensive rating functionality
+  // =============================================================================
+
+  // Submit a rating for a title (handles both add and update)
   async rateTitle(titleId, rating) {
     try {
       console.log('Submitting rating for title ID:', titleId, 'Rating:', rating);
 
-      const response = await this.apiClient.post('/Ratings/RateTitle', {
-        titleId: parseInt(titleId),
-        rating: parseInt(rating)
-      });
+      // First check if user already has a rating for this title
+      const existingRating = await this.getUserRating(titleId);
+
+      let response;
+      if (existingRating.success && existingRating.data.hasRated) {
+        // Update existing rating
+        response = await this.apiClient.put(`/Ratings/UpdateRating/${existingRating.data.ratingId}`, {
+          ratingId: existingRating.data.ratingId,
+          value: parseInt(rating)
+        });
+      } else {
+        // Add new rating
+        response = await this.apiClient.post('/Ratings/AddRating', {
+          titleId: parseInt(titleId),
+          value: parseInt(rating)
+        });
+      }
 
       return {
         success: true,
@@ -187,15 +205,45 @@ class TitleDetailsService {
     }
   }
 
-  // Get rating statistics for a title
-  async getRatingStats(titleId) {
+  // Get current user's rating for a title
+  async getUserRating(titleId) {
     try {
-      console.log('Fetching rating stats for title ID:', titleId);
-      const response = await this.apiClient.get(`/Ratings/GetRatings?titleId=${titleId}`);
+      console.log('Fetching user rating for title ID:', titleId);
+      const response = await this.apiClient.get(`/Ratings/GetUserRating?titleId=${titleId}`);
 
       return {
         success: true,
         data: response.data,
+        error: null
+      };
+    } catch (error) {
+      console.error('Error fetching user rating:', error);
+      return {
+        success: false,
+        data: {
+          ratingId: null,
+          value: null,
+          hasRated: false,
+          ratedAt: null
+        },
+        error: this.getErrorMessage(error)
+      };
+    }
+  }
+
+  // Get rating statistics for a title - FIXED METHOD
+  async getRatingStats(titleId) {
+    try {
+      console.log('Fetching rating stats for title ID:', titleId);
+      const response = await this.apiClient.get(`/Ratings/GetRatingStats?titleId=${titleId}`);
+
+      return {
+        success: true,
+        data: {
+          average: response.data.average || 0,
+          total: response.data.total || 0,
+          distribution: response.data.distribution || []
+        },
         error: null
       };
     } catch (error) {
@@ -211,6 +259,90 @@ class TitleDetailsService {
       };
     }
   }
+
+  // Get comprehensive rating summary (includes user rating if authenticated)
+  async getRatingSummary(titleId) {
+    try {
+      console.log('Fetching rating summary for title ID:', titleId);
+      const response = await this.apiClient.get(`/Ratings/GetRatingSummary?titleId=${titleId}`);
+
+      return {
+        success: true,
+        data: response.data,
+        error: null
+      };
+    } catch (error) {
+      console.error('Error fetching rating summary:', error);
+      return {
+        success: false,
+        data: {
+          titleId: titleId,
+          titleName: 'Unknown',
+          averageRating: 0,
+          totalRatings: 0,
+          userRating: null,
+          distribution: []
+        },
+        error: this.getErrorMessage(error)
+      };
+    }
+  }
+
+  // Delete a rating
+  async deleteRating(ratingId) {
+    try {
+      console.log('Deleting rating ID:', ratingId);
+      const response = await this.apiClient.delete(`/Ratings/DeleteRating/${ratingId}`);
+
+      return {
+        success: true,
+        data: response.data,
+        error: null
+      };
+    } catch (error) {
+      console.error('Error deleting rating:', error);
+      return {
+        success: false,
+        data: null,
+        error: this.getErrorMessage(error)
+      };
+    }
+  }
+
+  // Get all ratings for a title with pagination
+  async getRatings(titleId, page = 1, pageSize = 20, sortBy = 'newest') {
+    try {
+      console.log('Fetching ratings for title ID:', titleId);
+      const response = await this.apiClient.get(`/Ratings/GetRatings?titleId=${titleId}&page=${page}&pageSize=${pageSize}&sortBy=${sortBy}`);
+
+      return {
+        success: true,
+        data: {
+          ratings: response.data || [],
+          totalCount: parseInt(response.headers['x-total-count'] || '0'),
+          page: parseInt(response.headers['x-page'] || '1'),
+          pageSize: parseInt(response.headers['x-page-size'] || '20')
+        },
+        error: null
+      };
+    } catch (error) {
+      console.error('Error fetching ratings:', error);
+      return {
+        success: false,
+        data: {
+          ratings: [],
+          totalCount: 0,
+          page: 1,
+          pageSize: 20
+        },
+        error: this.getErrorMessage(error)
+      };
+    }
+  }
+
+  // =============================================================================
+  // OTHER METHODS
+  // =============================================================================
 
   // Get bookmark statistics for a title
   async getBookmarkStats(titleId) {
@@ -275,6 +407,90 @@ class TitleDetailsService {
       return { success: false, error: this.getErrorMessage(error) };
     }
   }
+
+
+  async getChapterByRoute(titleName, chapterName, volume, teamId, page = null) {
+    try {
+      console.log('Fetching chapter by route:', { titleName, chapterName, volume, teamId, page });
+
+      // Encode the title name for URL
+      const encodedTitleName = encodeURIComponent(titleName);
+      const encodedChapterName = encodeURIComponent(chapterName);
+
+      let url = `/Titles/${encodedTitleName}/chapter/${encodedChapterName}/v${volume}/t${teamId}`;
+
+      if (page) {
+        url += `?page=${page}`;
+      }
+
+      const response = await this.apiClient.get(url);
+
+      // Check if response is HTML (indicates wrong endpoint)
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('Received HTML instead of JSON - API endpoint not found');
+      }
+
+      return {
+        success: true,
+        data: response.data,
+        error: null
+      };
+    } catch (error) {
+      console.error('Error fetching chapter by route:', error);
+      return {
+        success: false,
+        data: null,
+        error: this.getErrorMessage(error)
+      };
+    }
+  }
+
+  // Get chapters list for navigation (simplified list for popups)
+  async getChaptersList(titleId) {
+    try {
+      console.log('Fetching chapters list for title ID:', titleId);
+      const response = await this.apiClient.get(`/Titles/${titleId}/chapters/list`);
+
+      return {
+        success: true,
+        data: Array.isArray(response.data) ? response.data : [],
+        error: null
+      };
+    } catch (error) {
+      console.error('Error fetching chapters list:', error);
+      return {
+        success: false,
+        data: [],
+        error: this.getErrorMessage(error)
+      };
+    }
+  }
+
+  // Update reading progress for a chapter
+  async updateReadingProgress(titleId, chapterNumber) {
+    try {
+      console.log('Updating reading progress:', { titleId, chapterNumber });
+
+      const response = await this.apiClient.post('/Titles/updateProgress', {
+        titleId: parseInt(titleId),
+        chapterNumber: parseInt(chapterNumber)
+      });
+
+      return {
+        success: true,
+        data: response.data,
+        error: null
+      };
+    } catch (error) {
+      console.error('Error updating reading progress:', error);
+      return {
+        success: false,
+        data: null,
+        error: this.getErrorMessage(error)
+      };
+    }
+  }
+
 }
 
 export const titleDetailsService = new TitleDetailsService();
