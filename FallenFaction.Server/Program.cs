@@ -1,24 +1,42 @@
+using FallenFaction.Server.Data.Models;
+using FallenFaction.Server.Mappings;
+using FallenFaction.Server.Services;
+using FallenFaction.Server.Services.Interfaces;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc.ActionConstraints;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.SqlServer;
-using Microsoft.AspNetCore.Identity;
-using FallenFaction.Server.Data.Models;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using System.Reflection;
 using System.Text;
-using FallenFaction.Server.Services.Interfaces;
-using FallenFaction.Server.Services;
-using FallenFaction.Server.Mappings;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-builder.Services.AddControllers();
+// Add services to the container with explicit controller discovery
+builder.Services.AddControllers(options =>
+{
+    // Add any global filters here if needed
+    options.SuppressAsyncSuffixInActionNames = false;
+})
+.AddJsonOptions(options =>
+{
+    // Handle circular references and improve JSON handling
+    options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+    options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+    options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+});
+
+// Explicitly add MVC services to ensure controller discovery
+builder.Services.AddMvc();
+builder.Services.AddScoped<ICommentService, CommentService>();
+
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddHostedService<OnlineStatusCleanupService>();
 
 // IMPROVED CORS Configuration - more comprehensive and secure
-// Replace the CORS configuration in your Program.cs
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowVueApp", policy =>
@@ -65,7 +83,6 @@ builder.Services.AddCors(options =>
         .WithExposedHeaders("*");
     });
 });
-
 
 builder.Services.AddDbContext<FallenFaction.Server.Data.ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -128,14 +145,21 @@ builder.Services.AddAuthentication(options =>
     {
         OnAuthenticationFailed = context =>
         {
+            Console.WriteLine($"JWT Authentication failed: {context.Exception.Message}");
             if (context.Exception.GetType() == typeof(SecurityTokenExpiredException))
             {
                 context.Response.Headers.Add("Token-Expired", "true");
             }
             return Task.CompletedTask;
         },
+        OnTokenValidated = context =>
+        {
+            Console.WriteLine("JWT Token validated successfully");
+            return Task.CompletedTask;
+        },
         OnChallenge = context =>
         {
+            Console.WriteLine($"JWT Challenge: {context.Error} - {context.ErrorDescription}");
             context.HandleResponse();
             context.Response.StatusCode = 401;
             context.Response.ContentType = "application/json";
@@ -155,8 +179,18 @@ builder.Services.AddAuthentication(options =>
     facebookOptions.AppSecret = builder.Configuration["Authentication:Facebook:AppSecret"];
 });
 
-// Add Authorization
-builder.Services.AddAuthorization();
+// Add Authorization with detailed policies
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy =>
+        policy.RequireRole("Admin"));
+
+    options.AddPolicy("AdminOrModerator", policy =>
+        policy.RequireRole("Admin", "Moderator"));
+
+    options.AddPolicy("AuthenticatedUser", policy =>
+        policy.RequireAuthenticatedUser());
+});
 
 // Add AutoMapper
 builder.Services.AddAutoMapper(typeof(AuthMappingProfile));
@@ -226,6 +260,14 @@ if (app.Environment.IsDevelopment())
 
     // Use DevelopmentCORS in development for maximum compatibility
     app.UseCors("DevelopmentCORS");
+
+    // Add request logging in development
+    app.Use(async (context, next) =>
+    {
+        Console.WriteLine($"Request: {context.Request.Method} {context.Request.Path} from {context.Connection.RemoteIpAddress}");
+        await next();
+        Console.WriteLine($"Response: {context.Response.StatusCode}");
+    });
 }
 else
 {
@@ -249,16 +291,36 @@ app.Use(async (context, next) =>
     context.Response.Headers.Add("X-Content-Type-Options", "nosniff");
     context.Response.Headers.Add("X-Frame-Options", "DENY");
     context.Response.Headers.Add("X-XSS-Protection", "1; mode=block");
-    
+
     if (!app.Environment.IsDevelopment())
     {
         context.Response.Headers.Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
     }
-    
+
     await next();
 });
 
+// Map controllers with detailed route debugging
 app.MapControllers();
+
+// Add a test endpoint to verify controller discovery
+if (app.Environment.IsDevelopment())
+{
+    app.MapGet("/api/debug/controllers", () =>
+    {
+        var controllerActionDescriptor = app.Services.GetRequiredService<IActionDescriptorCollectionProvider>();
+        return controllerActionDescriptor.ActionDescriptors.Items
+            .Where(x => x.AttributeRouteInfo != null)
+            .Select(x => new
+            {
+                Route = x.AttributeRouteInfo.Template,
+                Controller = x.RouteValues["controller"],
+                Action = x.RouteValues["action"],
+                HttpMethods = string.Join(", ", x.ActionConstraints?.OfType<HttpMethodActionConstraint>().FirstOrDefault()?.HttpMethods ?? new[] { "ANY" })
+            })
+            .OrderBy(x => x.Route);
+    }).WithOpenApi();
+}
 
 // Fallback to serve the Vue.js app
 app.MapFallbackToFile("/index.html");
@@ -268,14 +330,15 @@ using (var scope = app.Services.CreateScope())
 {
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
-    
+
     var roles = new[] { "Admin", "Moderator", "User" };
-    
+
     foreach (var role in roles)
     {
         if (!await roleManager.RoleExistsAsync(role))
         {
             await roleManager.CreateAsync(new IdentityRole(role));
+            Console.WriteLine($"Created role: {role}");
         }
     }
 
@@ -300,7 +363,12 @@ using (var scope = app.Services.CreateScope())
             await userManager.AddToRoleAsync(adminUser, "Admin");
             Console.WriteLine("Default admin user created: admin@fallenfaction.com / Admin123!");
         }
+        else
+        {
+            Console.WriteLine($"Failed to create admin user: {string.Join(", ", result.Errors.Select(e => e.Description))}");
+        }
     }
 }
 
+Console.WriteLine("Application started successfully!");
 app.Run();

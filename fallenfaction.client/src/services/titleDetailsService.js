@@ -142,22 +142,93 @@ class TitleDetailsService {
     }
   }
 
-  // Get comments for a title
-  async getComments(titleId, targetType = 1) {
+  // Get comments for a title - Updated to use new comments service
+  async getComments(titleId, targetType = 1, options = {}) {
     try {
       console.log('Fetching comments for title ID:', titleId);
-      const response = await this.apiClient.get(`/Comments/GetComments?targetId=${titleId}&targetType=${targetType}`);
+
+      const {
+        page = 1,
+        pageSize = 20,
+        sortBy = 'newest'
+      } = options;
+
+      const response = await this.apiClient.get('/Comments/GetComments', {
+        params: {
+          targetId: titleId,
+          targetType: targetType,
+          page,
+          pageSize,
+          sortBy
+        }
+      });
+
+      const totalCount = parseInt(response.headers['x-total-count'] || '0');
+      const currentPage = parseInt(response.headers['x-page'] || '1');
+      const currentPageSize = parseInt(response.headers['x-page-size'] || '20');
 
       return {
         success: true,
-        data: Array.isArray(response.data) ? response.data : [],
+        data: {
+          comments: Array.isArray(response.data) ? response.data : [],
+          pagination: {
+            totalCount,
+            page: currentPage,
+            pageSize: currentPageSize,
+            totalPages: Math.ceil(totalCount / currentPageSize),
+            hasNext: currentPage * currentPageSize < totalCount,
+            hasPrevious: currentPage > 1
+          }
+        },
         error: null
       };
     } catch (error) {
       console.error('Error fetching comments:', error);
       return {
         success: false,
-        data: [],
+        data: {
+          comments: [],
+          pagination: {
+            totalCount: 0,
+            page: 1,
+            pageSize: 20,
+            totalPages: 0,
+            hasNext: false,
+            hasPrevious: false
+          }
+        },
+        error: this.getErrorMessage(error)
+      };
+    }
+  }
+
+  // Get comment statistics for a title
+  async getCommentStats(titleId, targetType = 1) {
+    try {
+      console.log('Fetching comment stats for title ID:', titleId);
+      const response = await this.apiClient.get('/Comments/GetCommentStats', {
+        params: {
+          targetId: titleId,
+          targetType: targetType
+        }
+      });
+
+      return {
+        success: true,
+        data: response.data,
+        error: null
+      };
+    } catch (error) {
+      console.error('Error fetching comment stats:', error);
+      return {
+        success: false,
+        data: {
+          totalComments: 0,
+          topLevelComments: 0,
+          replies: 0,
+          lastCommentDate: null,
+          commentsEnabled: true
+        },
         error: this.getErrorMessage(error)
       };
     }

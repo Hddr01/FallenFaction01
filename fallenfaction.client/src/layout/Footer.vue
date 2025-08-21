@@ -134,6 +134,13 @@
                   Review Chapters
                 </router-link>
               </li>
+              <!-- ADD THIS: Comments Management Link -->
+              <li>
+                <router-link to="/admin/comments"
+                             class="text-[var(--color-text)] hover:text-red-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Manage Comments
+                </router-link>
+              </li>
               <li>
                 <router-link to="/admin/titles"
                              class="text-[var(--color-text)] hover:text-red-500 hover:pl-2 transition-all duration-200 text-sm block py-1">

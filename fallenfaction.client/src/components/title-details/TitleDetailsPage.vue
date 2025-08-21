@@ -1,3 +1,4 @@
+<!-- TitleDetailsPage.vue - Updated to support guest users -->
 <template>
   <div class="min-h-screen bg-[var(--color-background)]">
     <!-- Loading State -->
@@ -26,16 +27,10 @@
         <div class="flex space-x-3 justify-center">
           <button @click="retryLoad"
                   class="px-4 py-2 bg-[var(--color-accent)] text-white rounded-md hover:bg-[var(--color-accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] transition-colors duration-200">
-            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-            </svg>
             Try Again
           </button>
           <router-link to="/"
-                       class="px-4 py-2 bg-[var(--color-background-mute)] text-[var(--color-text)] border border-[var(--color-border)] rounded-md hover:bg-[var(--color-background-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border)] transition-colors duration-200">
-            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-            </svg>
+                       class="px-4 py-2 bg-[var(--color-background-mute)] text-[var(--color-text)] border border-[var(--color-border)] rounded-md hover:bg-[var(--color-background-soft)] transition-colors duration-200">
             Go Home
           </router-link>
         </div>
@@ -71,8 +66,8 @@
                 {{ getMangaType(titleData.type) }}
               </div>
 
-              <!-- Action Dropdown -->
-              <div class="absolute top-3 left-3">
+              <!-- Action Dropdown - Only show for authenticated users -->
+              <div v-if="isAuthenticated" class="absolute top-3 left-3">
                 <div class="relative" ref="actionDropdownRef">
                   <button @click="showActionDropdown = !showActionDropdown"
                           class="w-8 h-8 bg-black/80 text-white rounded-full flex items-center justify-center backdrop-blur-sm hover:bg-black/90 focus:outline-none transition-colors duration-200">
@@ -84,22 +79,20 @@
                   <!-- Dropdown Menu -->
                   <div v-if="showActionDropdown"
                        class="absolute top-10 left-0 bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-lg shadow-lg min-w-48 py-2 z-20">
-                    <template v-if="isAuthenticated">
-                      <a :href="`/${titleData.originalTitle}/AddChapter`"
-                         class="flex items-center px-4 py-2 text-[var(--color-text)] hover:bg-[var(--color-background-mute)] transition-colors duration-150">
-                        <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                        </svg>
-                        Add Chapter
-                      </a>
-                      <a :href="`/Title/Edit/${titleData.id}`"
-                         class="flex items-center px-4 py-2 text-[var(--color-text)] hover:bg-[var(--color-background-mute)] transition-colors duration-150">
-                        <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                        </svg>
-                        Edit
-                      </a>
-                    </template>
+                    <a :href="`/${titleData.originalTitle}/AddChapter`"
+                       class="flex items-center px-4 py-2 text-[var(--color-text)] hover:bg-[var(--color-background-mute)] transition-colors duration-150">
+                      <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                      </svg>
+                      Add Chapter
+                    </a>
+                    <a :href="`/Title/Edit/${titleData.id}`"
+                       class="flex items-center px-4 py-2 text-[var(--color-text)] hover:bg-[var(--color-background-mute)] transition-colors duration-150">
+                      <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                      </svg>
+                      Edit
+                    </a>
                     <a href="#"
                        class="flex items-center px-4 py-2 text-[var(--color-text)] hover:bg-[var(--color-background-mute)] transition-colors duration-150">
                       <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -138,7 +131,7 @@
                 <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
                 </svg>
-                Rate
+                {{ isAuthenticated ? 'Rate' : 'Sign in to Rate' }}
               </button>
             </div>
           </div>
@@ -152,11 +145,11 @@
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
               </svg>
-              <span>Start Readingsdfasdfasd</span>
+              <span>Start Reading</span>
             </router-link>
 
-            <!-- Continue Reading Button (if user has bookmark) -->
-            <router-link v-if="userBookmark && userBookmark.lastReadChapter > 0"
+            <!-- Continue Reading Button (only for authenticated users with bookmarks) -->
+            <router-link v-if="isAuthenticated && userBookmark && userBookmark.lastReadChapter > 0"
                          :to="getContinueReadingUrl()"
                          class="w-full bg-green-600 text-white py-3 px-4 rounded-xl font-semibold text-center transition-all duration-200 hover:bg-green-700 hover:shadow-lg transform hover:-translate-y-0.5 flex items-center justify-center space-x-2">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -165,7 +158,7 @@
               <span>Continue (Ch. {{ userBookmark.lastReadChapter }})</span>
             </router-link>
 
-            <!-- Bookmark Component -->
+            <!-- Bookmark Component - Only for authenticated users -->
             <div v-if="isAuthenticated">
               <BookmarkDropdown :title-id="titleData.id"
                                 @bookmark-changed="onBookmarkChanged"
@@ -246,8 +239,8 @@
                       {{ getMangaType(titleData.type) }}
                     </div>
 
-                    <!-- Action Dropdown -->
-                    <div class="absolute top-4 left-4">
+                    <!-- Action Dropdown - Only for authenticated users -->
+                    <div v-if="isAuthenticated" class="absolute top-4 left-4">
                       <div class="relative" ref="actionDropdownRef">
                         <button @click="showActionDropdown = !showActionDropdown"
                                 class="w-10 h-10 bg-black/80 text-white rounded-full flex items-center justify-center backdrop-blur-sm hover:bg-black/90 focus:outline-none transition-colors duration-200">
@@ -259,22 +252,20 @@
                         <!-- Dropdown Menu -->
                         <div v-if="showActionDropdown"
                              class="absolute top-12 left-0 bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-lg shadow-lg min-w-48 py-2 z-20">
-                          <template v-if="isAuthenticated">
-                            <a :href="`/${titleData.originalTitle}/AddChapter`"
-                               class="flex items-center px-4 py-2 text-[var(--color-text)] hover:bg-[var(--color-background-mute)] transition-colors duration-150">
-                              <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                              </svg>
-                              Add Chapter
-                            </a>
-                            <a :href="`/Title/Edit/${titleData.id}`"
-                               class="flex items-center px-4 py-2 text-[var(--color-text)] hover:bg-[var(--color-background-mute)] transition-colors duration-150">
-                              <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                              </svg>
-                              Edit
-                            </a>
-                          </template>
+                          <a :href="`/${titleData.originalTitle}/AddChapter`"
+                             class="flex items-center px-4 py-2 text-[var(--color-text)] hover:bg-[var(--color-background-mute)] transition-colors duration-150">
+                            <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                            </svg>
+                            Add Chapter
+                          </a>
+                          <a :href="`/Title/Edit/${titleData.id}`"
+                             class="flex items-center px-4 py-2 text-[var(--color-text)] hover:bg-[var(--color-background-mute)] transition-colors duration-150">
+                            <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                            </svg>
+                            Edit
+                          </a>
                           <a href="#"
                              class="flex items-center px-4 py-2 text-[var(--color-text)] hover:bg-[var(--color-background-mute)] transition-colors duration-150">
                             <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -299,8 +290,8 @@
                       <span>Start Reading</span>
                     </router-link>
 
-                    <!-- Continue Reading Button (if user has bookmark) -->
-                    <router-link v-if="userBookmark && userBookmark.lastReadChapter > 0"
+                    <!-- Continue Reading Button (only for authenticated users with bookmarks) -->
+                    <router-link v-if="isAuthenticated && userBookmark && userBookmark.lastReadChapter > 0"
                                  :to="getContinueReadingUrl()"
                                  class="w-full bg-green-600 text-white py-3 px-4 rounded-xl font-semibold text-center transition-all duration-200 hover:bg-green-700 hover:shadow-lg transform hover:-translate-y-0.5 flex items-center justify-center space-x-2">
                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -309,7 +300,7 @@
                       <span>Continue (Ch. {{ userBookmark.lastReadChapter }})</span>
                     </router-link>
 
-                    <!-- Bookmark Component -->
+                    <!-- Bookmark Component - Only for authenticated users -->
                     <div v-if="isAuthenticated">
                       <BookmarkDropdown :title-id="titleData.id"
                                         @bookmark-changed="onBookmarkChanged"
@@ -392,13 +383,12 @@
                         <span class="text-[var(--color-text)] opacity-75">({{ titleData.ratingCount || 0 }})</span>
                       </div>
                     </div>
-                    <button @click="showRatingModal = true"
-                            :disabled="!isAuthenticated"
-                            class="px-6 py-3 bg-[var(--color-background-mute)] border border-[var(--color-accent)] text-[var(--color-accent)] rounded-lg hover:bg-[var(--color-accent)] hover:text-white focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200">
+                    <button @click="isAuthenticated ? (showRatingModal = true) : goToLogin()"
+                            class="px-6 py-3 bg-[var(--color-background-mute)] border border-[var(--color-accent)] text-[var(--color-accent)] rounded-lg hover:bg-[var(--color-accent)] hover:text-white focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] transition-all duration-200">
                       <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
                       </svg>
-                      Rate
+                      {{ isAuthenticated ? 'Rate' : 'Sign in to Rate' }}
                     </button>
                   </div>
                 </div>
@@ -408,6 +398,7 @@
                   <TitleDetailsTabs :title-id="titleData.id"
                                     :title-data="titleData"
                                     :initial-tab="initialTab"
+                                    :is-authenticated="isAuthenticated"
                                     @tab-changed="onTabChanged" />
                 </div>
               </div>
@@ -431,8 +422,8 @@
       </div>
     </div>
 
-    <!-- Rating Modal -->
-    <div v-if="showRatingModal"
+    <!-- Rating Modal - Only show for authenticated users -->
+    <div v-if="showRatingModal && isAuthenticated"
          class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
          @click="closeRatingModal">
       <div class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-xl max-w-md w-full shadow-2xl"
@@ -485,7 +476,7 @@
             <span v-else>Submit Rating</span>
           </button>
           <button @click="closeRatingModal"
-                  class="px-4 py-2 bg-[var(--color-background-mute)] text-[var(--color-text)] border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-background-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--color-border)] transition-colors duration-200">
+                  class="px-4 py-2 bg-[var(--color-background-mute)] text-[var(--color-text)] border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-background-soft)] transition-colors duration-200">
             Cancel
           </button>
         </div>
@@ -495,321 +486,333 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+  import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+  import { useRoute, useRouter } from 'vue-router'
   import { titleDetailsService } from '../../services/titleDetailsService'
   import TitleDetailsTabs from './TitleDetailsTabs.vue'
   import BookmarkDropdown from './BookmarkDropdown.vue'
 
-// Props
-const props = defineProps({
-  titleName: {
-    type: String,
-    required: true
-  }
-})
-
-// Router
-const route = useRoute()
-const router = useRouter()
-
-// Reactive data
-const titleData = ref(null)
-const loading = ref(true)
-const error = ref(null)
-const initialTab = ref('info')
-const userBookmark = ref(null)
-const isAuthenticated = ref(false)
-
-// Rating modal
-const showRatingModal = ref(false)
-const selectedRating = ref(0)
-const hoverRating = ref(0)
-const submittingRating = ref(false)
-
-// Action dropdown
-const showActionDropdown = ref(false)
-const actionDropdownRef = ref(null)
-
-// Computed properties
-const sidebarInfo = computed(() => {
-  if (!titleData.value) return []
-
-  const info = [
-    { label: 'Type', value: getMangaType(titleData.value.type) },
-    { label: 'Release', value: titleData.value.releaseDate || 'Unknown' },
-    { label: 'Chapters', value: titleData.value.chapterCount || 0 },
-    { label: 'Status', value: titleData.value.statusTitle || 'Unknown' },
-    { label: 'Translation', value: titleData.value.statusTranslation || 'Unknown' }
-  ]
-
-  // Add authors if available
-  if (titleData.value.authors && titleData.value.authors.length > 0) {
-    info.push({
-      label: 'Author',
-      value: titleData.value.authors.map(a => a.name || a).join(', ')
-    })
-  }
-
-  // Add artists if available
-  if (titleData.value.artists && titleData.value.artists.length > 0) {
-    info.push({
-      label: 'Artist',
-      value: titleData.value.artists.map(a => a.name || a).join(', ')
-    })
-  }
-
-  return info
-})
-
-// Methods
-const loadTitleData = async () => {
-  loading.value = true
-  error.value = null
-
-  try {
-    console.log('Loading title data for:', props.titleName)
-
-    const result = await titleDetailsService.getTitleDetails(props.titleName)
-
-    if (result.success && result.data) {
-      titleData.value = result.data
-
-      // Update page title
-      document.title = `${titleData.value.originalTitle} - FallenFaction`
-
-      // Load user bookmark if authenticated
-      if (isAuthenticated.value) {
-        await loadUserBookmark()
-      }
-
-      console.log('Title data loaded successfully:', titleData.value)
-    } else {
-      error.value = result.error || 'Title not found'
-      console.error('Failed to load title data:', result.error)
+  // Props
+  const props = defineProps({
+    titleName: {
+      type: String,
+      required: true
     }
-  } catch (err) {
-    error.value = 'Failed to load title details'
-    console.error('Error loading title data:', err)
-  } finally {
-    loading.value = false
-  }
-}
-
-const loadUserBookmark = async () => {
-  try {
-    console.log('Loading user bookmark for title:', titleData.value.id)
-    // Implementation depends on your bookmark API
-  } catch (err) {
-    console.error('Error loading user bookmark:', err)
-  }
-}
-
-const retryLoad = async () => {
-  await loadTitleData()
-}
-
-const checkAuthStatus = () => {
-  const token = localStorage.getItem('authToken')
-  isAuthenticated.value = !!token
-}
-
-const onTabChanged = (tabKey) => {
-  const url = new URL(window.location)
-  url.searchParams.set('section', tabKey)
-  window.history.replaceState({}, '', url)
-}
-
-const onBookmarkChanged = (bookmarkData) => {
-  console.log('Bookmark changed:', bookmarkData)
-  if (titleData.value) {
-    if (bookmarkData.action === 'added') {
-      titleData.value.bookmarkCount = (titleData.value.bookmarkCount || 0) + 1
-    } else if (bookmarkData.action === 'removed') {
-      titleData.value.bookmarkCount = Math.max((titleData.value.bookmarkCount || 1) - 1, 0)
-    }
-  }
-}
-
-const onBookmarkLoaded = (bookmarkData) => {
-  userBookmark.value = bookmarkData.isBookmarked ? bookmarkData.currentBookmark : null
-}
-
-// Rating methods
-const setRating = (rating) => {
-  selectedRating.value = rating
-}
-
-const submitRating = async () => {
-  if (!selectedRating.value || submittingRating.value) return
-
-  submittingRating.value = true
-  try {
-    const result = await titleDetailsService.rateTitle(titleData.value.id, selectedRating.value)
-
-    if (result.success) {
-      showToast('Rating submitted successfully!', 'success')
-      closeRatingModal()
-
-      if (result.data) {
-        titleData.value.averageRating = result.data.averageRating
-        titleData.value.ratingCount = result.data.totalRatings
-      }
-    } else {
-      showToast(result.error || 'Failed to submit rating', 'error')
-    }
-  } catch (err) {
-    showToast('Failed to submit rating', 'error')
-    console.error('Error submitting rating:', err)
-  } finally {
-    submittingRating.value = false
-  }
-}
-
-const closeRatingModal = () => {
-  showRatingModal.value = false
-  selectedRating.value = 0
-  hoverRating.value = 0
-}
-
-const getRatingText = (rating) => {
-  const texts = [
-    '', 'Terrible', 'Very Bad', 'Bad', 'Poor', 'Average',
-    'Good', 'Very Good', 'Great', 'Excellent', 'Masterpiece'
-  ]
-  return texts[rating] || ''
-}
-
-// Helper methods
-const getImageUrl = (imagePath) => {
-  return titleDetailsService.getImageUrl(imagePath)
-}
-
-const getMangaType = (type) => {
-  const types = {
-    0: 'Manga',
-    1: 'Manhwa',
-    2: 'Manhua',
-    3: 'Comic',
-    4: 'Novel'
-  }
-  return types[type] || 'Manga'
-}
-
-const formatNumber = (num) => {
-  if (!num) return '0'
-  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
-  if (num >= 1000) return (num / 1000).toFixed(1) + 'K'
-  return num.toString()
-}
-
-const getFirstChapterUrl = () => {
-  if (!titleData.value || !titleData.value.chapterCount) return '#'
-  return `/${titleData.value.originalTitle}/chapter/1`
-}
-
-const getContinueReadingUrl = () => {
-  if (!userBookmark.value) return '#'
-  return `/${titleData.value.originalTitle}/chapter/${userBookmark.value.lastReadChapter}`
-}
-
-const getErrorTitle = () => {
-  if (error.value?.includes('not found') || error.value?.includes('404')) {
-    return 'Title Not Found'
-  }
-  if (error.value?.includes('permission') || error.value?.includes('403')) {
-    return 'Access Denied'
-  }
-  return 'Error Loading Title'
-}
-
-const goToLogin = () => {
-  const returnUrl = encodeURIComponent(route.fullPath)
-  router.push(`/account/login?returnUrl=${returnUrl}`)
-}
-
-const onCoverImageError = (event) => {
-  console.error('Cover image failed to load:', event.target.src)
-  event.target.src = titleDetailsService.getImageUrl('/img/default-cover.png')
-}
-
-const onCoverImageLoad = () => {
-  console.log('Cover image loaded successfully')
-}
-
-// Handle click outside for dropdown
-const handleClickOutside = (event) => {
-  if (showActionDropdown.value && actionDropdownRef.value && !actionDropdownRef.value.contains(event.target)) {
-    showActionDropdown.value = false
-  }
-}
-
-// Toast notification function
-const showToast = (message, type = 'info') => {
-  let toastContainer = document.getElementById('toast-container')
-  if (!toastContainer) {
-    toastContainer = document.createElement('div')
-    toastContainer.id = 'toast-container'
-    toastContainer.className = 'fixed bottom-4 right-4 z-50 space-y-2'
-    document.body.appendChild(toastContainer)
-  }
-
-  const toast = document.createElement('div')
-  const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'
-  toast.className = `${bgColor} text-white px-4 py-3 rounded-lg shadow-lg max-w-sm transform transition-all duration-300 translate-x-full opacity-0`
-  toast.textContent = message
-
-  toastContainer.appendChild(toast)
-
-  // Trigger animation
-  nextTick(() => {
-    toast.classList.remove('translate-x-full', 'opacity-0')
   })
 
-  // Remove after 3 seconds
-  setTimeout(() => {
-    toast.classList.add('translate-x-full', 'opacity-0')
-    setTimeout(() => {
-      if (toast.parentNode) {
-        toast.remove()
+  // Router
+  const route = useRoute()
+  const router = useRouter()
+
+  // Reactive data
+  const titleData = ref(null)
+  const loading = ref(true)
+  const error = ref(null)
+  const initialTab = ref('info')
+  const userBookmark = ref(null)
+  const isAuthenticated = ref(false)
+
+  // Rating modal
+  const showRatingModal = ref(false)
+  const selectedRating = ref(0)
+  const hoverRating = ref(0)
+  const submittingRating = ref(false)
+
+  // Action dropdown
+  const showActionDropdown = ref(false)
+  const actionDropdownRef = ref(null)
+
+  // Computed properties
+  const sidebarInfo = computed(() => {
+    if (!titleData.value) return []
+
+    const info = [
+      { label: 'Type', value: getMangaType(titleData.value.type) },
+      { label: 'Release', value: titleData.value.releaseDate || 'Unknown' },
+      { label: 'Chapters', value: titleData.value.chapterCount || 0 },
+      { label: 'Status', value: titleData.value.statusTitle || 'Unknown' },
+      { label: 'Translation', value: titleData.value.statusTranslation || 'Unknown' }
+    ]
+
+    // Add authors if available
+    if (titleData.value.authors && titleData.value.authors.length > 0) {
+      info.push({
+        label: 'Author',
+        value: titleData.value.authors.map(a => a.name || a).join(', ')
+      })
+    }
+
+    // Add artists if available
+    if (titleData.value.artists && titleData.value.artists.length > 0) {
+      info.push({
+        label: 'Artist',
+        value: titleData.value.artists.map(a => a.name || a).join(', ')
+      })
+    }
+
+    return info
+  })
+
+  // Methods
+  const loadTitleData = async () => {
+    loading.value = true
+    error.value = null
+
+    try {
+      console.log('Loading title data for:', props.titleName)
+
+      const result = await titleDetailsService.getTitleDetails(props.titleName)
+
+      if (result.success && result.data) {
+        titleData.value = result.data
+
+        // Update page title
+        document.title = `${titleData.value.originalTitle} - FallenFaction`
+
+        // Only load user-specific data if authenticated
+        if (isAuthenticated.value) {
+          await loadUserBookmark()
+        }
+
+        console.log('Title data loaded successfully:', titleData.value)
+      } else {
+        error.value = result.error || 'Title not found'
+        console.error('Failed to load title data:', result.error)
       }
-      if (toastContainer.children.length === 0) {
-        toastContainer.remove()
-      }
-    }, 300)
-  }, 3000)
-}
+    } catch (err) {
+      error.value = 'Failed to load title details'
+      console.error('Error loading title data:', err)
+    } finally {
+      loading.value = false
+    }
+  }
 
-// Lifecycle hooks
-onMounted(async () => {
-  // Get initial tab from URL query
-  initialTab.value = route.query.section || 'info'
+  // FIXED: Only load bookmark data for authenticated users
+  const loadUserBookmark = async () => {
+    if (!isAuthenticated.value || !titleData.value) return
 
-  // Check authentication status
-  checkAuthStatus()
+    try {
+      console.log('Loading user bookmark for title:', titleData.value.id)
+      // Implementation depends on your bookmark API - only call if user is authenticated
+    } catch (err) {
+      console.error('Error loading user bookmark:', err)
+      // Don't let bookmark errors affect the main page load
+    }
+  }
 
-  // Load title data
-  await loadTitleData()
-
-  // Add click outside listener
-  document.addEventListener('click', handleClickOutside)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-})
-
-// Watch for route changes
-import { watch } from 'vue'
-watch(() => props.titleName, async (newTitleName) => {
-  if (newTitleName) {
+  const retryLoad = async () => {
     await loadTitleData()
   }
-})
 
-watch(() => route.query.section, (newTab) => {
-  if (newTab) {
-    initialTab.value = newTab
+  // FIXED: Check auth status without throwing errors
+  const checkAuthStatus = () => {
+    try {
+      const token = localStorage.getItem('authToken')
+      const user = localStorage.getItem('authUser')
+      isAuthenticated.value = !!(token && user)
+      console.log('Auth status check:', { isAuthenticated: isAuthenticated.value })
+    } catch (err) {
+      console.error('Error checking auth status:', err)
+      isAuthenticated.value = false
+    }
   }
-})
+
+  const onTabChanged = (tabKey) => {
+    const url = new URL(window.location)
+    url.searchParams.set('section', tabKey)
+    window.history.replaceState({}, '', url)
+  }
+
+  const onBookmarkChanged = (bookmarkData) => {
+    console.log('Bookmark changed:', bookmarkData)
+    if (titleData.value) {
+      if (bookmarkData.action === 'added') {
+        titleData.value.bookmarkCount = (titleData.value.bookmarkCount || 0) + 1
+      } else if (bookmarkData.action === 'removed') {
+        titleData.value.bookmarkCount = Math.max((titleData.value.bookmarkCount || 1) - 1, 0)
+      }
+    }
+  }
+
+  const onBookmarkLoaded = (bookmarkData) => {
+    userBookmark.value = bookmarkData.isBookmarked ? bookmarkData.currentBookmark : null
+  }
+
+  // Rating methods
+  const setRating = (rating) => {
+    selectedRating.value = rating
+  }
+
+  const submitRating = async () => {
+    if (!selectedRating.value || submittingRating.value || !isAuthenticated.value) return
+
+    submittingRating.value = true
+    try {
+      const result = await titleDetailsService.rateTitle(titleData.value.id, selectedRating.value)
+
+      if (result.success) {
+        showToast('Rating submitted successfully!', 'success')
+        closeRatingModal()
+
+        if (result.data) {
+          titleData.value.averageRating = result.data.averageRating
+          titleData.value.ratingCount = result.data.totalRatings
+        }
+      } else {
+        showToast(result.error || 'Failed to submit rating', 'error')
+      }
+    } catch (err) {
+      showToast('Failed to submit rating', 'error')
+      console.error('Error submitting rating:', err)
+    } finally {
+      submittingRating.value = false
+    }
+  }
+
+  const closeRatingModal = () => {
+    showRatingModal.value = false
+    selectedRating.value = 0
+    hoverRating.value = 0
+  }
+
+  const getRatingText = (rating) => {
+    const texts = [
+      '', 'Terrible', 'Very Bad', 'Bad', 'Poor', 'Average',
+      'Good', 'Very Good', 'Great', 'Excellent', 'Masterpiece'
+    ]
+    return texts[rating] || ''
+  }
+
+  // Helper methods
+  const getImageUrl = (imagePath) => {
+    return titleDetailsService.getImageUrl(imagePath)
+  }
+
+  const getMangaType = (type) => {
+    const types = {
+      0: 'Manga',
+      1: 'Manhwa',
+      2: 'Manhua',
+      3: 'Comic',
+      4: 'Novel'
+    }
+    return types[type] || 'Manga'
+  }
+
+  const formatNumber = (num) => {
+    if (!num) return '0'
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K'
+    return num.toString()
+  }
+
+  const getFirstChapterUrl = () => {
+    if (!titleData.value || !titleData.value.chapterCount) return '#'
+    return `/${titleData.value.originalTitle}/chapter/1`
+  }
+
+  const getContinueReadingUrl = () => {
+    if (!userBookmark.value) return '#'
+    return `/${titleData.value.originalTitle}/chapter/${userBookmark.value.lastReadChapter}`
+  }
+
+  const getErrorTitle = () => {
+    if (error.value?.includes('not found') || error.value?.includes('404')) {
+      return 'Title Not Found'
+    }
+    if (error.value?.includes('permission') || error.value?.includes('403')) {
+      return 'Access Denied'
+    }
+    return 'Error Loading Title'
+  }
+
+  const goToLogin = () => {
+    const returnUrl = encodeURIComponent(route.fullPath)
+    router.push(`/account/login?returnUrl=${returnUrl}`)
+  }
+
+  const onCoverImageError = (event) => {
+    console.error('Cover image failed to load:', event.target.src)
+    event.target.src = titleDetailsService.getImageUrl('/img/default-cover.png')
+  }
+
+  const onCoverImageLoad = () => {
+    console.log('Cover image loaded successfully')
+  }
+
+  // Handle click outside for dropdown
+  const handleClickOutside = (event) => {
+    if (showActionDropdown.value && actionDropdownRef.value && !actionDropdownRef.value.contains(event.target)) {
+      showActionDropdown.value = false
+    }
+  }
+
+  // Toast notification function
+  const showToast = (message, type = 'info') => {
+    let toastContainer = document.getElementById('toast-container')
+    if (!toastContainer) {
+      toastContainer = document.createElement('div')
+      toastContainer.id = 'toast-container'
+      toastContainer.className = 'fixed bottom-4 right-4 z-50 space-y-2'
+      document.body.appendChild(toastContainer)
+    }
+
+    const toast = document.createElement('div')
+    const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+    toast.className = `${bgColor} text-white px-4 py-3 rounded-lg shadow-lg max-w-sm transform transition-all duration-300 translate-x-full opacity-0`
+    toast.textContent = message
+
+    toastContainer.appendChild(toast)
+
+    // Trigger animation
+    nextTick(() => {
+      toast.classList.remove('translate-x-full', 'opacity-0')
+    })
+
+    // Remove after 3 seconds
+    setTimeout(() => {
+      toast.classList.add('translate-x-full', 'opacity-0')
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.remove()
+        }
+        if (toastContainer.children.length === 0) {
+          toastContainer.remove()
+        }
+      }, 300)
+    }, 3000)
+  }
+
+  // Lifecycle hooks
+  onMounted(async () => {
+    // Get initial tab from URL query
+    initialTab.value = route.query.section || 'info'
+
+    // Check authentication status FIRST before loading anything else
+    checkAuthStatus()
+
+    // Load title data (this should work for both authenticated and guest users)
+    await loadTitleData()
+
+    // Add click outside listener
+    document.addEventListener('click', handleClickOutside)
+  })
+
+  onUnmounted(() => {
+    document.removeEventListener('click', handleClickOutside)
+  })
+
+  // Watch for route changes
+  import { watch } from 'vue'
+  watch(() => props.titleName, async (newTitleName) => {
+    if (newTitleName) {
+      await loadTitleData()
+    }
+  })
+
+  watch(() => route.query.section, (newTab) => {
+    if (newTab) {
+      initialTab.value = newTab
+    }
+  })
 </script>

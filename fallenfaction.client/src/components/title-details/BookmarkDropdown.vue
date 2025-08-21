@@ -16,7 +16,14 @@
     <div class="bookmark-dropdown"
          :class="{ 'show': showDropdown }"
          ref="dropdown">
-      <template v-if="loading">
+      <template v-if="!isAuthenticated">
+        <div class="bookmark-item" @click="goToLogin">
+          <i class="fas fa-sign-in-alt"></i>
+          <span>Sign in to bookmark</span>
+        </div>
+      </template>
+
+      <template v-else-if="loading">
         <div class="bookmark-item">
           <i class="fas fa-spinner fa-spin"></i>
           <span>Loading...</span>
@@ -65,7 +72,6 @@
   </div>
 </template>
 
-// BookmarkDropdown.vue - Updated to use Axios-based ApiClient
 <script>
   export default {
     name: 'BookmarkDropdown',
@@ -83,12 +89,14 @@
         folders: [],
         currentBookmark: null,
         showDropdown: false,
-        loading: true,
-        lastError: null
+        loading: false, // Start as false for guests
+        lastError: null,
+        isAuthenticated: false
       }
     },
     computed: {
       bookmarkStatus() {
+        if (!this.isAuthenticated) return 'Sign in to bookmark'
         if (this.loading) return 'Loading...'
         if (this.isBookmarked) {
           return this.currentFolderName
@@ -105,34 +113,61 @@
       }
     },
     async mounted() {
-      await this.loadFolders()
+      // Check authentication status first
+      this.checkAuthStatus()
+
+      // Only load folders if user is authenticated
+      if (this.isAuthenticated) {
+        await this.loadFolders()
+      }
+
       document.addEventListener('click', this.handleClickOutside)
     },
     beforeUnmount() {
       document.removeEventListener('click', this.handleClickOutside)
     },
     methods: {
+      // FIXED: Check authentication without throwing errors
+      checkAuthStatus() {
+        try {
+          const token = localStorage.getItem('authToken')
+          const user = localStorage.getItem('authUser')
+          this.isAuthenticated = !!(token && user)
+          console.log('BookmarkDropdown auth check:', { isAuthenticated: this.isAuthenticated })
+        } catch (err) {
+          console.error('Error checking auth status in BookmarkDropdown:', err)
+          this.isAuthenticated = false
+        }
+      },
+
       toggleDropdown() {
         this.showDropdown = !this.showDropdown
       },
+
       closeDropdown() {
         this.showDropdown = false
       },
+
       handleClickOutside(event) {
         if (this.showDropdown && this.$refs.dropdown && !this.$el.contains(event.target)) {
           this.closeDropdown()
         }
       },
 
-      // UPDATED: Use axios-based apiClient instead of safeFetch
+      // FIXED: Only load folders for authenticated users
       async loadFolders() {
+        // Don't load if not authenticated
+        if (!this.isAuthenticated) {
+          return
+        }
+
         this.loading = true
         this.lastError = null
 
         try {
           console.log('Loading bookmark folders for title:', this.titleId)
 
-          // Use the injected apiClient - much cleaner!
+          // Use the injected apiClient
           const response = await this.apiClient.get(`/Bookmarks/GetFolders?titleId=${this.titleId}`)
 
           // Axios automatically handles JSON parsing
@@ -164,21 +199,22 @@
         } catch (error) {
           console.error('Error loading bookmark folders:', error)
 
-          // Handle different error types
+          // Handle different error types gracefully
           if (error.response?.status === 401 || error.response?.status === 403) {
-            this.lastError = 'Please log in to bookmark titles'
+            // User is not authenticated or lost authentication
+            this.isAuthenticated = false
+            this.lastError = null // Don't show error for auth issues
           } else {
             this.lastError = error.response?.data?.message || error.message || 'Failed to load bookmark folders'
+            this.showErrorToast(this.lastError)
           }
-
-          this.showErrorToast(this.lastError)
         } finally {
           this.loading = false
         }
       },
 
       async moveToFolder(folderId) {
-        if (this.loading) return
+        if (this.loading || !this.isAuthenticated) return
 
         // If already in this folder, do nothing
         if (this.isBookmarked && this.currentBookmark.folderId === folderId) {
@@ -219,15 +255,21 @@
 
         } catch (error) {
           console.error('Error moving bookmark:', error)
-          this.lastError = error.response?.data?.message || error.message || 'Failed to move bookmark'
-          this.showErrorToast(this.lastError)
+
+          if (error.response?.status === 401 || error.response?.status === 403) {
+            this.isAuthenticated = false
+            this.goToLogin()
+          } else {
+            this.lastError = error.response?.data?.message || error.message || 'Failed to move bookmark'
+            this.showErrorToast(this.lastError)
+          }
         } finally {
           this.loading = false
         }
       },
 
       async removeBookmark() {
-        if (!this.currentBookmark || this.loading) return
+        if (!this.currentBookmark || this.loading || !this.isAuthenticated) return
 
         this.loading = true
         this.lastError = null
@@ -256,11 +298,23 @@
 
         } catch (error) {
           console.error('Error removing bookmark:', error)
-          this.lastError = error.response?.data?.message || error.message || 'Failed to remove bookmark'
-          this.showErrorToast(this.lastError)
+
+          if (error.response?.status === 401 || error.response?.status === 403) {
+            this.isAuthenticated = false
+            this.goToLogin()
+          } else {
+            this.lastError = error.response?.data?.message || error.message || 'Failed to remove bookmark'
+            this.showErrorToast(this.lastError)
+          }
         } finally {
           this.loading = false
         }
+      },
+
+      // FIXED: Add goToLogin method
+      goToLogin() {
+        const returnUrl = encodeURIComponent(window.location.pathname + window.location.search)
+        window.location.href = `/account/login?returnUrl=${returnUrl}`
       },
 
       // Keep existing toast methods

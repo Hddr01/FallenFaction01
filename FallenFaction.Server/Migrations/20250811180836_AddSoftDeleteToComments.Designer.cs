@@ -4,6 +4,7 @@ using FallenFaction.Server.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FallenFaction.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250811180836_AddSoftDeleteToComments")]
+    partial class AddSoftDeleteToComments
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -588,8 +591,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.Property<string>("Content")
                         .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
@@ -601,27 +603,19 @@ namespace FallenFaction.Server.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("DislikesCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0);
+                        .HasColumnType("int");
 
                     b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
+                        .HasColumnType("bit");
 
                     b.Property<int>("LikesCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0);
+                        .HasColumnType("int");
 
                     b.Property<int?>("ParentCommentId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("PostedDate")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnType("datetime2");
 
                     b.Property<int?>("TitleId")
                         .HasColumnType("int");
@@ -659,9 +653,7 @@ namespace FallenFaction.Server.Migrations
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnType("datetime2");
 
                     b.Property<bool>("IsLike")
                         .HasColumnType("bit");
@@ -672,11 +664,10 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("CommentId");
 
-                    b.HasIndex("CommentId", "UserId")
-                        .IsUnique()
-                        .HasDatabaseName("IX_CommentReactions_CommentId_UserId");
+                    b.HasIndex("UserId", "CommentId")
+                        .IsUnique();
 
                     b.ToTable("CommentReactions");
                 });
@@ -1910,8 +1901,7 @@ namespace FallenFaction.Server.Migrations
 
                     b.HasOne("FallenFaction.Server.Data.Models.AppUser", "DeletedByUser")
                         .WithMany()
-                        .HasForeignKey("DeletedByUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .HasForeignKey("DeletedByUserId");
 
                     b.HasOne("FallenFaction.Server.Data.Models.Comment", "ParentComment")
                         .WithMany("Replies")
@@ -1947,7 +1937,7 @@ namespace FallenFaction.Server.Migrations
                     b.HasOne("FallenFaction.Server.Data.Models.Comment", "Comment")
                         .WithMany("Reactions")
                         .HasForeignKey("CommentId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.HasOne("FallenFaction.Server.Data.Models.AppUser", "User")
