@@ -1,7 +1,7 @@
 <template>
   <div class="chapter-container" :class="[currentTheme, readingDirection, { 'debug-mode': debugMode }]" id="chapterContainer">
     <!-- Manga Navbar -->
-    <div class="manga-navbar" :class="{ 'hidden': !uiVisible && isMobile }" id="mangaNavbar">
+    <div class="manga-navbar" :class="{ 'hidden': !uiVisible }" id="mangaNavbar">
       <div class="navbar-content">
         <div class="navbar-left">
           <button class="back-button" @click="goToTitleDetails">
@@ -14,7 +14,7 @@
           <div class="chapter-info">
             <h1 class="title-name" @click="goToTitleDetails">{{ chapterData?.titleName || 'Loading...' }}</h1>
             <div class="chapter-nav">
-              <button class="chapter-nav-btn" @click="gotoPrevChapter" :disabled="!chapterData?.previousChapterId">
+              <button class="chapter-nav-btn" @click="enhancedGotoPrevChapter" :disabled="!chapterData?.previousChapterId">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="m15 18-6-6 6-6" />
                 </svg>
@@ -23,7 +23,7 @@
                 Vol.{{ chapterData?.volumeNumber }} Ch.{{ chapterData?.chapterNumber }}
                 <span v-if="chapterData?.name">: {{ chapterData.name }}</span>
               </h2>
-              <button class="chapter-nav-btn" @click="gotoNextChapter" :disabled="!chapterData?.nextChapterId">
+              <button class="chapter-nav-btn" @click="enhancedGotoNextChapter" :disabled="!chapterData?.nextChapterId">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="m9 18 6-6-6-6" />
                 </svg>
@@ -90,27 +90,37 @@
       <div v-if="viewMode === 'single'" class="single-page-view">
         <!-- Content Area -->
         <div class="content-area" ref="singlePageContainer">
-          <div class="manga-image-container">
+          <div class="manga-image-container" ref="imageContainerRef">
             <img :src="getImageUrl(currentImage?.imagePath)"
                  :alt="`Page ${currentPage}`"
                  class="manga-image"
                  :style="imageStyles"
+                 ref="currentImageRef"
                  @error="handleImageError"
                  @load="handleImageLoad" />
+
+            <!-- Touch/Click Zones - Positioned on the image -->
+            <div class="tap-zones-on-image" ref="tapZonesRef">
+              <div class="tap-zone tap-zone-left"
+                   @click="enhancedHandleTapZoneClick('left', enhancedGoToPrevPage)"
+                   data-zone="Previous">
+              </div>
+              <div class="tap-zone tap-zone-center"
+                   @click="enhancedHandleTapZoneClick('center', toggleUI)"
+                   data-zone="Toggle UI">
+              </div>
+              <div class="tap-zone tap-zone-right"
+                   @click="enhancedHandleTapZoneClick('right', enhancedGoToNextPage)"
+                   data-zone="Next">
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- Touch Zones for Mobile - Cover entire viewport -->
-        <div v-if="isMobile" class="tap-zones-fullscreen">
-          <div class="tap-zone tap-zone-left" @click="goToPrevPage" data-zone="Previous"></div>
-          <div class="tap-zone tap-zone-center" @click="toggleUI" data-zone="Toggle UI"></div>
-          <div class="tap-zone tap-zone-right" @click="goToNextPage" data-zone="Next"></div>
-        </div>
-
         <!-- Page Indicator -->
-        <div class="page-indicator" :class="{ 'hidden': !uiVisible && isMobile }">
+        <div class="page-indicator" :class="{ 'hidden': !uiVisible }">
           <select v-model="currentPage"
-                  @change="changePage"
+                  @change="enhancedChangePage"
                   class="page-selector">
             <option v-for="page in totalPages" :key="page" :value="page">
               {{ page }} / {{ totalPages }}
@@ -123,7 +133,7 @@
       <div v-else class="all-pages-view">
         <div class="all-pages-container" ref="allPagesContainer">
           <div class="manga-content-wrapper">
-            <div class="manga-pages-wrapper" :style="{ gap: `${imageGap}px` }">
+            <div class="manga-pages-wrapper" :style="[{ gap: `${imageGap}px` }, mangaPagesWrapperStyles]">
               <div v-for="(image, index) in orderedImages"
                    :key="image.id"
                    class="manga-page-wrapper"
@@ -131,18 +141,37 @@
                 <div v-if="!hidePageNumbers" class="page-number-indicator">
                   Page {{ index + 1 }}
                 </div>
-                <img :src="getImageUrl(image.imagePath)"
-                     :alt="`Page ${index + 1}`"
-                     class="manga-image"
-                     :style="allPagesImageStyles"
-                     @error="handleImageError" />
+                <div class="manga-image-container">
+                  <img :src="getImageUrl(image.imagePath)"
+                       :alt="`Page ${index + 1}`"
+                       class="manga-image"
+                       :style="allPagesImageStyles"
+                       @error="handleImageError"
+                       @load="updateTapZonesDimensions" />
+
+                  <!-- Touch/Click Zones - On each image in all pages view -->
+                  <div class="tap-zones-on-image tap-zones-all-pages">
+                    <div class="tap-zone tap-zone-left"
+                         @click="enhancedHandleTapZoneClick('left', enhancedGotoPrevChapter)"
+                         data-zone="Previous Chapter">
+                    </div>
+                    <div class="tap-zone tap-zone-center"
+                         @click="enhancedHandleTapZoneClick('center', toggleUI)"
+                         data-zone="Toggle UI">
+                    </div>
+                    <div class="tap-zone tap-zone-right"
+                         @click="enhancedHandleTapZoneClick('right', enhancedGotoNextChapter)"
+                         data-zone="Next Chapter">
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
             <!-- Navigation Controls -->
             <div class="static-navigation">
               <div class="chapter-navigation-controls">
-                <button @click="gotoPrevChapter"
+                <button @click="enhancedGotoPrevChapter"
                         :disabled="!chapterData.previousChapterId"
                         class="nav-btn prev-chapter">
                   Previous Chapter
@@ -150,7 +179,7 @@
                 <button @click="goToTitleDetails" class="nav-btn back-to-title">
                   Back to Title
                 </button>
-                <button @click="gotoNextChapter"
+                <button @click="enhancedGotoNextChapter"
                         :disabled="!chapterData.nextChapterId"
                         class="nav-btn next-chapter">
                   Next Chapter
@@ -158,13 +187,6 @@
               </div>
             </div>
           </div>
-        </div>
-
-        <!-- Touch Zones for All Pages View - Cover the entire content area -->
-        <div v-if="isMobile" class="tap-zones-all-pages">
-          <div class="tap-zone tap-zone-left" @click="gotoPrevChapter" data-zone="Previous Chapter"></div>
-          <div class="tap-zone tap-zone-center" @click="toggleUI" data-zone="Toggle UI"></div>
-          <div class="tap-zone tap-zone-right" @click="gotoNextChapter" data-zone="Next Chapter"></div>
         </div>
       </div>
     </div>
@@ -421,12 +443,20 @@
   const currentPage = ref(1)
   const debugMode = ref(false)
 
+  // Refs for image handling
+  const currentImageRef = ref(null)
+  const tapZonesRef = ref(null)
+  const imageContainerRef = ref(null)
+
   // UI State
   const uiVisible = ref(true)
   const showSettings = ref(false)
   const showChapterList = ref(false)
   const currentHint = ref('')
   const hintOpacity = ref(0)
+
+  // Dynamic navbar height tracking
+  const navbarHeight = ref(0)
 
   // Settings State
   const viewMode = ref('single') // 'single' or 'all'
@@ -439,7 +469,262 @@
   const hidePageNumbers = ref(false)
   const hideHints = ref(false)
 
-  // Computed
+  // ===================================================================
+  // ENHANCED SCROLL POSITION MEMORY SYSTEM
+  // ===================================================================
+
+  // Navigation history for tracking scroll positions with proper bidirectional support
+  const navigationHistory = ref([])
+  const currentHistoryIndex = ref(-1)
+  const maxHistorySize = 50
+
+  // Scroll position tracking with enhanced keys
+  const scrollPositions = ref(new Map())
+  const isRestoringScroll = ref(false)
+  const scrollRestoreTimeout = ref(null)
+  let scrollSaveTimer = null
+
+  // Generate unique key for current location
+  const getCurrentLocationKey = () => {
+    return `${props.titleName}/${props.chapterName}/v${props.volumeNumber}/t${props.teamId}/${viewMode.value}/${currentPage.value}`
+  }
+
+  // Enhanced save scroll position with better tracking
+  const saveScrollPosition = () => {
+    if (isRestoringScroll.value) return
+
+    const key = getCurrentLocationKey()
+    const scrollY = window.scrollY || window.pageYOffset || 0
+    const scrollX = window.scrollX || window.pageXOffset || 0
+
+    const position = {
+      key,
+      scrollY,
+      scrollX,
+      timestamp: Date.now(),
+      viewMode: viewMode.value,
+      page: currentPage.value,
+      titleName: props.titleName,
+      chapterName: props.chapterName,
+      volumeNumber: props.volumeNumber,
+      teamId: props.teamId
+    }
+
+    scrollPositions.value.set(key, position)
+
+    // Also save to localStorage for persistence
+    try {
+      const savedPositions = JSON.parse(localStorage.getItem('chapterScrollPositions') || '{}')
+      savedPositions[key] = position
+
+      // Keep only recent positions (last 200 for better forward navigation)
+      const entries = Object.entries(savedPositions)
+      if (entries.length > 200) {
+        entries.sort((a, b) => b[1].timestamp - a[1].timestamp)
+        const recent = Object.fromEntries(entries.slice(0, 200))
+        localStorage.setItem('chapterScrollPositions', JSON.stringify(recent))
+      } else {
+        localStorage.setItem('chapterScrollPositions', JSON.stringify(savedPositions))
+      }
+    } catch (error) {
+      console.warn('Failed to save scroll position to localStorage:', error)
+    }
+
+    console.log('📍 Saved scroll position:', { key, scrollY, scrollX })
+  }
+
+  // Enhanced restore scroll position with better fallback handling
+  const restoreScrollPosition = (key, fallbackBehavior = 'top') => {
+    let position = scrollPositions.value.get(key)
+
+    // Try to load from localStorage if not in memory
+    if (!position) {
+      try {
+        const savedPositions = JSON.parse(localStorage.getItem('chapterScrollPositions') || '{}')
+        position = savedPositions[key]
+        if (position) {
+          scrollPositions.value.set(key, position)
+        }
+      } catch (error) {
+        console.warn('Failed to load scroll position from localStorage:', error)
+      }
+    }
+
+    if (position) {
+      console.log('🔄 Restoring scroll position:', { key, position })
+      isRestoringScroll.value = true
+
+      if (scrollRestoreTimeout.value) {
+        clearTimeout(scrollRestoreTimeout.value)
+      }
+
+      nextTick(() => {
+        scrollRestoreTimeout.value = setTimeout(() => {
+          window.scrollTo({
+            top: position.scrollY,
+            left: position.scrollX,
+            behavior: 'auto'
+          })
+
+          setTimeout(() => {
+            isRestoringScroll.value = false
+          }, 500)
+        }, 100)
+      })
+
+      return true
+    } else {
+      console.log('🆕 No saved position found, using fallback:', fallbackBehavior)
+      nextTick(() => {
+        if (fallbackBehavior === 'bottom') {
+          scrollToBottom()
+        } else {
+          scrollToTop()
+        }
+      })
+      return false
+    }
+  }
+
+  // Enhanced navigation history tracking with proper direction support
+  const addToNavigationHistory = (direction = 'forward', targetKey = null) => {
+    const currentKey = getCurrentLocationKey()
+
+    const historyItem = {
+      key: currentKey,
+      direction,
+      timestamp: Date.now(),
+      titleName: props.titleName,
+      chapterName: props.chapterName,
+      volumeNumber: props.volumeNumber,
+      teamId: props.teamId,
+      viewMode: viewMode.value,
+      page: currentPage.value,
+      targetKey // The key we're navigating to
+    }
+
+    // Handle different navigation scenarios
+    if (direction === 'forward') {
+      // For forward navigation, we might be going to a new location or revisiting
+      // Truncate future history if we're in the middle of the history stack
+      if (currentHistoryIndex.value < navigationHistory.value.length - 1) {
+        navigationHistory.value = navigationHistory.value.slice(0, currentHistoryIndex.value + 1)
+      }
+
+      navigationHistory.value.push(historyItem)
+      currentHistoryIndex.value = navigationHistory.value.length - 1
+    } else if (direction === 'backward') {
+      // For backward navigation, we don't add to history, just move the index
+      if (currentHistoryIndex.value > 0) {
+        currentHistoryIndex.value--
+      }
+    }
+
+    // Keep history size manageable
+    if (navigationHistory.value.length > maxHistorySize) {
+      const removeCount = navigationHistory.value.length - maxHistorySize
+      navigationHistory.value = navigationHistory.value.slice(removeCount)
+      currentHistoryIndex.value = Math.max(0, currentHistoryIndex.value - removeCount)
+    }
+
+    console.log('📚 Navigation history updated:', {
+      direction,
+      currentIndex: currentHistoryIndex.value,
+      historyLength: navigationHistory.value.length,
+      currentKey,
+      targetKey
+    })
+  }
+
+  // Enhanced check for whether we're revisiting a previous location
+  const isRevisitingLocation = (targetKey) => {
+    // Check if we have a saved scroll position for this exact location
+    return scrollPositions.value.has(targetKey)
+  }
+
+  // Enhanced check for going back in navigation history
+  const isGoingBackInHistory = (targetKey) => {
+    // Check if the target key exists in our recent navigation history
+    if (currentHistoryIndex.value > 0) {
+      // Look back through recent history to see if we're returning to a previous location
+      for (let i = currentHistoryIndex.value - 1; i >= Math.max(0, currentHistoryIndex.value - 5); i--) {
+        const historyItem = navigationHistory.value[i]
+        if (historyItem && historyItem.key === targetKey) {
+          return true
+        }
+      }
+    }
+    return false
+  }
+
+  // Throttled scroll listener
+  const handleScroll = () => {
+    if (isRestoringScroll.value) return
+
+    if (scrollSaveTimer) {
+      clearTimeout(scrollSaveTimer)
+    }
+
+    scrollSaveTimer = setTimeout(() => {
+      saveScrollPosition()
+    }, 500)
+  }
+
+  // Setup scroll tracking
+  const setupScrollTracking = () => {
+    try {
+      const savedPositions = JSON.parse(localStorage.getItem('chapterScrollPositions') || '{}')
+      Object.entries(savedPositions).forEach(([key, position]) => {
+        scrollPositions.value.set(key, position)
+      })
+      console.log('📋 Loaded saved scroll positions:', scrollPositions.value.size)
+    } catch (error) {
+      console.warn('Failed to load saved scroll positions:', error)
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    window.addEventListener('beforeunload', () => {
+      saveScrollPosition()
+    })
+  }
+
+  const cleanupScrollTracking = () => {
+    window.removeEventListener('scroll', handleScroll)
+    window.removeEventListener('beforeunload', saveScrollPosition)
+
+    if (scrollSaveTimer) {
+      clearTimeout(scrollSaveTimer)
+    }
+
+    if (scrollRestoreTimeout.value) {
+      clearTimeout(scrollRestoreTimeout.value)
+    }
+  }
+
+  // Debug function to inspect scroll positions
+  const debugScrollPositions = () => {
+    console.log('📋 Current scroll positions:', {
+      memoryCount: scrollPositions.value.size,
+      currentKey: getCurrentLocationKey(),
+      historyIndex: currentHistoryIndex.value,
+      historyLength: navigationHistory.value.length,
+      positions: Array.from(scrollPositions.value.entries()).map(([key, pos]) => ({
+        key,
+        scrollY: pos.scrollY,
+        timestamp: new Date(pos.timestamp).toLocaleTimeString()
+      }))
+    })
+  }
+
+  // Export debug function for development use
+  if (typeof window !== 'undefined') {
+    window.debugScrollPositions = debugScrollPositions
+  }
+
+  // ===================================================================
+  // COMPUTED PROPERTIES
+  // ===================================================================
+
   const isMobile = computed(() => {
     return window.innerWidth <= 768
   })
@@ -456,18 +741,250 @@
     return orderedImages.value[currentPage.value - 1] || null
   })
 
-  const imageStyles = computed(() => ({
-    filter: `brightness(${brightness.value}%)`,
-    maxWidth: imageSize.value === 'width' ? '100%' : 'none',
-    maxHeight: imageSize.value === 'height' ? 'calc(100vh - 60px)' : 'none'
+  // FIXED: Improved image styles calculations
+  const imageStyles = computed(() => {
+    const availableHeight = `calc(100vh - ${navbarHeight.value}px - 2rem)` // Account for navbar and padding
+
+    return {
+      filter: `brightness(${brightness.value}%)`,
+      maxWidth: imageSize.value === 'width' ? '100%' : 'none',
+      maxHeight: imageSize.value === 'height' ? availableHeight : 'none',
+      height: 'auto',
+      objectFit: 'contain'
+    }
+  })
+
+  const mangaPagesWrapperStyles = computed(() => ({
+    maxWidth: `${containerWidth.value}%`,
+    margin: '0 auto'
   }))
 
-  const allPagesImageStyles = computed(() => ({
-    filter: `brightness(${brightness.value}%)`,
-    maxWidth: `${containerWidth.value}%`
-  }))
+  // FIXED: All pages image styles with proper height calculations
+  const allPagesImageStyles = computed(() => {
+    return {
+      filter: `brightness(${brightness.value}%)`,
+      width: '100%',
+      height: 'auto',
+      maxWidth: '100%',
+      display: 'block',
+      objectFit: 'contain'
+    }
+  })
 
-  // Methods
+  // FIXED: Function to calculate and update navbar height
+  const updateNavbarHeight = () => {
+    nextTick(() => {
+      const navbar = document.getElementById('mangaNavbar')
+      if (navbar) {
+        navbarHeight.value = navbar.offsetHeight
+      }
+    })
+  }
+
+  // ===================================================================
+  // ENHANCED NAVIGATION WITH SCROLL MEMORY
+  // ===================================================================
+
+  // Enhanced goToNextPage with scroll restoration
+  const enhancedGoToNextPage = () => {
+    if (currentPage.value < totalPages.value) {
+      const newPage = currentPage.value + 1
+      const targetKey = `${props.titleName}/${props.chapterName}/v${props.volumeNumber}/t${props.teamId}/${viewMode.value}/${newPage}`
+
+      // Always save current position before navigating
+      saveScrollPosition()
+
+      // Add to navigation history
+      addToNavigationHistory('forward', targetKey)
+
+      // Update current page and URL
+      currentPage.value = newPage
+      updateUrl({ page: newPage })
+
+      // Check if we're revisiting this page and restore position if available
+      if (isRevisitingLocation(targetKey)) {
+        console.log('🔄 Revisiting next page, restoring scroll position')
+        restoreScrollPosition(targetKey, 'top')
+      } else {
+        console.log('🆕 New next page, scrolling to top')
+        scrollToTop()
+      }
+    } else {
+      enhancedGotoNextChapter()
+    }
+  }
+
+  // Enhanced goToPrevPage (improved version)
+  const enhancedGoToPrevPage = () => {
+    if (currentPage.value > 1) {
+      const newPage = currentPage.value - 1
+      const targetKey = `${props.titleName}/${props.chapterName}/v${props.volumeNumber}/t${props.teamId}/${viewMode.value}/${newPage}`
+
+      // Always save current position before navigating
+      saveScrollPosition()
+
+      // For backward navigation, we move back in history rather than adding
+      addToNavigationHistory('backward', targetKey)
+
+      // Update current page and URL
+      currentPage.value = newPage
+      updateUrl({ page: newPage })
+
+      // Always try to restore position for previous pages
+      if (isRevisitingLocation(targetKey)) {
+        console.log('🔄 Going back to previous page, restoring scroll position')
+        restoreScrollPosition(targetKey, 'top')
+      } else {
+        console.log('🆕 New previous page, scrolling to top')
+        scrollToTop()
+      }
+    } else {
+      enhancedGotoPrevChapter()
+    }
+  }
+
+  // Enhanced chapter navigation with better scroll restoration
+  const enhancedGotoNextChapter = () => {
+    if (!chapterData.value?.nextChapterId) {
+      goToTitleDetails()
+      return
+    }
+
+    const targetKey = `${chapterData.value.titleName}/${chapterData.value.nextChapterName}/v${chapterData.value.nextChapterVolume}/t${chapterData.value.nextChapterTeamId}/${viewMode.value}/1`
+
+    // Save current position before navigating
+    saveScrollPosition()
+
+    // Add to navigation history
+    addToNavigationHistory('forward', targetKey)
+
+    const url = buildChapterUrl(
+      chapterData.value.titleName,
+      chapterData.value.nextChapterName,
+      chapterData.value.nextChapterVolume,
+      chapterData.value.nextChapterTeamId,
+      {
+        viewMode: viewMode.value,
+        page: 1,
+        restoreScroll: isRevisitingLocation(targetKey) ? 'true' : 'false',
+        scrollTo: isRevisitingLocation(targetKey) ? 'restore' : 'top'
+      }
+    )
+
+    console.log('➡️ Navigating to next chapter:', {
+      targetKey,
+      hasPosition: isRevisitingLocation(targetKey)
+    })
+
+    router.push(url)
+  }
+
+  const enhancedGotoPrevChapter = () => {
+    if (!chapterData.value?.previousChapterId) {
+      goToTitleDetails()
+      return
+    }
+
+    const targetKey = `${chapterData.value.titleName}/${chapterData.value.previousChapterName}/v${chapterData.value.previousChapterVolume}/t${chapterData.value.previousChapterTeamId}/${viewMode.value}/${chapterData.value.previousChapterPageCount || 1}`
+
+    // Save current position before navigating
+    saveScrollPosition()
+
+    // Add to navigation history as backward movement
+    addToNavigationHistory('backward', targetKey)
+
+    const url = buildChapterUrl(
+      chapterData.value.titleName,
+      chapterData.value.previousChapterName,
+      chapterData.value.previousChapterVolume,
+      chapterData.value.previousChapterTeamId,
+      {
+        viewMode: viewMode.value,
+        page: chapterData.value.previousChapterPageCount || 1,
+        restoreScroll: isRevisitingLocation(targetKey) ? 'true' : 'false',
+        scrollTo: isRevisitingLocation(targetKey) ? 'restore' : 'bottom'
+      }
+    )
+
+    console.log('⬅️ Navigating to previous chapter:', {
+      targetKey,
+      hasPosition: isRevisitingLocation(targetKey)
+    })
+
+    router.push(url)
+  }
+
+  // Enhanced changePage with better scroll restoration
+  const enhancedChangePage = (page) => {
+    if (typeof page === 'object') {
+      page = parseInt(page.target.value)
+    }
+
+    const newPage = Math.max(1, Math.min(page, totalPages.value))
+    const oldPage = currentPage.value
+
+    if (newPage === oldPage) return
+
+    const targetKey = `${props.titleName}/${props.chapterName}/v${props.volumeNumber}/t${props.teamId}/${viewMode.value}/${newPage}`
+
+    // Save current position before changing page
+    saveScrollPosition()
+
+    // Determine direction and add to history appropriately
+    const direction = newPage > oldPage ? 'forward' : 'backward'
+    addToNavigationHistory(direction, targetKey)
+
+    currentPage.value = newPage
+    updateUrl({ page: newPage })
+
+    if (viewMode.value === 'single') {
+      // For single page view, try to restore position if available
+      if (isRevisitingLocation(targetKey)) {
+        console.log('🔄 Revisiting page via selector, restoring scroll position')
+        restoreScrollPosition(targetKey, 'top')
+      } else {
+        console.log('🆕 New page via selector, scrolling to top')
+        scrollToTop()
+      }
+    }
+  }
+
+  // Enhanced tap zone click handler with scroll memory
+  const enhancedHandleTapZoneClick = (zone, action) => {
+    // Save position before any navigation action
+    saveScrollPosition()
+
+    if (typeof action === 'function') {
+      action()
+    }
+
+    // Show hints if enabled
+    if (!hideHints.value) {
+      let hintMessage = ''
+      switch (zone) {
+        case 'left':
+          hintMessage = viewMode.value === 'single' ? 'Previous page' : 'Previous chapter'
+          break
+        case 'center':
+          hintMessage = 'Toggle controls'
+          break
+        case 'right':
+          hintMessage = viewMode.value === 'single' ? 'Next page' : 'Next chapter'
+          break
+      }
+      if (hintMessage) {
+        const deviceType = window.innerWidth <= 768 ? 'mobile' : 'desktop'
+        const actionPrefix = deviceType === 'mobile' ? 'Tap' : 'Click'
+        showHint(`${actionPrefix}: ${hintMessage}`)
+      }
+    }
+  }
+
+  // ===================================================================
+  // CORE FUNCTIONALITY
+  // ===================================================================
+
+  // FIXED: Enhanced loadChapter with proper scroll handling
   const loadChapter = async () => {
     try {
       loading.value = true
@@ -491,8 +1008,19 @@
         const urlPage = parseInt(route.query.page) || 1
         currentPage.value = Math.max(1, Math.min(urlPage, totalPages.value))
 
-        // Set view mode from URL
-        viewMode.value = route.query.viewMode || 'single'
+        // FIXED: Proper preference priority - URL param > saved preference > default
+        const urlViewMode = route.query.viewMode
+        const savedViewMode = loadPreference('viewMode', 'single')
+
+        if (urlViewMode) {
+          // URL has explicit viewMode, use it and save it
+          viewMode.value = urlViewMode
+          savePreference('viewMode', urlViewMode)
+        } else {
+          // No URL viewMode, use saved preference and update URL
+          viewMode.value = savedViewMode
+          updateUrl({ viewMode: savedViewMode })
+        }
 
         // Load chapter list for navigation
         await loadChaptersList()
@@ -502,6 +1030,13 @@
 
         // Update page title
         document.title = `${chapterData.value.titleName} - ${chapterData.value.name || `Ch.${chapterData.value.chapterNumber}`}`
+
+        // FIXED: Handle scroll behavior after chapter loads
+        await nextTick()
+        enhancedHandleScrollBehavior()
+
+        // Update navbar height after content loads
+        updateNavbarHeight()
 
       } else {
         error.value = result.error || 'Chapter not found'
@@ -544,65 +1079,6 @@
     loadChapter()
   }
 
-  // Navigation Methods
-  const goToPrevPage = () => {
-    if (currentPage.value > 1) {
-      changePage(currentPage.value - 1)
-    } else {
-      gotoPrevChapter()
-    }
-  }
-
-  const goToNextPage = () => {
-    if (currentPage.value < totalPages.value) {
-      changePage(currentPage.value + 1)
-    } else {
-      gotoNextChapter()
-    }
-  }
-
-  const changePage = (page) => {
-    if (typeof page === 'object') {
-      page = parseInt(page.target.value)
-    }
-
-    const newPage = Math.max(1, Math.min(page, totalPages.value))
-    currentPage.value = newPage
-
-    // Update URL
-    updateUrl({ page: newPage })
-  }
-
-  const gotoPrevChapter = () => {
-    if (!chapterData.value?.previousChapterId) {
-      goToTitleDetails()
-      return
-    }
-
-    const url = `/${chapterData.value.titleName}/chapter/${chapterData.value.previousChapterName}/v${chapterData.value.previousChapterVolume}/t${chapterData.value.previousChapterTeamId}`
-    const query = {
-      viewMode: viewMode.value,
-      page: chapterData.value.previousChapterPageCount || 1
-    }
-
-    router.push({ path: url, query })
-  }
-
-  const gotoNextChapter = () => {
-    if (!chapterData.value?.nextChapterId) {
-      goToTitleDetails()
-      return
-    }
-
-    const url = `/${chapterData.value.titleName}/chapter/${chapterData.value.nextChapterName}/v${chapterData.value.nextChapterVolume}/t${chapterData.value.nextChapterTeamId}`
-    const query = {
-      viewMode: viewMode.value,
-      page: 1
-    }
-
-    router.push({ path: url, query })
-  }
-
   // FIXED: Navigation to title details page - use correct router path
   const goToTitleDetails = () => {
     const titleName = chapterData.value?.titleName || props.titleName
@@ -610,13 +1086,19 @@
   }
 
   const goToChapter = (chapter) => {
-    const url = `/${chapterData.value.titleName}/chapter/${chapter.name || chapter.chapterNumber}/v${chapter.volumeNumber}/t${chapter.teamId}`
-    const query = {
-      viewMode: viewMode.value,
-      page: 1
-    }
+    const url = buildChapterUrl(
+      chapterData.value.titleName,
+      chapter.name || chapter.chapterNumber,
+      chapter.volumeNumber,
+      chapter.teamId,
+      {
+        viewMode: viewMode.value,
+        page: 1,
+        restoreScroll: 'false'
+      }
+    )
 
-    router.push({ path: url, query })
+    router.push(url)
     toggleChapterList()
   }
 
@@ -626,7 +1108,8 @@
     savePreference('uiVisible', uiVisible.value)
 
     if (!hideHints.value) {
-      showHint('Tap center to toggle controls')
+      const deviceType = window.innerWidth <= 768 ? 'Tap' : 'Click'
+      showHint(`${deviceType} center to toggle UI`)
     }
   }
 
@@ -661,11 +1144,46 @@
     }, 2000)
   }
 
-  // Settings Methods
+  // FIXED: Enhanced setViewMode to handle scroll position
   const setViewMode = (mode) => {
     viewMode.value = mode
+    // Always update URL when view mode changes
     updateUrl({ viewMode: mode })
     savePreference('viewMode', mode)
+
+    // FIXED: Reset scroll position when changing view modes
+    nextTick(() => {
+      scrollToTop()
+
+      // Update tap zones only when switching to single page view
+      if (mode === 'single') {
+        updateTapZonesDimensions()
+      }
+    })
+  }
+
+  // FIXED: Enhanced URL builder with scroll behavior
+  const buildChapterUrl = (titleName, chapterName, volume, teamId, options = {}) => {
+    const baseUrl = `/${encodeURIComponent(titleName)}/chapter/${chapterName}/v${volume}/t${teamId}`
+    const params = new URLSearchParams()
+
+    // Include current user preferences
+    params.set('viewMode', options.viewMode || viewMode.value)
+
+    if (options.page) {
+      params.set('page', options.page)
+    }
+
+    // FIXED: Add scroll behavior to URL for proper handling
+    if (options.scrollTo) {
+      params.set('scrollTo', options.scrollTo)
+    }
+
+    if (options.restoreScroll) {
+      params.set('restoreScroll', options.restoreScroll)
+    }
+
+    return `${baseUrl}?${params.toString()}`
   }
 
   const setTheme = (theme) => {
@@ -681,6 +1199,13 @@
   const setImageSize = (size) => {
     imageSize.value = size
     savePreference('imageSize', size)
+
+    // Update tap zones only for single page view
+    if (viewMode.value === 'single') {
+      nextTick(() => {
+        updateTapZonesDimensions()
+      })
+    }
   }
 
   const setBrightness = () => {
@@ -693,6 +1218,13 @@
 
   const setContainerWidth = () => {
     savePreference('containerWidth', containerWidth.value)
+
+    // Update tap zones only for single page view
+    if (viewMode.value === 'single') {
+      nextTick(() => {
+        updateTapZonesDimensions()
+      })
+    }
   }
 
   const setHidePageNumbers = () => {
@@ -715,6 +1247,100 @@
 
   const handleImageLoad = () => {
     // Image loaded successfully
+    updateTapZonesDimensions()
+  }
+
+  // FIXED: Improved tap zones positioning for all devices
+  const updateTapZonesDimensions = () => {
+    // Only handle single page view - all pages view uses full-area tap zones
+    if (viewMode.value !== 'single') return
+
+    if (!currentImageRef.value || !tapZonesRef.value) return
+
+    nextTick(() => {
+      const img = currentImageRef.value
+      const tapZones = tapZonesRef.value
+
+      if (img && tapZones && img.complete) {
+        const imgRect = img.getBoundingClientRect()
+        const containerRect = img.parentElement.getBoundingClientRect()
+
+        // Calculate the position relative to the container
+        const left = imgRect.left - containerRect.left
+        const top = imgRect.top - containerRect.top
+
+        // Apply the exact image dimensions and position to tap zones
+        tapZones.style.left = `${left}px`
+        tapZones.style.top = `${top}px`
+        tapZones.style.width = `${imgRect.width}px`
+        tapZones.style.height = `${imgRect.height}px`
+        tapZones.style.right = 'auto'
+        tapZones.style.bottom = 'auto'
+      }
+    })
+  }
+
+  // Enhanced method to handle scroll behavior based on navigation context
+  const enhancedHandleScrollBehavior = () => {
+    const restoreScroll = route.query.restoreScroll
+    const scrollTo = route.query.scrollTo
+    const currentKey = getCurrentLocationKey()
+
+    console.log('🎯 Handling scroll behavior:', { restoreScroll, scrollTo, currentKey })
+
+    if (restoreScroll === 'true' || scrollTo === 'restore') {
+      // Try to restore the exact position for this location
+      const restored = restoreScrollPosition(currentKey)
+      if (!restored && scrollTo) {
+        // Fallback to specified scroll behavior
+        if (scrollTo === 'bottom') {
+          setTimeout(() => scrollToBottom(), 100)
+        } else {
+          scrollToTop()
+        }
+      }
+    } else if (viewMode.value === 'single') {
+      scrollToTop()
+    } else if (viewMode.value === 'all') {
+      if (scrollTo === 'bottom') {
+        setTimeout(() => scrollToBottom(), 100)
+      } else {
+        scrollToTop()
+      }
+    }
+
+    // Clean up the scroll parameters from URL after handling
+    const query = { ...route.query }
+    delete query.scrollTo
+    delete query.restoreScroll
+    if (Object.keys(query).length !== Object.keys(route.query).length) {
+      router.replace({ query }).catch(() => { })
+    }
+  }
+
+  // FIXED: Utility methods for scroll management
+  const scrollToTop = () => {
+    // Instant scroll to top (no animation)
+    window.scrollTo({
+      top: 0,
+      behavior: 'auto' // Changed from 'smooth' to 'auto' for instant scroll
+    })
+
+    // Also ensure container scroll is reset
+    const container = document.getElementById('chapterContainer')
+    if (container) {
+      container.scrollTop = 0
+    }
+  }
+
+  const scrollToBottom = () => {
+    // Scroll to bottom for all-pages view when coming from previous chapter
+    setTimeout(() => {
+      window.scrollTo({
+        top: document.documentElement.scrollHeight,
+        behavior: 'auto'
+      })
+    }, 200) // Delay to ensure all images are rendered
   }
 
   const updateUrl = (params) => {
@@ -736,7 +1362,10 @@
   }
 
   const loadPreferences = () => {
-    viewMode.value = route.query.viewMode || loadPreference('viewMode', 'single')
+    // Load UI state first
+    uiVisible.value = loadPreference('uiVisible', true)
+
+    // Load all settings preferences
     currentTheme.value = loadPreference('theme', 'dark')
     readingDirection.value = loadPreference('readingDirection', 'horizontal')
     imageSize.value = loadPreference('imageSize', 'width')
@@ -745,10 +1374,12 @@
     containerWidth.value = loadPreference('containerWidth', 100)
     hidePageNumbers.value = loadPreference('hidePageNumbers', false)
     hideHints.value = loadPreference('hideHints', false)
-    uiVisible.value = loadPreference('uiVisible', true)
+
+    // FIXED: Don't set viewMode here - let loadChapter handle it with proper priority
+    // The viewMode will be set in loadChapter with proper URL > saved preference > default logic
   }
 
-  // Keyboard Navigation
+  // Enhanced keyboard navigation with scroll memory
   const handleKeydown = (e) => {
     if (showSettings.value || showChapterList.value) {
       if (e.key === 'Escape') {
@@ -762,17 +1393,17 @@
       case 'ArrowLeft':
         e.preventDefault()
         if (viewMode.value === 'single') {
-          goToPrevPage()
+          enhancedGoToPrevPage()
         } else {
-          gotoPrevChapter()
+          enhancedGotoPrevChapter()
         }
         break
       case 'ArrowRight':
         e.preventDefault()
         if (viewMode.value === 'single') {
-          goToNextPage()
+          enhancedGoToNextPage()
         } else {
-          gotoNextChapter()
+          enhancedGotoNextChapter()
         }
         break
       case 'Escape':
@@ -793,8 +1424,17 @@
     loadPreferences()
     await loadChapter()
 
+    // Setup scroll position tracking
+    setupScrollTracking()
+
     // Add event listeners
     document.addEventListener('keydown', handleKeydown)
+
+    // Add window resize listener to update navbar height and tap zones
+    window.addEventListener('resize', () => {
+      updateNavbarHeight()
+      updateTapZonesDimensions()
+    })
 
     // Handle fullscreen on double click
     document.addEventListener('dblclick', (e) => {
@@ -806,28 +1446,86 @@
         document.exitFullscreen()
       }
     })
+
+    // Initial navbar height calculation
+    updateNavbarHeight()
+
+    // Add current location to history after loading
+    await nextTick()
+    addToNavigationHistory('initial')
   })
 
   onUnmounted(() => {
     document.removeEventListener('keydown', handleKeydown)
+    window.removeEventListener('resize', () => {
+      updateNavbarHeight()
+      updateTapZonesDimensions()
+    })
+
+    // Cleanup scroll tracking
+    cleanupScrollTracking()
+    saveScrollPosition()
   })
 
-  // Watch for route changes
-  watch(() => route.query, (newQuery) => {
+  // FIXED: Enhanced route watcher to handle scroll behavior
+  watch(() => route.query, (newQuery, oldQuery) => {
+    // Handle page changes
     if (newQuery.page) {
       const page = parseInt(newQuery.page)
       if (page !== currentPage.value) {
         currentPage.value = Math.max(1, Math.min(page, totalPages.value))
       }
     }
+
+    // Handle view mode changes
     if (newQuery.viewMode && newQuery.viewMode !== viewMode.value) {
       viewMode.value = newQuery.viewMode
+      savePreference('viewMode', newQuery.viewMode)
+    }
+
+    // FIXED: Handle scroll behavior when route changes (chapter navigation)
+    if (newQuery.restoreScroll && newQuery.restoreScroll !== oldQuery?.restoreScroll) {
+      nextTick(() => {
+        enhancedHandleScrollBehavior()
+      })
     }
   })
 
-  // Watch for prop changes
-  watch(() => [props.titleName, props.chapterName, props.volumeNumber, props.teamId], () => {
-    loadChapter()
+  // FIXED: Watch for page changes to ensure proper scroll behavior
+  watch(currentPage, (newPage, oldPage) => {
+    // Only scroll to top for single page view when page changes within same chapter
+    if (viewMode.value === 'single' && newPage !== oldPage && !isRestoringScroll.value) {
+      nextTick(() => {
+        scrollToTop()
+        updateTapZonesDimensions()
+      })
+    }
+  }, { immediate: false })
+
+  // FIXED: Watch for chapter data changes to reset scroll
+  watch(chapterData, (newChapter, oldChapter) => {
+    if (newChapter && oldChapter && newChapter.id !== oldChapter.id) {
+      // Chapter changed - handle scroll behavior
+      nextTick(() => {
+        enhancedHandleScrollBehavior()
+      })
+    }
+  }, { immediate: false })
+
+  // Watch for image size changes to update tap zones (only for single page view)
+  watch([imageSize, brightness, containerWidth], () => {
+    if (viewMode.value === 'single') {
+      nextTick(() => {
+        updateTapZonesDimensions()
+      })
+    }
+  })
+
+  // Watch for UI visibility changes to update navbar height
+  watch(uiVisible, () => {
+    nextTick(() => {
+      updateNavbarHeight()
+    })
   })
 </script>
 
@@ -841,21 +1539,29 @@
     overflow-x: hidden;
   }
 
-    .chapter-container.dark {
-      --manga-bg: #0a0a0a;
-      --manga-text: #ffffff;
-      --manga-navbar-bg: rgba(0, 0, 0, 0.95);
-      --manga-border: #2a2a2a;
+  /* Mobile: Ensure proper viewport handling */
+  @media (max-width: 768px) {
+    .chapter-container {
+      width: 100vw;
+      overflow-x: hidden;
     }
+  }
 
-    .chapter-container.light {
-      --manga-bg: #ffffff;
-      --manga-text: #000000;
-      --manga-navbar-bg: rgba(255, 255, 255, 0.95);
-      --manga-border: #e0e0e0;
-    }
+  .chapter-container.dark {
+    --manga-bg: #0a0a0a;
+    --manga-text: #ffffff;
+    --manga-navbar-bg: rgba(0, 0, 0, 0.95);
+    --manga-border: #2a2a2a;
+  }
 
-  /* Manga Navbar */
+  .chapter-container.light {
+    --manga-bg: #ffffff;
+    --manga-text: #000000;
+    --manga-navbar-bg: rgba(255, 255, 255, 0.95);
+    --manga-border: #e0e0e0;
+  }
+
+  /* FIXED: Manga Navbar with proper height management */
   .manga-navbar {
     position: fixed;
     top: 0;
@@ -879,6 +1585,7 @@
     padding: 0.75rem 1rem;
     max-width: 1200px;
     margin: 0 auto;
+    min-height: 60px; /* Ensure consistent navbar height */
   }
 
   .navbar-left {
@@ -977,38 +1684,101 @@
     height: 100%;
   }
 
-  /* Content Areas */
+  /* Mobile: Ensure chapter content uses full viewport */
+  @media (max-width: 768px) {
+    .chapter-content {
+      width: 100vw;
+    }
+
+    .single-page-view {
+      width: 100vw;
+      max-width: 100vw;
+    }
+  }
+
+  /* FIXED: Content Areas with dynamic spacing */
   .content-area {
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    padding: 4rem 1rem 1rem;
+    padding-top: 80px; /* Fixed padding for navbar */
+    padding-bottom: 1rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
     position: relative;
   }
 
+  /* Mobile: Remove horizontal padding for edge-to-edge display */
+  @media (max-width: 768px) {
+    .content-area {
+      padding-top: 60px; /* Adjusted for mobile navbar */
+      padding-left: 0;
+      padding-right: 0;
+    }
+  }
+
+  /* FIXED: Manga image container with better centering */
   .manga-image-container {
     position: relative;
-    max-width: 100%;
-    max-height: calc(100vh - 120px);
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start; /* Changed from center to flex-start for proper top alignment */
+    width: 100%;
+    max-width: 100%;
   }
 
+  /* Mobile: Ensure image containers use full viewport width */
+  @media (max-width: 768px) {
+    .all-pages-view .manga-image-container {
+      width: 100vw;
+      max-width: 100vw;
+    }
+
+    .single-page-view .manga-image-container {
+      width: 100vw;
+      max-width: 100vw;
+    }
+  }
+
+  /* FIXED: Manga image with better sizing */
   .manga-image {
+    display: block;
     max-width: 100%;
+    width: auto;
     height: auto;
     object-fit: contain;
-    display: block;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   }
 
-  /* All Pages View */
+  /* Mobile: Ensure images can use full viewport width */
+  @media (max-width: 768px) {
+    .single-page-view .manga-image {
+      max-width: 100vw;
+      box-shadow: none; /* Remove shadow for cleaner edge-to-edge look */
+    }
+
+    .all-pages-view .manga-image {
+      box-shadow: none; /* Remove shadow for cleaner edge-to-edge look */
+    }
+  }
+
+  /* FIXED: All Pages View with proper spacing */
   .all-pages-container {
-    padding-top: 4rem;
+    padding-top: 80px; /* Fixed padding for navbar */
+    padding-bottom: 2rem;
     min-height: 100vh;
     position: relative;
+  }
+
+  /* Mobile: Remove all horizontal padding for true edge-to-edge display */
+  @media (max-width: 768px) {
+    .all-pages-container {
+      padding-top: 60px; /* Adjusted for mobile navbar */
+      padding-left: 0;
+      padding-right: 0;
+      padding-bottom: 2rem;
+    }
   }
 
   .manga-content-wrapper {
@@ -1017,10 +1787,27 @@
     padding: 0 1rem;
   }
 
+  /* Mobile: Remove horizontal padding for full-width images */
+  @media (max-width: 768px) {
+    .manga-content-wrapper {
+      padding: 0;
+      max-width: 100%;
+    }
+  }
+
   .manga-pages-wrapper {
     display: flex;
     flex-direction: column;
     align-items: center;
+    width: 100%;
+  }
+
+  /* Mobile: Override container width setting for full-width images */
+  @media (max-width: 768px) {
+    .manga-pages-wrapper {
+      max-width: 100% !important;
+      margin: 0 !important;
+    }
   }
 
   .manga-page-wrapper {
@@ -1029,6 +1816,13 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+  }
+
+  /* Mobile: Ensure page wrappers don't add any constraints */
+  @media (max-width: 768px) {
+    .manga-page-wrapper {
+      width: 100vw; /* Use viewport width for true edge-to-edge */
+    }
   }
 
   .page-number-indicator {
@@ -1066,29 +1860,23 @@
     cursor: pointer;
   }
 
-  /* FIXED: Enhanced Touch Zones - Full Screen Coverage */
-  .tap-zones-fullscreen {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+  /* Touch Zones - Completely invisible */
+  .tap-zones-on-image {
+    position: absolute;
+    /* Dynamic positioning via JavaScript - will be set to exact image bounds */
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
     pointer-events: none;
     z-index: 50;
   }
 
+  /* All pages view tap zones - cover the full image */
   .tap-zones-all-pages {
-    position: absolute;
-    top: 4rem; /* Start after navbar */
+    top: 0;
     left: 0;
-    right: 0;
-    bottom: 0;
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    pointer-events: none;
-    z-index: 50;
+    width: 100%;
+    height: 100%;
+    position: absolute !important; /* Override dynamic positioning */
   }
 
   .tap-zone {
@@ -1098,12 +1886,8 @@
     border: none;
     padding: 0;
     margin: 0;
-    transition: background-color 0.1s ease;
+    position: relative;
   }
-
-    .tap-zone:active {
-      background: rgba(255, 255, 255, 0.05);
-    }
 
   /* Debug Mode Visualization */
   .chapter-container.debug-mode .tap-zone {
@@ -1112,15 +1896,15 @@
   }
 
   .chapter-container.debug-mode .tap-zone-left {
-    background: rgba(255, 255, 0, 0.1);
+    background: rgba(255, 255, 0, 0.15);
   }
 
   .chapter-container.debug-mode .tap-zone-center {
-    background: rgba(0, 255, 0, 0.1);
+    background: rgba(0, 255, 0, 0.15);
   }
 
   .chapter-container.debug-mode .tap-zone-right {
-    background: rgba(0, 0, 255, 0.1);
+    background: rgba(0, 0, 255, 0.15);
   }
 
   .chapter-container.debug-mode .tap-zone::after {
@@ -1138,6 +1922,7 @@
     padding: 0.5rem;
     border-radius: 0.25rem;
     white-space: nowrap;
+    z-index: 10;
   }
 
   /* Static Navigation */
@@ -1464,12 +2249,13 @@
     pointer-events: none;
   }
 
-  /* Mobile Responsive */
+  /* FIXED: Mobile Responsive with proper spacing */
   @media (max-width: 768px) {
     .navbar-content {
       padding: 0.5rem;
       flex-wrap: wrap;
       gap: 0.5rem;
+      min-height: 50px; /* Smaller navbar on mobile */
     }
 
     .back-text {
@@ -1490,8 +2276,17 @@
       font-size: 0.875rem;
     }
 
+    /* FIXED: Mobile content area spacing */
     .content-area {
-      padding: 3rem 0.5rem 1rem;
+      padding-top: 60px; /* Adjusted for mobile navbar */
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .all-pages-container {
+      padding-top: 60px; /* Adjusted for mobile navbar */
+      padding-left: 0;
+      padding-right: 0;
     }
 
     .popup__content {

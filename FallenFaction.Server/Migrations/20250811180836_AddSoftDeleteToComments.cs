@@ -1,0 +1,80 @@
+﻿using System;
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace FallenFaction.Server.Migrations
+{
+    /// <inheritdoc />
+    public partial class AddSoftDeleteToComments : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.AddColumn<DateTime>(
+                name: "DeletedAt",
+                table: "Comments",
+                type: "datetime2",
+                nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "DeletedByUserId",
+                table: "Comments",
+                type: "nvarchar(450)",
+                nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "DeletionReason",
+                table: "Comments",
+                type: "nvarchar(max)",
+                nullable: true);
+
+            migrationBuilder.AddColumn<bool>(
+                name: "IsDeleted",
+                table: "Comments",
+                type: "bit",
+                nullable: false,
+                defaultValue: false);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Comments_DeletedByUserId",
+                table: "Comments",
+                column: "DeletedByUserId");
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_Comments_AspNetUsers_DeletedByUserId",
+                table: "Comments",
+                column: "DeletedByUserId",
+                principalTable: "AspNetUsers",
+                principalColumn: "Id");
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropForeignKey(
+                name: "FK_Comments_AspNetUsers_DeletedByUserId",
+                table: "Comments");
+
+            migrationBuilder.DropIndex(
+                name: "IX_Comments_DeletedByUserId",
+                table: "Comments");
+
+            migrationBuilder.DropColumn(
+                name: "DeletedAt",
+                table: "Comments");
+
+            migrationBuilder.DropColumn(
+                name: "DeletedByUserId",
+                table: "Comments");
+
+            migrationBuilder.DropColumn(
+                name: "DeletionReason",
+                table: "Comments");
+
+            migrationBuilder.DropColumn(
+                name: "IsDeleted",
+                table: "Comments");
+        }
+    }
+}

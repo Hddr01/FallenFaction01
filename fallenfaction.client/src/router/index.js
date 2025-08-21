@@ -38,12 +38,11 @@ import AdminArtistManagement from '../components/admin/AdminArtistManagement.vue
 import AdminUserManagement from '../components/admin/AdminUserManagement.vue';
 import AdminTeamManagement from '../components/admin/AdminTeamManagement.vue';
 
+import AdminCommentsManagement from '../components/admin/AdminCommentsManagement.vue';
+
 import AddChapter from '../components/title-details/AddChapter.vue'
 
 import ChapterReader from '../components/title-details/ChapterReader.vue';
-
-
-
 
 const routes = [
   {
@@ -303,6 +302,17 @@ const routes = [
       title: 'Admin - Chapter Management'
     }
   },
+  // ADD THIS: Comments Management Route
+  {
+    path: '/admin/comments',
+    name: 'Admin Comments Management',
+    component: AdminCommentsManagement,
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Admin - Comments Management'
+    }
+  },
   {
     path: '/admin/users',
     name: 'Admin User Management',
@@ -369,7 +379,10 @@ const routes = [
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
-    component: NotFoundPage
+    component: NotFoundPage,
+    meta: {
+      hideNavigation: true
+    }
   }
 ];
 

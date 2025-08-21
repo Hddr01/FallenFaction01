@@ -1,765 +1,782 @@
+<!-- Enhanced Comments Component with Improved Error Handling -->
 <template>
-    <div class="comments-container">
-        <!-- Comment Form -->
-        <div v-if="isAuthenticated" class="comments-form">
-            <div class="comment-avatar">
-                <div class="avatar-placeholder">
-                    <i class="fas fa-user"></i>
-                </div>
-            </div>
-            <div class="comment-input-container">
-                <textarea class="comment-input"
-                          v-model="newCommentText"
-                          placeholder="Write your comment here..."
-                          :disabled="submittingComment"></textarea>
-                <div class="comment-buttons">
-                    <button class="btn-zor variant-7q9 is-11c"
-                            @click="submitComment"
-                            :disabled="!newCommentText.trim() || submittingComment">
-                        <i v-if="submittingComment" class="fas fa-spinner fa-spin"></i>
-                        {{ submittingComment ? 'Posting...' : 'Post Comment' }}
-                    </button>
-                </div>
-            </div>
+  <div class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-xl overflow-hidden">
+    <!-- Comments Header -->
+    <div class="p-6 border-b border-[var(--color-border)]">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-xl font-semibold text-[var(--color-text)]">
+          Comments ({{ totalComments }})
+        </h3>
+
+        <!-- Sort Options -->
+        <div class="flex items-center space-x-2">
+          <span class="text-sm text-[var(--color-text)] opacity-60">Sort by:</span>
+          <select v-model="currentSort"
+                  @change="handleSortChange"
+                  class="bg-[var(--color-background-mute)] border border-[var(--color-border)] text-[var(--color-text)] rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent">
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+            <option value="likes">Most Liked</option>
+          </select>
         </div>
-        <div v-else class="comments-login-prompt">
-            <p>Please <a href="/Identity/Account/Login">log in</a> to post comments</p>
+      </div>
+
+      <!-- Comments Disabled Notice -->
+      <div v-if="commentsDisabled"
+           class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4">
+        <div class="flex items-center">
+          <svg class="w-5 h-5 text-amber-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.732 15.5c-.77.833.192 2.5 1.732 2.5z"></path>
+          </svg>
+          <span class="text-amber-800 dark:text-amber-200 text-sm font-medium">
+            Comments have been disabled for this content.
+          </span>
+        </div>
+      </div>
+
+      <!-- Debug Info (only show in development) -->
+      <div v-if="showDebugInfo && (debugMode || error)"
+           class="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-3 mb-4 text-xs">
+        <details>
+          <summary class="cursor-pointer font-medium text-gray-700 dark:text-gray-300">Debug Info</summary>
+          <div class="mt-2 space-y-1 text-gray-600 dark:text-gray-400">
+            <div><strong>Target ID:</strong> {{ targetId }}</div>
+            <div><strong>Target Type:</strong> {{ targetType }}</div>
+            <div><strong>Comments Enabled:</strong> {{ commentsEnabled }}</div>
+            <div><strong>Comments Disabled:</strong> {{ commentsDisabled }}</div>
+            <div><strong>API Call Made:</strong> {{ apiCallMade }}</div>
+            <div><strong>API Error:</strong> {{ apiError || 'None' }}</div>
+            <div><strong>Stats Loaded:</strong> {{ statsLoaded }}</div>
+          </div>
+        </details>
+      </div>
+
+      <!-- Comment Form -->
+      <div v-if="!commentsDisabled" class="space-y-4">
+        <!-- Auth Check -->
+        <div v-if="!isAuthenticated"
+             class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center">
+              <svg class="w-5 h-5 text-blue-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+              </svg>
+              <span class="text-blue-800 dark:text-blue-200 text-sm">
+                Sign in to join the conversation
+              </span>
+            </div>
+            <button @click="goToLogin"
+                    class="bg-[var(--color-accent)] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[var(--color-accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] transition-colors duration-200">
+              Sign In
+            </button>
+          </div>
         </div>
 
-        <!-- Comments Header -->
-        <div class="comments-sort">
-            <div class="comments-count">
-                <span>{{ totalComments }} Comments</span>
+        <!-- Comment Input -->
+        <div v-else class="space-y-3">
+          <div class="flex space-x-3">
+            <!-- User Avatar -->
+            <div class="flex-shrink-0">
+              <div class="w-10 h-10 bg-[var(--color-background-mute)] border border-[var(--color-border)] rounded-full flex items-center justify-center">
+                <svg class="w-5 h-5 text-[var(--color-text)] opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                </svg>
+              </div>
             </div>
-            <div class="comments-sort-options">
-                <a href="#"
-                   :class="['btn-zor', 'link-qky', sortBy === 'newest' ? 'variant-7q9 active' : 'variant-9vn']"
-                   @click.prevent="setSortBy('newest')">
-                    Latest
-                </a>
-                <a href="#"
-                   :class="['btn-zor', 'link-qky', sortBy === 'oldest' ? 'variant-7q9 active' : 'variant-9vn']"
-                   @click.prevent="setSortBy('oldest')">
-                    Oldest
-                </a>
-                <a href="#"
-                   :class="['btn-zor', 'link-qky', sortBy === 'likes' ? 'variant-7q9 active' : 'variant-9vn']"
-                   @click.prevent="setSortBy('likes')">
-                    Most Liked
-                </a>
-            </div>
-        </div>
 
-        <!-- Comments List -->
-        <div class="comments-list">
-            <template v-if="sortedComments.length > 0">
-                <div v-for="comment in sortedComments"
-                     :key="comment.id"
-                     class="comment-item"
-                     :id="`comment-${comment.id}`">
-                    <div class="comment-avatar">
-                        <img v-if="comment.userAvatarUrl"
-                             :src="comment.userAvatarUrl"
-                             :alt="`${comment.userName} avatar`" />
-                        <div v-else class="avatar-placeholder">
-                            <i class="fas fa-user"></i>
-                        </div>
-                    </div>
-                    <div class="comment-content">
-                        <div class="comment-header">
-                            <div class="comment-username">{{ comment.userName || 'Anonymous' }}</div>
-                            <div class="comment-date">{{ formatDate(comment.postedDate) }}</div>
-                        </div>
-                        <div class="comment-text">{{ comment.content }}</div>
-                        <div class="comment-actions">
-                            <a href="#"
-                               :class="['btn-zor', 'link-qky', comment.currentUserLiked ? 'variant-7q9' : 'variant-9vn', 'like-comment']"
-                               @click.prevent="toggleLike(comment)">
-                                <i class="fas fa-thumbs-up"></i>
-                                Like (<span class="like-count">{{ comment.likesCount }}</span>)
-                            </a>
-                            <a href="#"
-                               :class="['btn-zor', 'link-qky', comment.currentUserDisliked ? 'variant-7q9' : 'variant-9vn', 'dislike-comment']"
-                               @click.prevent="toggleDislike(comment)">
-                                <i class="fas fa-thumbs-down"></i>
-                                Dislike (<span class="dislike-count">{{ comment.dislikesCount }}</span>)
-                            </a>
-                            <a href="#"
-                               class="btn-zor link-qky variant-9vn reply-comment"
-                               @click.prevent="toggleReplyForm(comment.id)">
-                                <i class="fas fa-reply"></i> Reply
-                            </a>
+            <!-- Comment Input -->
+            <div class="flex-1">
+              <textarea v-model="newCommentText"
+                        :disabled="submittingComment"
+                        placeholder="Share your thoughts..."
+                        rows="3"
+                        maxlength="2000"
+                        class="w-full bg-[var(--color-background)] border border-[var(--color-border)] text-[var(--color-text)] rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent resize-none transition-colors duration-200"
+                        @keydown.ctrl.enter="submitComment"
+                        @keydown.meta.enter="submitComment"></textarea>
 
-                            <a v-if="canDeleteComment(comment)"
-                               href="#"
-                               class="btn-zor link-qky variant-9vn delete-comment"
-                               @click.prevent="deleteComment(comment.id)">
-                                <i class="fas fa-trash"></i> Delete
-                            </a>
-                        </div>
-
-                        <!-- Reply Form -->
-                        <div v-if="showReplyForm === comment.id" class="reply-form-container">
-                            <div class="comments-form reply-form">
-                                <div class="comment-avatar">
-                                    <div class="avatar-placeholder">
-                                        <i class="fas fa-user"></i>
-                                    </div>
-                                </div>
-                                <div class="comment-input-container">
-                                    <textarea class="comment-input"
-                                              v-model="replyText"
-                                              placeholder="Write your reply here..."
-                                              :disabled="submittingReply"></textarea>
-                                    <div class="comment-buttons">
-                                        <button class="btn-zor variant-7q9 is-11c"
-                                                @click="submitReply(comment.id)"
-                                                :disabled="!replyText.trim() || submittingReply">
-                                            <i v-if="submittingReply" class="fas fa-spinner fa-spin"></i>
-                                            {{ submittingReply ? 'Posting...' : 'Submit Reply' }}
-                                        </button>
-                                        <button class="btn-zor variant-b3o is-hfa"
-                                                @click="cancelReply()">
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Replies -->
-                        <div v-if="getReplies(comment.id).length > 0" class="comment-replies">
-                            <div v-for="reply in getReplies(comment.id)"
-                                 :key="reply.id"
-                                 class="comment-item reply-item"
-                                 :id="`comment-${reply.id}`">
-                                <div class="comment-avatar">
-                                    <img v-if="reply.userAvatarUrl"
-                                         :src="reply.userAvatarUrl"
-                                         :alt="`${reply.userName} avatar`" />
-                                    <div v-else class="avatar-placeholder">
-                                        <i class="fas fa-user"></i>
-                                    </div>
-                                </div>
-                                <div class="comment-content">
-                                    <div class="comment-header">
-                                        <div class="comment-username">{{ reply.userName || 'Anonymous' }}</div>
-                                        <div class="comment-date">{{ formatDate(reply.postedDate) }}</div>
-                                    </div>
-                                    <div class="comment-text">{{ reply.content }}</div>
-                                    <div class="comment-actions">
-                                        <a href="#"
-                                           :class="['btn-zor', 'link-qky', reply.currentUserLiked ? 'variant-7q9' : 'variant-9vn', 'like-comment']"
-                                           @click.prevent="toggleLike(reply)">
-                                            <i class="fas fa-thumbs-up"></i>
-                                            (<span class="like-count">{{ reply.likesCount }}</span>)
-                                        </a>
-                                        <a href="#"
-                                           :class="['btn-zor', 'link-qky', reply.currentUserDisliked ? 'variant-7q9' : 'variant-9vn', 'dislike-comment']"
-                                           @click.prevent="toggleDislike(reply)">
-                                            <i class="fas fa-thumbs-down"></i>
-                                            (<span class="dislike-count">{{ reply.dislikesCount }}</span>)
-                                        </a>
-
-                                        <a v-if="canDeleteComment(reply)"
-                                           href="#"
-                                           class="btn-zor link-qky variant-9vn delete-comment"
-                                           @click.prevent="deleteComment(reply.id)">
-                                            <i class="fas fa-trash"></i>
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+              <!-- Character Count & Actions -->
+              <div class="flex items-center justify-between mt-2">
+                <span class="text-xs text-[var(--color-text)] opacity-60">
+                  {{ newCommentText.length }}/2000 characters
+                </span>
+                <div class="flex items-center space-x-2">
+                  <span class="text-xs text-[var(--color-text)] opacity-60">
+                    Ctrl+Enter to post
+                  </span>
+                  <button @click="submitComment"
+                          :disabled="!newCommentText.trim() || submittingComment"
+                          class="bg-[var(--color-accent)] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[var(--color-accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200">
+                    <svg v-if="submittingComment" class="animate-spin w-4 h-4 mr-2 inline" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    {{ submittingComment ? 'Posting...' : 'Post Comment' }}
+                  </button>
                 </div>
-            </template>
-
-            <div v-else class="empty-comments">
-                <div class="empty-icon">
-                    <i class="fas fa-comments"></i>
-                </div>
-                <div class="empty-text">No comments yet. Be the first to share your thoughts!</div>
+              </div>
             </div>
+          </div>
         </div>
+      </div>
     </div>
+
+    <!-- Comments List -->
+    <div class="p-6">
+      <!-- Loading State -->
+      <div v-if="loading" class="flex items-center justify-center py-12">
+        <div class="text-center">
+          <svg class="animate-spin w-8 h-8 text-[var(--color-accent)] mx-auto mb-3" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p class="text-[var(--color-text)] opacity-70">Loading comments...</p>
+        </div>
+      </div>
+
+      <!-- Error State -->
+      <div v-else-if="error" class="text-center py-12">
+        <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6 max-w-md mx-auto">
+          <svg class="w-12 h-12 text-red-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.732 15.5c-.77.833.192 2.5 1.732 2.5z"></path>
+          </svg>
+          <h3 class="text-lg font-medium text-red-800 dark:text-red-200 mb-2">Error Loading Comments</h3>
+          <p class="text-red-700 dark:text-red-300 text-sm mb-4">{{ error }}</p>
+          <button @click="retryLoad"
+                  class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors duration-200">
+            Try Again
+          </button>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div v-else-if="comments.length === 0" class="text-center py-16">
+        <svg class="w-16 h-16 text-[var(--color-text)] opacity-30 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+        </svg>
+        <h3 class="text-lg font-medium text-[var(--color-text)] mb-2">No comments yet</h3>
+        <p class="text-[var(--color-text)] opacity-60">
+          {{ commentsDisabled ? 'Comments are disabled for this content.' : 'Be the first to share your thoughts!' }}
+        </p>
+      </div>
+
+      <!-- Comments -->
+      <!-- Fixed template section for CommentsComponent.vue -->
+      <!-- Comments -->
+      <div v-else class="space-y-6">
+        <CommentItem v-for="comment in comments"
+                     :key="comment.id"
+                     :comment="comment"
+                     :target-id="targetId"
+                     :target-type="targetType"
+                     :is-authenticated="isAuthenticated"
+                     :current-user-id="currentUserId"
+                     :is-admin="isAdmin"
+                     :can-reply="!commentsDisabled"
+                     :reply-depth="0"
+                     :max-reply-depth="3"
+                     @reply-added="onReplyAdded"
+                     @comment-updated="onCommentUpdated"
+                     @comment-deleted="onCommentDeleted" />
+
+        <!-- Load More Button -->
+        <div v-if="hasMoreComments" class="text-center pt-6">
+          <button @click="loadMoreComments"
+                  :disabled="loadingMore"
+                  class="bg-[var(--color-background-mute)] border border-[var(--color-border)] text-[var(--color-text)] px-6 py-3 rounded-lg font-medium hover:bg-[var(--color-background-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200">
+            <svg v-if="loadingMore" class="animate-spin w-4 h-4 mr-2 inline" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            {{ loadingMore ? 'Loading...' : `Load More Comments (${remainingComments} remaining)` }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script>
-export default {
-    name: 'CommentsComponent',
-    props: {
-        comments: {
-            type: Array,
-            default: () => []
-        },
-        targetId: {
-            type: [Number, String],
-            required: true
-        },
-        targetType: {
-            type: String,
-            required: true
-        },
-        isAuthenticated: {
-            type: Boolean,
-            default: false
-        },
-        currentUser: {
-            type: String,
-            default: ''
-        },
-        isAdmin: {
-            type: Boolean,
-            default: false
-        }
+  import { commentsService } from '../../services/commentsService'
+  import CommentItem from './CommentItem.vue'
+
+  export default {
+    name: 'CommentsSection',
+    components: {
+      CommentItem
     },
-    emits: ['comments-updated'],
+    props: {
+      targetId: {
+        type: [Number, String],
+        required: true
+      },
+      targetType: {
+        type: [Number, String],
+        required: true,
+        validator: (value) => [1, 2, 3].includes(parseInt(value))
+      },
+      isAuthenticated: {
+        type: Boolean,
+        default: false
+      },
+      currentUserId: {
+        type: String,
+        default: ''
+      },
+      isAdmin: {
+        type: Boolean,
+        default: false
+      }
+    },
+    emits: ['comments-loaded', 'comment-added', 'comments-updated'],
     data() {
-        return {
-            localComments: [],
-            sortBy: 'newest',
-            newCommentText: '',
-            replyText: '',
-            showReplyForm: null,
-            submittingComment: false,
-            submittingReply: false
-        }
+      return {
+        comments: [],
+        loading: true,
+        error: null,
+        commentsEnabled: true, // Default to true
+        totalComments: 0,
+        currentSort: 'newest',
+        currentPage: 1,
+        hasMoreComments: false,
+        loadingMore: false,
+
+        // Comment form
+        newCommentText: '',
+        submittingComment: false,
+
+        // Pagination info
+        pagination: {
+          totalCount: 0,
+          totalPages: 0,
+          hasNext: false,
+          hasPrevious: false
+        },
+
+        // Debug info
+        debugMode: process.env.NODE_ENV === 'development',
+        showDebugInfo: true,
+        apiCallMade: false,
+        apiError: null,
+        statsLoaded: false
+      }
     },
     computed: {
-        topLevelComments() {
-            return this.localComments.filter(comment => !comment.parentCommentId)
-        },
-
-        totalComments() {
-            return this.localComments.length
-        },
-
-        sortedComments() {
-            const comments = [...this.topLevelComments]
-
-            switch (this.sortBy) {
-                case 'newest':
-                    return comments.sort((a, b) => new Date(b.postedDate) - new Date(a.postedDate))
-                case 'oldest':
-                    return comments.sort((a, b) => new Date(a.postedDate) - new Date(b.postedDate))
-                case 'likes':
-                    return comments.sort((a, b) => b.likesCount - a.likesCount)
-                default:
-                    return comments
-            }
-        }
+      commentsDisabled() {
+        // Comments are disabled if explicitly set to false
+        return this.commentsEnabled === false
+      },
+      remainingComments() {
+        return Math.max(0, this.pagination.totalCount - this.comments.length)
+      }
     },
-    watch: {
-        comments: {
-            handler(newComments) {
-                this.localComments = [...newComments]
-            },
-            immediate: true
-        }
+    async mounted() {
+      await this.initializeComments()
     },
     methods: {
-        setSortBy(sortType) {
-            this.sortBy = sortType
-        },
+      async initializeComments() {
+        console.log('Initializing comments for target:', this.targetId, 'type:', this.targetType)
+        await this.loadCommentStats()
+        await this.loadComments()
+      },
 
-        getReplies(commentId) {
-            return this.localComments
-                .filter(comment => comment.parentCommentId === commentId)
-                .sort((a, b) => new Date(a.postedDate) - new Date(b.postedDate))
-        },
+      async loadCommentStats() {
+        try {
+          this.apiCallMade = true
+          this.apiError = null
 
-        toggleReplyForm(commentId) {
-            this.showReplyForm = this.showReplyForm === commentId ? null : commentId
-            this.replyText = ''
-        },
+          console.log('Loading comment stats for target:', this.targetId, 'type:', this.targetType)
 
-        cancelReply() {
-            this.showReplyForm = null
-            this.replyText = ''
-        },
+          const result = await commentsService.getCommentStats(
+            parseInt(this.targetId),
+            parseInt(this.targetType)
+          )
 
-        async submitComment() {
-            if (!this.newCommentText.trim() || this.submittingComment) return
+          console.log('Comment stats result:', result)
 
-            this.submittingComment = true
+          if (result.success) {
+            this.commentsEnabled = result.data.commentsEnabled !== false // Default to true if undefined
+            this.totalComments = result.data.totalComments || 0
+            this.statsLoaded = true
 
-            try {
-                const response = await this.safeFetch('/api/Comments/AddComment', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        content: this.newCommentText,
-                        targetType: parseInt(this.targetType),
-                        targetId: parseInt(this.targetId),
-                        parentCommentId: null
-                    })
-                })
-
-                if (response.success !== false) {
-                    // Add the new comment to local state
-                    this.localComments.push(response)
-                    this.newCommentText = ''
-                    this.$emit('comments-updated', this.localComments)
-                    this.showToast('Comment posted successfully!', 'success')
-                } else {
-                    throw new Error(response.error || 'Failed to post comment')
-                }
-            } catch (error) {
-                console.error('Error posting comment:', error)
-                this.showToast('Failed to post comment. Please try again.', 'error')
-            }
-
-            this.submittingComment = false
-        },
-
-        async submitReply(parentCommentId) {
-            if (!this.replyText.trim() || this.submittingReply) return
-
-            this.submittingReply = true
-
-            try {
-                const response = await this.safeFetch('/api/Comments/AddComment', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        content: this.replyText,
-                        targetType: parseInt(this.targetType),
-                        targetId: parseInt(this.targetId),
-                        parentCommentId: parentCommentId
-                    })
-                })
-
-                if (response.success !== false) {
-                    // Add the new reply to local state
-                    this.localComments.push(response)
-                    this.cancelReply()
-                    this.$emit('comments-updated', this.localComments)
-                    this.showToast('Reply posted successfully!', 'success')
-                } else {
-                    throw new Error(response.error || 'Failed to post reply')
-                }
-            } catch (error) {
-                console.error('Error posting reply:', error)
-                this.showToast('Failed to post reply. Please try again.', 'error')
-            }
-
-            this.submittingReply = false
-        },
-
-        async toggleLike(comment) {
-            if (!this.isAuthenticated) {
-                this.showToast('Please log in to like comments.', 'error')
-                return
-            }
-
-            try {
-                const response = await this.safeFetch('/api/Comments/ReactToComment', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        commentId: comment.id,
-                        isLike: true
-                    })
-                })
-
-                if (response.success !== false) {
-                    // Update comment in local state
-                    const commentIndex = this.localComments.findIndex(c => c.id === comment.id)
-                    if (commentIndex !== -1) {
-                        this.localComments[commentIndex].likesCount = response.likesCount
-                        this.localComments[commentIndex].dislikesCount = response.dislikesCount
-                        this.localComments[commentIndex].currentUserLiked = response.userLiked
-                        this.localComments[commentIndex].currentUserDisliked = response.userDisliked
-                    }
-                } else {
-                    throw new Error(response.error || 'Failed to like comment')
-                }
-            } catch (error) {
-                console.error('Error liking comment:', error)
-                this.showToast('Failed to like comment. Please try again.', 'error')
-            }
-        },
-
-        async toggleDislike(comment) {
-            if (!this.isAuthenticated) {
-                this.showToast('Please log in to dislike comments.', 'error')
-                return
-            }
-
-            try {
-                const response = await this.safeFetch('/api/Comments/ReactToComment', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        commentId: comment.id,
-                        isLike: false
-                    })
-                })
-
-                if (response.success !== false) {
-                    // Update comment in local state
-                    const commentIndex = this.localComments.findIndex(c => c.id === comment.id)
-                    if (commentIndex !== -1) {
-                        this.localComments[commentIndex].likesCount = response.likesCount
-                        this.localComments[commentIndex].dislikesCount = response.dislikesCount
-                        this.localComments[commentIndex].currentUserLiked = response.userLiked
-                        this.localComments[commentIndex].currentUserDisliked = response.userDisliked
-                    }
-                } else {
-                    throw new Error(response.error || 'Failed to dislike comment')
-                }
-            } catch (error) {
-                console.error('Error disliking comment:', error)
-                this.showToast('Failed to dislike comment. Please try again.', 'error')
-            }
-        },
-
-        async deleteComment(commentId) {
-            if (!confirm('Are you sure you want to delete this comment?')) return
-
-            try {
-                const response = await this.safeFetch(`/api/Comments/DeleteComment/${commentId}`, {
-                    method: 'DELETE'
-                })
-
-                if (response.success !== false) {
-                    // Remove comment and its replies from local state
-                    this.localComments = this.localComments.filter(c =>
-                        c.id !== commentId && c.parentCommentId !== commentId
-                    )
-                    this.$emit('comments-updated', this.localComments)
-                    this.showToast('Comment deleted successfully!', 'success')
-                } else {
-                    throw new Error(response.error || 'Failed to delete comment')
-                }
-            } catch (error) {
-                console.error('Error deleting comment:', error)
-                this.showToast('Failed to delete comment. Please try again.', 'error')
-            }
-        },
-
-        canDeleteComment(comment) {
-            return this.isAuthenticated && (this.isAdmin || comment.userName === this.currentUser)
-        },
-
-        formatDate(dateString) {
-            const date = new Date(dateString)
-            return date.toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-            })
-        },
-
-        async safeFetch(url, options = {}) {
-            try {
-                const response = await fetch(url, {
-                    headers: {
-                        'X-CSRF-TOKEN': this.getCsrfToken(),
-                        ...options.headers
-                    },
-                    ...options
-                })
-
-                if (!response.ok) {
-                    if (response.status === 401 || response.status === 403) {
-                        return { success: false, error: 'Authentication required' }
-                    }
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-                }
-
-                // Handle empty responses (like DELETE operations)
-                if (response.status === 204 || response.headers.get('content-length') === '0') {
-                    return { success: true }
-                }
-
-                const contentType = response.headers.get('content-type')
-                if (contentType && contentType.includes('application/json')) {
-                    return await response.json()
-                }
-
-                return { success: true }
-            } catch (error) {
-                console.error('Fetch error:', error)
-                return { success: false, error: error.message }
-            }
-        },
-
-        getCsrfToken() {
-            return document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
-        },
-
-        showToast(message, type = 'info') {
-            // Create toast element if it doesn't exist
-            let toastContainer = document.getElementById('toast-container')
-            if (!toastContainer) {
-                toastContainer = document.createElement('div')
-                toastContainer.id = 'toast-container'
-                toastContainer.style.cssText = `
-                    position: fixed;
-                    bottom: 20px;
-                    right: 20px;
-                    z-index: 1000;
-                `
-                document.body.appendChild(toastContainer)
-            }
-
-            // Create toast
-            const toast = document.createElement('div')
-            toast.className = `toast toast-${type}`
-            const bgColor = type === 'success' ? '#4caf50' : type === 'error' ? '#f44336' : '#2196f3'
-            toast.style.cssText = `
-                min-width: 250px;
-                background-color: ${bgColor};
-                color: white;
-                padding: 15px;
-                margin-bottom: 10px;
-                border-radius: 5px;
-                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-                animation: fadeIn 0.5s, fadeOut 0.5s 2.5s forwards;
-                opacity: 0;
-            `
-            toast.textContent = message
-
-            // Add to container
-            toastContainer.appendChild(toast)
-
-            // Remove after 3 seconds
-            setTimeout(() => {
-                if (toast.parentNode) {
-                    toast.remove()
-                }
-                if (toastContainer.children.length === 0) {
-                    toastContainer.remove()
-                }
-            }, 3000)
-
-            // Trigger animation
-            setTimeout(() => {
-                toast.style.opacity = '1'
-            }, 100)
+            console.log('Comments enabled:', this.commentsEnabled)
+            console.log('Total comments:', this.totalComments)
+          } else {
+            console.error('Failed to load comment stats:', result.error)
+            this.apiError = result.error
+            // Don't disable comments on API failure - default to enabled
+            this.commentsEnabled = true
+          }
+        } catch (error) {
+          console.error('Error loading comment stats:', error)
+          this.apiError = error.message
+          // Don't disable comments on exception - default to enabled
+          this.commentsEnabled = true
         }
+      },
+
+      async loadComments(reset = true) {
+        try {
+          if (reset) {
+            this.loading = true
+            this.currentPage = 1
+          } else {
+            this.loadingMore = true
+          }
+
+          this.error = null
+
+          console.log('Loading comments for target:', this.targetId, 'type:', this.targetType)
+
+          const result = await commentsService.getComments(
+            parseInt(this.targetId),
+            parseInt(this.targetType),
+            {
+              page: this.currentPage,
+              sortBy: this.currentSort,
+              pageSize: 20
+            }
+          )
+
+          console.log('Comments result:', result)
+
+          if (result.success) {
+            if (reset) {
+              this.comments = result.data.comments
+            } else {
+              this.comments = [...this.comments, ...result.data.comments]
+            }
+
+            this.pagination = result.data.pagination
+            this.hasMoreComments = result.data.pagination.hasNext
+            this.totalComments = result.data.pagination.totalCount
+
+            this.$emit('comments-loaded', {
+              comments: this.comments,
+              totalCount: this.totalComments
+            })
+          } else {
+            this.error = result.error
+            console.error('Failed to load comments:', result.error)
+          }
+        } catch (error) {
+          console.error('Error loading comments:', error)
+          this.error = 'Failed to load comments'
+        } finally {
+          this.loading = false
+          this.loadingMore = false
+        }
+      },
+
+      async loadMoreComments() {
+        if (this.loadingMore || !this.hasMoreComments) return
+
+        this.currentPage += 1
+        await this.loadComments(false)
+      },
+
+      async handleSortChange() {
+        await this.loadComments(true)
+      },
+
+      async retryLoad() {
+        this.error = null
+        this.apiError = null
+        this.apiCallMade = false
+        await this.initializeComments()
+      },
+
+      async submitComment() {
+        if (!this.newCommentText.trim() || this.submittingComment || !this.isAuthenticated) {
+          return
+        }
+
+        // Validate content
+        const validation = commentsService.validateCommentContent(this.newCommentText)
+        if (!validation.isValid) {
+          this.showToast(validation.error, 'error')
+          return
+        }
+
+        this.submittingComment = true
+
+        try {
+          const result = await commentsService.addComment(
+            this.newCommentText,
+            parseInt(this.targetId),
+            parseInt(this.targetType)
+          )
+
+          if (result.success) {
+            // Add new comment to the beginning of the list
+            this.comments.unshift(result.data)
+            this.totalComments += 1
+            this.newCommentText = ''
+
+            this.showToast(result.message, 'success')
+
+            this.$emit('comment-added', result.data)
+            this.$emit('comments-updated', {
+              comments: this.comments,
+              totalCount: this.totalComments
+            })
+          } else {
+            this.showToast(result.error, 'error')
+          }
+        } catch (error) {
+          console.error('Error submitting comment:', error)
+          this.showToast('Failed to post comment', 'error')
+        } finally {
+          this.submittingComment = false
+        }
+      },
+
+      onReplyAdded(reply) {
+        // Find the parent comment and add the reply
+        const parentComment = this.findCommentById(reply.parentCommentId)
+        if (parentComment) {
+          if (!parentComment.replies) {
+            parentComment.replies = []
+          }
+          parentComment.replies.push(reply)
+          this.totalComments += 1
+
+          this.$emit('comments-updated', {
+            comments: this.comments,
+            totalCount: this.totalComments
+          })
+        }
+      },
+
+      onCommentUpdated(updatedComment) {
+        // Update the comment in the list
+        const comment = this.findCommentById(updatedComment.id)
+        if (comment) {
+          Object.assign(comment, updatedComment)
+        }
+      },
+
+      onCommentDeleted(deletedCommentId) {
+        // Remove comment from list
+        this.removeCommentById(deletedCommentId)
+        this.totalComments = Math.max(0, this.totalComments - 1)
+
+        this.$emit('comments-updated', {
+          comments: this.comments,
+          totalCount: this.totalComments
+        })
+      },
+
+      findCommentById(commentId) {
+        for (const comment of this.comments) {
+          if (comment.id === commentId) {
+            return comment
+          }
+          if (comment.replies) {
+            const reply = comment.replies.find(r => r.id === commentId)
+            if (reply) return reply
+          }
+        }
+        return null
+      },
+
+      removeCommentById(commentId) {
+        // Remove from top-level comments
+        const index = this.comments.findIndex(c => c.id === commentId)
+        if (index !== -1) {
+          const removedComment = this.comments.splice(index, 1)[0]
+          // Count total removed (comment + replies)
+          const totalRemoved = 1 + (removedComment.replies?.length || 0)
+          this.totalComments = Math.max(0, this.totalComments - totalRemoved)
+          return
+        }
+
+        // Remove from replies
+        for (const comment of this.comments) {
+          if (comment.replies) {
+            const replyIndex = comment.replies.findIndex(r => r.id === commentId)
+            if (replyIndex !== -1) {
+              comment.replies.splice(replyIndex, 1)
+              this.totalComments = Math.max(0, this.totalComments - 1)
+              return
+            }
+          }
+        }
+      },
+
+      goToLogin() {
+        const returnUrl = encodeURIComponent(window.location.pathname + window.location.search)
+        window.location.href = `/account/login?returnUrl=${returnUrl}`
+      },
+
+      showToast(message, type = 'info') {
+        // Create toast notification
+        const toastContainer = document.getElementById('toast-container') || this.createToastContainer()
+
+        const toast = document.createElement('div')
+        const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+
+        toast.className = `${bgColor} text-white px-6 py-4 rounded-lg shadow-lg max-w-sm transform transition-all duration-300 translate-x-full opacity-0 mb-2`
+        toast.innerHTML = `
+        <div class="flex items-center">
+          <span class="flex-1">${message}</span>
+          <button onclick="this.parentElement.parentElement.remove()" class="ml-3 text-white hover:text-gray-200">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+      `
+
+        toastContainer.appendChild(toast)
+
+        // Trigger animation
+        setTimeout(() => {
+          toast.classList.remove('translate-x-full', 'opacity-0')
+        }, 100)
+
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+          toast.classList.add('translate-x-full', 'opacity-0')
+          setTimeout(() => {
+            if (toast.parentNode) {
+              toast.remove()
+            }
+          }, 300)
+        }, 5000)
+      },
+
+      createToastContainer() {
+        const container = document.createElement('div')
+        container.id = 'toast-container'
+        container.className = 'fixed bottom-4 right-4 z-50 space-y-2'
+        document.body.appendChild(container)
+        return container
+      }
     }
-}
+  }
 </script>
 
 <style scoped>
-    /* Use existing comment styles from _CommentsPartial.cshtml */
-    .comments-container {
-        width: 100%;
+  .chapters-container {
+    width: 100%;
+  }
+
+  .chapters-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    gap: 20px;
+  }
+
+  .chapters-sort {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .chapters-sort-label {
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .chapters-sort-options {
+    display: flex;
+    gap: 5px;
+  }
+
+    .chapters-sort-options button.active {
+      background-color: var(--primary-color);
+      color: white;
     }
 
-    .comments-form {
-        display: flex;
-        gap: 15px;
-        margin-bottom: 30px;
-        padding: 20px;
-        background-color: var(--background-elevated);
-        border-radius: 8px;
+  .chapters-filter {
+    flex-shrink: 0;
+  }
+
+  .chapters-search {
+    padding: 8px 12px;
+    border: 1px solid var(--border-base);
+    border-radius: 4px;
+    background-color: var(--background-elevated);
+    color: var(--text-primary);
+    width: 200px;
+  }
+
+    .chapters-search:focus {
+      outline: none;
+      border-color: var(--primary-color);
     }
 
-    .comment-avatar {
-        flex-shrink: 0;
+  .chapters-table {
+    background-color: var(--background-elevated);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .chapters-table-header {
+    display: grid;
+    grid-template-columns: 120px 1fr 150px 120px;
+    gap: 15px;
+    padding: 15px 20px;
+    background-color: var(--background-elevated-2);
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .chapters-table-body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .chapter-row {
+    display: grid;
+    grid-template-columns: 120px 1fr 150px 120px;
+    gap: 15px;
+    padding: 15px 20px;
+    color: var(--text-primary);
+    text-decoration: none;
+    border-bottom: 1px solid var(--border-base);
+    transition: background-color 0.2s ease;
+  }
+
+    .chapter-row:hover {
+      background-color: var(--background-elevated-2);
     }
 
-        .comment-avatar img {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            object-fit: cover;
-        }
-
-    .avatar-placeholder {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background-color: var(--background-elevated-2);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--text-muted);
+    .chapter-row:last-child {
+      border-bottom: none;
     }
 
-    .comment-input-container {
-        flex: 1;
+  .chapter-number {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .volume-badge, .chapter-badge {
+    font-size: 0.8rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+
+  .volume-badge {
+    background-color: rgba(156, 39, 176, 0.2);
+    color: #ba68c8;
+  }
+
+  .chapter-badge {
+    background-color: rgba(33, 150, 243, 0.2);
+    color: #64b5f6;
+  }
+
+  .chapter-name {
+    font-weight: 500;
+    line-height: 1.4;
+  }
+
+  .chapter-team {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+
+  .chapter-date {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+
+  .empty-chapters {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-muted);
+  }
+
+  .empty-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  .empty-text {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .chapters-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    margin-top: 20px;
+    padding: 20px;
+  }
+
+  .pagination-info {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+  }
+
+  /* Mobile responsive */
+  @media (max-width: 768px) {
+    .chapters-header {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 15px;
     }
 
-    .comment-input {
-        width: 100%;
-        min-height: 80px;
-        padding: 10px;
-        border: 1px solid var(--border-base);
-        border-radius: 6px;
-        background-color: var(--background);
-        color: var(--text-primary);
-        resize: vertical;
-        font-family: inherit;
+    .chapters-search {
+      width: 100%;
     }
 
-        .comment-input:focus {
-            outline: none;
-            border-color: var(--primary-color);
-        }
-
-    .comment-buttons {
-        margin-top: 10px;
-        display: flex;
-        gap: 10px;
+    .chapters-table-header,
+    .chapter-row {
+      grid-template-columns: 1fr 120px 100px;
+      gap: 10px;
     }
 
-    .comments-login-prompt {
-        padding: 20px;
-        text-align: center;
-        background-color: var(--background-elevated);
-        border-radius: 8px;
-        margin-bottom: 30px;
+    .chapter-team {
+      display: none;
     }
 
-        .comments-login-prompt a {
-            color: var(--primary-color);
-        }
-
-    .comments-sort {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-        padding-bottom: 15px;
-        border-bottom: 1px solid var(--border-base);
+    .chapter-number {
+      flex-direction: row;
+      gap: 8px;
     }
 
-    .comments-count {
-        font-weight: 600;
-        color: var(--text-primary);
+    .volume-badge,
+    .chapter-badge {
+      font-size: 0.7rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .chapters-table-header,
+    .chapter-row {
+      grid-template-columns: 1fr 80px;
+      gap: 10px;
     }
 
-    .comments-sort-options {
-        display: flex;
-        gap: 15px;
+    .chapter-date {
+      display: none;
     }
 
-    .comment-item {
-        margin-bottom: 24px;
-        padding: 15px;
-        border-radius: 8px;
-        background-color: var(--background-elevated-2);
-        transition: background-color 0.2s ease;
+    .chapters-sort-options {
+      flex-direction: column;
+      gap: 5px;
     }
 
-        .comment-item:hover {
-            background-color: var(--background-elevated-3);
-        }
-
-    .reply-item {
-        margin-left: 40px;
-        margin-top: 10px;
-        background-color: var(--background);
-    }
-
-    .comment-replies {
-        margin-top: 15px;
-        padding-top: 10px;
-        border-top: 1px solid var(--border-base);
-    }
-
-    .comment-content {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-
-    .comment-header {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .comment-username {
-        font-weight: 600;
-        color: var(--text-primary);
-    }
-
-    .comment-date {
-        font-size: 0.9rem;
-        color: var(--text-muted);
-    }
-
-    .comment-text {
-        line-height: 1.5;
-        color: var(--text-primary);
-    }
-
-    .comment-actions {
-        display: flex;
-        gap: 15px;
-        flex-wrap: wrap;
-    }
-
-        .comment-actions a {
-            font-size: 0.9rem;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-    .reply-form-container {
-        margin-top: 15px;
-    }
-
-    .reply-form {
-        background-color: var(--background-elevated);
-        border-radius: 6px;
-        padding: 15px;
-    }
-
-    .empty-comments {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 60px 20px;
-        text-align: center;
-        color: var(--text-muted);
-    }
-
-    .empty-icon {
-        font-size: 3rem;
-        margin-bottom: 1rem;
-        opacity: 0.5;
-    }
-
-    .empty-text {
-        font-size: 1.1rem;
-    }
-
-    /* Mobile responsive */
-    @media (max-width: 768px) {
-        .comments-sort {
-            flex-direction: column;
-            gap: 15px;
-            align-items: stretch;
-        }
-
-        .comments-sort-options {
-            justify-content: center;
-        }
-
-        .reply-item {
-            margin-left: 20px;
-        }
-
-        .comment-actions {
-            font-size: 0.8rem;
-        }
-    }
+      .chapters-sort-options button {
+        font-size: 0.8rem;
+        padding: 6px 12px;
+      }
+  }
 </style>

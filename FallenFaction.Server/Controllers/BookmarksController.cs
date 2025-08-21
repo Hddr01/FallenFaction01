@@ -11,7 +11,6 @@ namespace FallenFaction.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
     public class BookmarksController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -29,15 +28,22 @@ namespace FallenFaction.Server.Controllers
         }
 
         [HttpGet("GetFolders")]
+        [AllowAnonymous]  // Allow guest users to access this endpoint
         public async Task<ActionResult<BookmarkFoldersResponseDto>> GetFolders([FromQuery] int? titleId = null)
         {
             AppUser? user = null; // Declare user outside try block
             try
             {
                 user = await _userManager.GetUserAsync(User);
+
+                // Handle guest users - return empty data
                 if (user == null)
                 {
-                    return Unauthorized();
+                    return new BookmarkFoldersResponseDto
+                    {
+                        Folders = new List<BookmarkFolderDto>(),
+                        CurrentBookmark = null
+                    };
                 }
 
                 // Ensure user has default folders
@@ -93,6 +99,7 @@ namespace FallenFaction.Server.Controllers
         }
 
         [HttpPost("AddBookmark")]
+        [Authorize]
         public async Task<IActionResult> AddBookmark([FromBody] AddBookmarkRequest request)
         {
             if (!ModelState.IsValid)
@@ -160,6 +167,7 @@ namespace FallenFaction.Server.Controllers
         }
 
         [HttpPost("RemoveBookmark")]
+        [Authorize]
         public async Task<IActionResult> RemoveBookmark([FromBody] RemoveBookmarkRequest request)
         {
             if (!ModelState.IsValid)
@@ -255,6 +263,7 @@ namespace FallenFaction.Server.Controllers
         }
 
         [HttpPost("CreateFolder")]
+        [Authorize]
         public async Task<ActionResult<BookmarkFolderDto>> CreateFolder([FromBody] CreateFolderRequest request)
         {
             if (!ModelState.IsValid)
@@ -349,6 +358,7 @@ namespace FallenFaction.Server.Controllers
         /// GET: api/Bookmarks/GetBookmarksByFolder/{folderId}
         /// </summary>
         [HttpGet("GetBookmarksByFolder/{folderId}")]
+        [Authorize]
         public async Task<ActionResult<IEnumerable<BookmarkDto>>> GetBookmarksByFolder(int folderId)
         {
             AppUser? user = null;
@@ -401,6 +411,7 @@ namespace FallenFaction.Server.Controllers
         /// PUT: api/Bookmarks/UpdateFolder/{folderId}
         /// </summary>
         [HttpPut("UpdateFolder/{folderId}")]
+        [Authorize]
         public async Task<IActionResult> UpdateFolder(int folderId, [FromBody] UpdateFolderRequest request)
         {
             if (!ModelState.IsValid)
@@ -451,6 +462,7 @@ namespace FallenFaction.Server.Controllers
         /// DELETE: api/Bookmarks/DeleteFolder/{folderId}
         /// </summary>
         [HttpDelete("DeleteFolder/{folderId}")]
+        [Authorize]
         public async Task<IActionResult> DeleteFolder(int folderId)
         {
             AppUser? user = null;
@@ -515,6 +527,7 @@ namespace FallenFaction.Server.Controllers
         /// POST: api/Bookmarks/UpdateLastRead
         /// </summary>
         [HttpPost("UpdateLastRead")]
+        [Authorize]
         public async Task<IActionResult> UpdateLastRead([FromBody] UpdateLastReadRequest request)
         {
             if (!ModelState.IsValid)

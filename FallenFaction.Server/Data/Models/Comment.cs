@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Collections.Generic;
 namespace FallenFaction.Server.Data.Models
@@ -18,6 +18,14 @@ namespace FallenFaction.Server.Data.Models
         // Likes and dislikes
         public int LikesCount { get; set; } = 0;
         public int DislikesCount { get; set; } = 0;
+
+        // ✅ NEW: Soft delete fields
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
+        public string? DeletedByUserId { get; set; }
+        [ForeignKey("DeletedByUserId")]
+        public AppUser? DeletedByUser { get; set; }
+        public string? DeletionReason { get; set; } // Optional reason for deletion
 
         // What the comment is attached to - we'll use foreign keys with shadow properties
         // to determine what this comment is for (title, chapter, or image)
@@ -45,5 +53,51 @@ namespace FallenFaction.Server.Data.Models
 
         // User reactions (likes/dislikes)
         public ICollection<CommentReaction> Reactions { get; set; } = new List<CommentReaction>();
+
+        // ✅ Helper method to get display content
+        [NotMapped]
+        public string DisplayContent
+        {
+            get
+            {
+                if (IsDeleted)
+                {
+                    return "[This comment has been deleted]";
+                }
+                return Content;
+            }
+        }
+
+        // ✅ Helper method to check if user can see deleted content
+        public bool CanUserSeeDeletedContent(string currentUserId, bool isAdmin = false)
+        {
+            if (!IsDeleted) return true;
+
+            // Admins can see deleted content
+            if (isAdmin) return true;
+
+            // Original author can see their deleted content
+            if (UserId == currentUserId) return true;
+
+            return false;
+        }
+
+        // ✅ Soft delete method
+        public void SoftDelete(string deletedByUserId, string reason = null)
+        {
+            IsDeleted = true;
+            DeletedAt = DateTime.UtcNow;
+            DeletedByUserId = deletedByUserId;
+            DeletionReason = reason;
+        }
+
+        // ✅ Restore method
+        public void Restore()
+        {
+            IsDeleted = false;
+            DeletedAt = null;
+            DeletedByUserId = null;
+            DeletionReason = null;
+        }
     }
 }

@@ -98,8 +98,8 @@
                     <span class="cov-oga item-lnl">
                       <div class="cov-oj9 _ratio-qka">
                         <!--<img src="/img/logo.png"
-                             class="cov-6id _lo-m2q"
-                             :alt="team.name">-->
+                         class="cov-6id _lo-m2q"
+                         :alt="team.name">-->
                       </div>
                     </span>
                   </div>
@@ -215,7 +215,8 @@
       <!-- Comments Tab -->
       <div v-show="activeTab === 'comments'" class="tab-content-panel">
         <template v-if="tabData.comments.loaded">
-          <div v-if="!titleData.areCommentsEnabled" class="alert alert-warning mb-3">
+          <!-- FIXED: Better comment disabled check -->
+          <div v-if="titleCommentsDisabled" class="alert alert-warning mb-3">
             <i class="fas fa-comment-slash"></i>
             Comments have been disabled for this title.
           </div>
@@ -223,6 +224,7 @@
             <CommentsComponent :comments="tabData.comments.data"
                                :target-id="titleId"
                                target-type="1"
+                               :is-authenticated="isAuthenticated"
                                @comments-updated="onCommentsUpdated" />
           </div>
         </template>
@@ -274,6 +276,11 @@
       initialTab: {
         type: String,
         default: 'info'
+      },
+      // FIXED: Add isAuthenticated prop to control user-specific features
+      isAuthenticated: {
+        type: Boolean,
+        default: false
       }
     },
     emits: ['tab-changed'],
@@ -328,19 +335,22 @@
       await this.loadTabContent(this.activeTab)
       this.updateURL()
 
-      // Load statistics data using titleDetailsService
+      // Load statistics data using titleDetailsService - these should work for guests too
       await this.loadRatingStats()
       await this.loadBookmarkStats()
 
-      // Listen for bookmark changes to refresh stats
-      document.addEventListener('bookmark-stats-refresh', this.handleBookmarkStatsRefresh)
-      document.addEventListener('rating-stats-refresh', this.handleRatingStatsRefresh)
+      // Listen for bookmark changes to refresh stats (only if authenticated)
+      if (this.isAuthenticated) {
+        document.addEventListener('bookmark-stats-refresh', this.handleBookmarkStatsRefresh)
+        document.addEventListener('rating-stats-refresh', this.handleRatingStatsRefresh)
+      }
 
       this.$nextTick(() => {
         this.checkTranslatorButtons()
       })
     },
     beforeUnmount() {
+      // Clean up event listeners
       document.removeEventListener('bookmark-stats-refresh', this.handleBookmarkStatsRefresh)
       document.removeEventListener('rating-stats-refresh', this.handleRatingStatsRefresh)
     },
@@ -430,7 +440,7 @@
         this.tabData.reviews.data = []
       },
 
-      // UPDATED: Load rating statistics using titleDetailsService
+      // FIXED: Load rating statistics with better error handling for guests
       async loadRatingStats() {
         try {
           console.log('Loading rating stats for title ID:', this.titleId)
@@ -444,15 +454,15 @@
             console.log('Rating stats loaded:', this.ratingStats)
           } else {
             console.error('Failed to load rating stats:', result.error)
-            // Keep default values on error
+            // Keep default values on error - don't throw
           }
         } catch (error) {
           console.error('Error loading rating stats:', error)
-          // Keep default values on error
+          // Keep default values on error - don't let this break the page for guests
         }
       },
 
-      // UPDATED: Load bookmark statistics using titleDetailsService
+      // FIXED: Load bookmark statistics with better error handling for guests
       async loadBookmarkStats() {
         try {
           console.log('Loading bookmark stats for title ID:', this.titleId)
@@ -465,17 +475,17 @@
             console.log('Bookmark stats loaded:', this.bookmarkStats)
           } else {
             console.error('Failed to load bookmark stats:', result.error)
-            // Keep default values on error
+            // Keep default values on error - don't throw
           }
         } catch (error) {
           console.error('Error loading bookmark stats:', error)
-          // Keep default values on error
+          // Keep default values on error - this should work for guests
         }
       },
 
-      // Event handlers for stats refresh
+      // Event handlers for stats refresh - only for authenticated users
       handleBookmarkStatsRefresh(event) {
-        if (event.detail && event.detail.titleId == this.titleId) {
+        if (this.isAuthenticated && event.detail && event.detail.titleId == this.titleId) {
           this.loadBookmarkStats()
         }
       },
