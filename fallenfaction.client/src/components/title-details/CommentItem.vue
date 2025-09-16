@@ -1,4 +1,4 @@
-<!-- Enhanced CommentItem.vue with Simplified Clickable Thread Lines -->
+<!-- Enhanced CommentItem.vue with Thread Line Replacement System -->
 <template>
   <article class="relative"
            :class="{ 'opacity-80': comment.isDeleted }"
@@ -57,13 +57,6 @@
           <span v-if="isUserAdmin(comment.userId) && !comment.isDeleted"
                 class="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs px-2 py-0.5 rounded-full font-medium">
             Admin
-          </span>
-
-          <!-- Reply Count -->
-          <span v-if="comment.replies?.length > 0"
-                class="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 px-2 py-0.5 rounded-full"
-                :class="{ 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300': repliesCollapsed }">
-            {{ comment.replies.length }} {{ comment.replies.length === 1 ? 'reply' : 'replies' }}
           </span>
         </header>
 
@@ -132,20 +125,6 @@
             <span>Reply</span>
           </button>
 
-          <!-- Collapse/Expand Replies Button -->
-          <button v-if="comment.replies?.length > 0"
-                  @click="toggleRepliesCollapsed"
-                  class="flex items-center gap-1 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors duration-200">
-            <svg class="w-4 h-4 transition-transform duration-200"
-                 :class="{ 'rotate-180': repliesCollapsed }"
-                 fill="none"
-                 stroke="currentColor"
-                 viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-            </svg>
-            <span>{{ repliesCollapsed ? 'Show' : 'Hide' }} {{ comment.replies.length }} {{ comment.replies.length === 1 ? 'reply' : 'replies' }}</span>
-          </button>
-
           <!-- Delete Button -->
           <button v-if="canDelete && !comment.isDeleted"
                   @click="deleteComment"
@@ -198,67 +177,86 @@
           </button>
         </div>
 
-        <!-- Replies with Simple Interactive Thread Lines -->
+        <!-- Replies with Thread Line Replacement System -->
         <div v-if="!repliesCollapsed && comment.replies?.length > 0" class="space-y-4">
-          <div v-for="(reply, index) in comment.replies"
-               :key="reply.id"
-               class="relative group"
-               :class="getReplyClasses(depth)">
+          <div class="relative">
 
-            <!-- Simple Interactive Thread Line -->
-            <button v-if="depth > 0"
-                    @click="toggleThreadCollapse(reply.id)"
-                    :title="getThreadLineTitle(reply.id)"
-                    class="absolute top-0 bottom-0 w-3 cursor-pointer z-10 flex items-center justify-center group/thread"
-                    :class="getThreadLineButtonClasses(depth)"
-                    :style="{ left: getThreadLineButtonOffset(depth) }">
-
-              <!-- Thread line visual -->
-              <div class="w-px h-full transition-colors duration-200"
-                   :class="getThreadLineVisualClasses(depth, reply.id)"></div>
-
-              <!-- Collapse/Expand icon -->
-              <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover/thread:opacity-100 transition-opacity duration-200"
-                   :class="getThreadLineIconClasses(reply.id)">
-                <svg class="w-3 h-3 transition-transform duration-200"
-                     :class="{ 'rotate-90': isThreadCollapsed(reply.id) }"
-                     fill="none"
-                     stroke="currentColor"
-                     viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
-              </div>
-            </button>
-
-            <!-- Recursive Comment -->
-            <div v-if="!isThreadCollapsed(reply.id)" class="transition-all duration-300">
-              <CommentItem :comment="reply"
-                           :target-id="targetId"
-                           :target-type="targetType"
-                           :is-authenticated="isAuthenticated"
-                           :current-user-id="currentUserId"
-                           :is-admin="isAdmin"
-                           :can-reply="canReply"
-                           :depth="depth + 1"
-                           @comment-updated="$emit('comment-updated', $event)"
-                           @comment-deleted="$emit('comment-deleted', $event)"
-                           @comment-restored="$emit('comment-restored', $event)"
-                           @reply-added="$emit('reply-added', $event)" />
-            </div>
-
-            <!-- Collapsed thread indicator -->
-            <div v-else class="py-2 px-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg">
-              <button @click="toggleThreadCollapse(reply.id)"
-                      class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors duration-200">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
-                <span>Show thread by {{ reply.userName }}</span>
-                <span class="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-full">
-                  {{ getThreadReplyCount(reply) }}
-                </span>
+            <!-- MAIN THREAD (depth === 0) -->
+            <div v-if="hasNestedReplies && depth === 0">
+              <!-- Expanded: Show unified thread line -->
+              <button v-if="!mainThreadCollapsed"
+                      @click="toggleMainThreadCollapse"
+                      :title="getMainThreadTitle"
+                      class="absolute left-0 top-0 w-4 cursor-pointer z-10 group/mainthread focus:outline-none focus:ring-0 shadow-none border-0 hover:bg-transparent"
+                      :style="{ height: mainThreadHeight + 'px' }">
+                <!-- Main thread line visual -->
+                <div class="absolute left-2 top-0 w-px h-full transition-colors duration-200 bg-gray-300 dark:bg-gray-600 group-hover/mainthread:bg-blue-400 dark:group-hover/mainthread:bg-blue-500">
+                </div>
               </button>
+
+              <!-- Collapsed: Show "See hidden replies" button with proper spacing -->
+              <div v-else class="mb-4 pb-2">
+                <button @click="toggleMainThreadCollapse"
+                        class=""
+                        :title="'Click to expand ' + getTotalNestedRepliesCount">
+                  <span class="">See {{ getTotalNestedRepliesCount }}</span>
+                </button>
+              </div>
             </div>
+
+            <!-- INDIVIDUAL THREADS (depth > 0) -->
+            <div v-else-if="depth > 0">
+              <!-- Expanded: Show individual thread line -->
+              <button v-if="!isThreadCollapsed(comment.id)"
+                      @click="toggleThreadCollapse(comment.id)"
+                      :title="getThreadLineTitle(comment.id)"
+                      class="absolute top-0 bottom-0 w-3 cursor-pointer z-10 flex items-center justify-center group/thread focus:outline-none focus:ring-0 shadow-none border-0"
+                      :style="{ left: getThreadLineButtonOffset(depth) }">
+
+                <!-- Individual thread line visual -->
+                <div class="w-px h-full transition-colors duration-200 bg-gray-300 dark:bg-gray-600 group-hover/thread:bg-blue-600 dark:group-hover/thread:bg-blue-300">
+                </div>
+              </button>
+
+              <!-- Collapsed: Show "See hidden replies" button with proper spacing and positioning -->
+              <div v-else class="mb-4 pb-2 flex">
+                <div :class="getCollapsedButtonContainerClasses(depth)">
+                  <button @click="toggleThreadCollapse(comment.id)"
+                          class=""
+                          :title="'Click to expand ' + getThreadReplyCount(comment)">
+                    <span class="">See {{ getThreadReplyCount(comment) }}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Reply Content Container - Only show when not collapsed -->
+            <div v-if="!mainThreadCollapsed && !isThreadCollapsed(comment.id)"
+                 :class="getReplyContainerClasses"
+                 :style="getReplyContainerStyles">
+
+              <div v-for="(reply, index) in comment.replies"
+                   :key="reply.id"
+                   :class="getReplyClasses(depth)">
+
+                <div class="transition-all duration-300">
+                  <CommentItem :comment="reply"
+                               :target-id="targetId"
+                               :target-type="targetType"
+                               :is-authenticated="isAuthenticated"
+                               :current-user-id="currentUserId"
+                               :is-admin="isAdmin"
+                               :can-reply="canReply"
+                               :depth="depth + 1"
+                               @comment-updated="$emit('comment-updated', $event)"
+                               @comment-deleted="$emit('comment-deleted', $event)"
+                               @comment-restored="$emit('comment-restored', $event)"
+                               @reply-added="$emit('reply-added', $event)" />
+                </div>
+
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
@@ -325,7 +323,9 @@
         deletingComment: false,
         restoringComment: false,
         repliesCollapsed: false,
-        collapsedThreads: new Set() // Track collapsed individual threads
+        collapsedThreads: new Set(), // Track collapsed individual threads
+        mainThreadCollapsed: false, // Track main thread collapse state
+        mainThreadHeight: 0 // Dynamic height for main thread line
       }
     },
     computed: {
@@ -341,52 +341,85 @@
 
       canSeeDeletedDetails() {
         return this.isAdmin
+      },
+
+      hasNestedReplies() {
+        return this.comment.replies && this.comment.replies.length > 0
+      },
+
+      getMainThreadTitle() {
+        return this.mainThreadCollapsed ? 'Click to expand entire thread' : 'Click to collapse entire thread'
+      },
+
+      getTotalNestedRepliesCount() {
+        const count = this.countAllNestedReplies(this.comment)
+        return count === 1 ? '1 reply' : `${count} replies`
+      },
+
+      getReplyContainerClasses() {
+        if (this.depth === 0) return 'relative'
+        return this.getReplyClasses(this.depth)
+      },
+
+      getReplyContainerStyles() {
+        if (this.depth === 0 && this.hasNestedReplies) {
+          return { marginLeft: '20px' }
+        }
+        return {}
       }
     },
+    mounted() {
+      this.calculateMainThreadHeight()
+    },
+    updated() {
+      this.calculateMainThreadHeight()
+    },
     methods: {
-      getReplyClasses(depth) {
-        // Progressive spacing reduction for deep nesting
-        if (depth === 0) return 'ml-0'
-        if (depth === 1) return 'ml-6 pl-6'
-        if (depth === 2) return 'ml-4 pl-4'
-        if (depth >= 3) return 'ml-2 pl-2'
-        return 'ml-2 pl-2'
-      },
-
-      getThreadLineButtonClasses(depth) {
-        return 'hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors duration-200'
-      },
-
-      getThreadLineVisualClasses(depth, replyId) {
-        const isCollapsed = this.isThreadCollapsed(replyId)
-
-        // Base color
-        let colorClass = 'bg-gray-300 dark:bg-gray-600'
-
-        // Hover colors - simpler color changes
-        if (isCollapsed) {
-          colorClass += ' group-hover/thread:bg-blue-500 dark:group-hover/thread:bg-blue-400'
-        } else {
-          colorClass += ' group-hover/thread:bg-blue-600 dark:group-hover/thread:bg-blue-300'
+      calculateMainThreadHeight() {
+        if (this.depth === 0 && this.hasNestedReplies && !this.mainThreadCollapsed) {
+          this.$nextTick(() => {
+            const repliesContainer = this.$el.querySelector('.space-y-4')
+            if (repliesContainer) {
+              this.mainThreadHeight = repliesContainer.offsetHeight
+            }
+          })
         }
-
-        return colorClass
       },
 
-      getThreadLineIconClasses(replyId) {
-        const isCollapsed = this.isThreadCollapsed(replyId)
-        const baseClass = 'text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded-full p-0.5 shadow-sm'
+      countAllNestedReplies(comment) {
+        let count = 0
+        if (comment.replies && comment.replies.length > 0) {
+          count += comment.replies.length
+          comment.replies.forEach(reply => {
+            count += this.countAllNestedReplies(reply)
+          })
+        }
+        return count
+      },
 
-        return isCollapsed
-          ? `${baseClass} bg-blue-50 dark:bg-blue-900/30`
-          : baseClass
+      toggleMainThreadCollapse() {
+        this.mainThreadCollapsed = !this.mainThreadCollapsed
+      },
+
+      getReplyClasses(depth) {
+        const baseMargin = 'ml-6'
+        if (depth === 0) return baseMargin
+        if (depth === 1) return `${baseMargin} pl-4`
+        if (depth === 2) return `${baseMargin} pl-2`
+        return `${baseMargin} pl-1`
       },
 
       getThreadLineButtonOffset(depth) {
-        // Adjust button position based on depth
-        if (depth === 1) return '-30px'
-        if (depth === 2) return '-22px'
-        return '-14px'
+        if (depth === 1) return '-12px'
+        if (depth === 2) return '-12px'
+        return '-10px'
+      },
+
+      getCollapsedButtonContainerClasses(depth) {
+        // Create appropriate spacing for collapsed buttons based on depth
+        if (depth === 1) return 'ml-2'
+        if (depth === 2) return 'ml-4'
+        return 'ml-6'
       },
 
       getThreadLineTitle(replyId) {
@@ -400,7 +433,6 @@
         } else {
           this.collapsedThreads.add(replyId)
         }
-        // Force reactivity
         this.collapsedThreads = new Set(this.collapsedThreads)
       },
 
@@ -544,22 +576,4 @@
 </script>
 
 <style scoped>
-  /* Focus states for accessibility */
-  .group\/thread:focus {
-    outline: 2px solid #3b82f6;
-    outline-offset: 2px;
-  }
-
-  .group\/thread:focus-visible {
-    outline: 2px solid #3b82f6;
-    outline-offset: 2px;
-  }
-
-  /* Dark mode focus states */
-  @media (prefers-color-scheme: dark) {
-    .group\/thread:focus,
-    .group\/thread:focus-visible {
-      outline-color: #60a5fa;
-    }
-  }
 </style>
