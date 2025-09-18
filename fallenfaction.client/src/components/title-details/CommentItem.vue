@@ -1,7 +1,7 @@
-<!-- Enhanced CommentItem.vue with Thread Line Replacement System -->
+<!-- Enhanced CommentItem.vue with Thread Integration after 3 levels -->
 <template>
   <article class="relative"
-           :class="{ 'opacity-80': comment.isDeleted }"
+           :class="{ 'comment-deleted': comment.isDeleted }"
            :aria-label="`Comment by ${comment.userName}`"
            role="article">
 
@@ -19,8 +19,8 @@
     <div v-else class="flex gap-3">
       <!-- Avatar -->
       <div class="flex-shrink-0">
-        <div class="w-10 h-10 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full flex items-center justify-center overflow-hidden"
-             :class="{ 'opacity-50': comment.isDeleted }">
+        <div class="comment-avatar"
+             :class="{ 'comment-avatar-deleted': comment.isDeleted }">
           <img v-if="comment.userAvatarUrl && !comment.isDeleted"
                :src="comment.userAvatarUrl"
                :alt="`${comment.userName}'s avatar`"
@@ -39,36 +39,35 @@
       <div class="flex-1 min-w-0">
         <!-- Header -->
         <header class="flex items-center gap-2 mb-2">
-          <h4 class="font-medium text-gray-900 dark:text-gray-100 text-sm"
-              :class="{ 'opacity-50': comment.isDeleted }">
+          <h4 class="comment-username"
+              :class="{ 'comment-username-deleted': comment.isDeleted }">
             {{ comment.isDeleted && !showDeletedContent ? '[Deleted]' : comment.userName }}
           </h4>
           <time :datetime="comment.postedDate"
-                class="text-xs text-gray-500 dark:text-gray-400"
+                class="comment-timestamp"
                 :title="formatFullDate(comment.postedDate)">
             {{ formatDate(comment.postedDate) }}
           </time>
 
           <!-- Status Badges -->
-          <span v-if="comment.isDeleted"
-                class="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs px-2 py-0.5 rounded-full font-medium">
+          <span v-if="comment.isDeleted" class="status-badge status-badge-deleted">
             Deleted
           </span>
           <span v-if="isUserAdmin(comment.userId) && !comment.isDeleted"
-                class="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs px-2 py-0.5 rounded-full font-medium">
+                class="status-badge status-badge-admin">
             Admin
           </span>
         </header>
 
         <!-- Comment Text -->
-        <div class="prose prose-sm max-w-none text-gray-900 dark:text-gray-100 mb-3">
+        <div class="comment-content">
           <!-- Deleted Comment Display -->
           <div v-if="comment.isDeleted">
-            <p v-if="!showDeletedContent" class="italic text-gray-500 dark:text-gray-400">
+            <p v-if="!showDeletedContent" class="deleted-message">
               [This comment has been deleted]
             </p>
-            <details v-else class="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-              <summary class="text-xs text-gray-600 dark:text-gray-400 mb-2 cursor-pointer">
+            <details v-else class="deleted-details">
+              <summary class="deleted-summary">
                 Original Content
                 <span v-if="canSeeDeletedDetails">
                   - Deleted {{ formatDate(comment.deletedAt) }}
@@ -91,10 +90,11 @@
           <!-- Upvote Button -->
           <button @click="toggleLike"
                   :disabled="!isAuthenticated || reactingToComment || comment.isDeleted"
-                  class="flex items-center gap-1 text-sm font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  :class="comment.currentUserLiked
-              ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300'
-              : 'text-gray-500 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400'">
+                  class="reaction-button"
+                  :class="[
+                    'reaction-upvote',
+                    comment.currentUserLiked ? 'reaction-upvote-active' : ''
+                  ]">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
               <path d="M7 14l5-5 5 5z" />
             </svg>
@@ -104,10 +104,11 @@
           <!-- Downvote Button -->
           <button @click="toggleDislike"
                   :disabled="!isAuthenticated || reactingToComment || comment.isDeleted"
-                  class="flex items-center gap-1 text-sm font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  :class="comment.currentUserDisliked
-              ? 'text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300'
-              : 'text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400'">
+                  class="reaction-button"
+                  :class="[
+                    'reaction-downvote',
+                    comment.currentUserDisliked ? 'reaction-downvote-active' : ''
+                  ]">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
               <path d="M7 10l5 5 5-5z" />
             </svg>
@@ -118,7 +119,7 @@
           <button v-if="canReply && !comment.isDeleted"
                   @click="toggleReplyForm"
                   :disabled="!isAuthenticated"
-                  class="flex items-center gap-1 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 disabled:cursor-not-allowed transition-colors duration-200">
+                  class="action-button action-button-reply">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path>
             </svg>
@@ -129,7 +130,7 @@
           <button v-if="canDelete && !comment.isDeleted"
                   @click="deleteComment"
                   :disabled="deletingComment"
-                  class="flex items-center gap-1 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200">
+                  class="action-button action-button-delete">
             <svg v-if="deletingComment" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -144,7 +145,7 @@
           <button v-if="isAdmin && comment.isDeleted"
                   @click="restoreComment"
                   :disabled="restoringComment"
-                  class="flex items-center gap-1 text-sm font-medium text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200">
+                  class="action-button action-button-restore">
             <svg v-if="restoringComment" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -164,12 +165,12 @@
                    :submitting="submittingReply"
                    @reply-submitted="onReplySubmitted"
                    @reply-cancelled="cancelReply"
-                   class="mb-4" />
+                   class="reply-form" />
 
         <!-- Collapsed State Message -->
         <div v-if="repliesCollapsed && comment.replies?.length > 0" class="mb-4">
           <button @click="toggleRepliesCollapsed"
-                  class="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
+                  class="collapsed-replies-button">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
             </svg>
@@ -177,9 +178,33 @@
           </button>
         </div>
 
-        <!-- Replies with Thread Line Replacement System -->
+        <!-- Replies Section -->
         <div v-if="!repliesCollapsed && comment.replies?.length > 0" class="space-y-4">
-          <div class="relative">
+
+          <!-- Thread System: After depth 2 (3rd level), show thread button instead of nested comments -->
+          <div v-if="depth >= 2" class="thread-transition">
+            <button @click="openThreadModal"
+                    class="thread-button">
+              <div class="thread-button-content">
+                <div class="flex items-center gap-2">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                  </svg>
+                  <span class="font-medium">Continue in Thread</span>
+                </div>
+                <div class="thread-stats">
+                  <span>{{ getTotalNestedRepliesCount }} • {{ uniqueParticipantsCount }} {{ uniqueParticipantsCount === 1 ? 'participant' : 'participants' }}</span>
+                </div>
+              </div>
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Regular nested replies (depth < 2) -->
+          <div v-else class="relative">
 
             <!-- MAIN THREAD (depth === 0) -->
             <div v-if="hasNestedReplies && depth === 0">
@@ -187,19 +212,17 @@
               <button v-if="!mainThreadCollapsed"
                       @click="toggleMainThreadCollapse"
                       :title="getMainThreadTitle"
-                      class="absolute left-0 top-0 w-4 cursor-pointer z-10 group/mainthread focus:outline-none focus:ring-0 shadow-none border-0 hover:bg-transparent"
+                      class="thread-line-button thread-line-main"
                       :style="{ height: mainThreadHeight + 'px' }">
-                <!-- Main thread line visual -->
-                <div class="absolute left-2 top-0 w-px h-full transition-colors duration-200 bg-gray-300 dark:bg-gray-600 group-hover/mainthread:bg-blue-400 dark:group-hover/mainthread:bg-blue-500">
-                </div>
+                <div class="thread-line thread-line-main-visual"></div>
               </button>
 
-              <!-- Collapsed: Show "See hidden replies" button with proper spacing -->
+              <!-- Collapsed: Show "See hidden replies" button -->
               <div v-else class="mb-4 pb-2">
                 <button @click="toggleMainThreadCollapse"
-                        class=""
+                        class="expand-button"
                         :title="'Click to expand ' + getTotalNestedRepliesCount">
-                  <span class="">See {{ getTotalNestedRepliesCount }}</span>
+                  <span>See {{ getTotalNestedRepliesCount }}</span>
                 </button>
               </div>
             </div>
@@ -210,21 +233,18 @@
               <button v-if="!isThreadCollapsed(comment.id)"
                       @click="toggleThreadCollapse(comment.id)"
                       :title="getThreadLineTitle(comment.id)"
-                      class="absolute top-0 bottom-0 w-3 cursor-pointer z-10 flex items-center justify-center group/thread focus:outline-none focus:ring-0 shadow-none border-0"
+                      class="thread-line-button thread-line-individual"
                       :style="{ left: getThreadLineButtonOffset(depth) }">
-
-                <!-- Individual thread line visual -->
-                <div class="w-px h-full transition-colors duration-200 bg-gray-300 dark:bg-gray-600 group-hover/thread:bg-blue-600 dark:group-hover/thread:bg-blue-300">
-                </div>
+                <div class="thread-line thread-line-individual-visual"></div>
               </button>
 
-              <!-- Collapsed: Show "See hidden replies" button with proper spacing and positioning -->
+              <!-- Collapsed: Show "See hidden replies" button -->
               <div v-else class="mb-4 pb-2 flex">
                 <div :class="getCollapsedButtonContainerClasses(depth)">
                   <button @click="toggleThreadCollapse(comment.id)"
-                          class=""
+                          class="expand-button"
                           :title="'Click to expand ' + getThreadReplyCount(comment)">
-                    <span class="">See {{ getThreadReplyCount(comment) }}</span>
+                    <span>See {{ getThreadReplyCount(comment) }}</span>
                   </button>
                 </div>
               </div>
@@ -261,6 +281,21 @@
         </div>
       </div>
     </div>
+
+    <!-- Thread View Modal -->
+    <ThreadViewModal v-if="showThreadModal"
+                     :root-comment="comment"
+                     :target-id="targetId"
+                     :target-type="targetType"
+                     :is-authenticated="isAuthenticated"
+                     :current-user-id="currentUserId"
+                     :is-admin="isAdmin"
+                     :can-reply="canReply"
+                     @close="closeThreadModal"
+                     @comment-updated="$emit('comment-updated', $event)"
+                     @comment-deleted="$emit('comment-deleted', $event)"
+                     @comment-restored="$emit('comment-restored', $event)"
+                     @reply-added="$emit('reply-added', $event)" />
   </article>
 </template>
 
@@ -269,12 +304,14 @@
   import { useToast } from '../../utils/toastService'
   import LoadingScreen from '../../LoadingScreen.vue'
   import ReplyForm from './ReplyForm.vue'
+  import ThreadViewModal from './ThreadViewModal.vue'
 
   export default {
     name: 'CommentItem',
     components: {
       LoadingScreen,
-      ReplyForm
+      ReplyForm,
+      ThreadViewModal
     },
     props: {
       comment: {
@@ -323,9 +360,10 @@
         deletingComment: false,
         restoringComment: false,
         repliesCollapsed: false,
-        collapsedThreads: new Set(), // Track collapsed individual threads
-        mainThreadCollapsed: false, // Track main thread collapse state
-        mainThreadHeight: 0 // Dynamic height for main thread line
+        collapsedThreads: new Set(),
+        mainThreadCollapsed: false,
+        mainThreadHeight: 0,
+        showThreadModal: false
       }
     },
     computed: {
@@ -356,6 +394,26 @@
         return count === 1 ? '1 reply' : `${count} replies`
       },
 
+      uniqueParticipantsCount() {
+        const participants = new Set()
+        participants.add(this.comment.userName)
+
+        const addParticipants = (replies) => {
+          replies.forEach(reply => {
+            participants.add(reply.userName)
+            if (reply.replies && reply.replies.length > 0) {
+              addParticipants(reply.replies)
+            }
+          })
+        }
+
+        if (this.comment.replies) {
+          addParticipants(this.comment.replies)
+        }
+
+        return participants.size
+      },
+
       getReplyContainerClasses() {
         if (this.depth === 0) return 'relative'
         return this.getReplyClasses(this.depth)
@@ -375,6 +433,18 @@
       this.calculateMainThreadHeight()
     },
     methods: {
+      openThreadModal() {
+        this.showThreadModal = true
+        // Prevent body scroll when modal is open
+        document.body.style.overflow = 'hidden'
+      },
+
+      closeThreadModal() {
+        this.showThreadModal = false
+        // Restore body scroll
+        document.body.style.overflow = ''
+      },
+
       calculateMainThreadHeight() {
         if (this.depth === 0 && this.hasNestedReplies && !this.mainThreadCollapsed) {
           this.$nextTick(() => {
@@ -416,7 +486,6 @@
       },
 
       getCollapsedButtonContainerClasses(depth) {
-        // Create appropriate spacing for collapsed buttons based on depth
         if (depth === 1) return 'ml-2'
         if (depth === 2) return 'ml-4'
         return 'ml-6'
@@ -576,4 +645,392 @@
 </script>
 
 <style scoped>
+  /* Comment Styling with CSS Variables */
+  .comment-deleted {
+    opacity: 0.8;
+  }
+
+  .comment-avatar {
+    width: 2.5rem;
+    height: 2.5rem;
+    background: var(--color-background-soft);
+    border: 1px solid var(--color-border);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .comment-avatar-deleted {
+    opacity: 0.5;
+  }
+
+  .comment-username {
+    font-weight: 500;
+    color: var(--color-heading);
+    font-size: 0.875rem;
+  }
+
+  .comment-username-deleted {
+    opacity: 0.5;
+  }
+
+  .comment-timestamp {
+    font-size: 0.75rem;
+    color: var(--vt-c-text-light-2);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .comment-timestamp {
+      color: var(--vt-c-text-dark-2);
+    }
+  }
+
+  .comment-content {
+    color: var(--color-text);
+    margin-bottom: 0.75rem;
+    max-width: none;
+  }
+
+  .status-badge {
+    font-size: 0.75rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 1rem;
+    font-weight: 500;
+  }
+
+  .status-badge-deleted {
+    background: var(--color-background-mute);
+    color: var(--vt-c-text-light-2);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .status-badge-deleted {
+      background: var(--vt-c-black-mute);
+      color: var(--vt-c-text-dark-2);
+    }
+  }
+
+  .status-badge-admin {
+    background: rgba(239, 68, 68, 0.1);
+    color: rgb(185, 28, 28);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .status-badge-admin {
+      background: rgba(127, 29, 29, 0.3);
+      color: rgb(248, 113, 113);
+    }
+  }
+
+  .deleted-message {
+    font-style: italic;
+    color: var(--vt-c-text-light-2);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .deleted-message {
+      color: var(--vt-c-text-dark-2);
+    }
+  }
+
+  .deleted-details {
+    background: var(--color-background-mute);
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  .deleted-summary {
+    font-size: 0.75rem;
+    color: var(--vt-c-text-light-2);
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .deleted-summary {
+      color: var(--vt-c-text-dark-2);
+    }
+  }
+
+  /* Action Buttons */
+  .reaction-button {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: colors 0.2s;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+  }
+
+    .reaction-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+  .reaction-upvote {
+    color: var(--vt-c-text-light-2);
+  }
+
+    .reaction-upvote:hover:not(:disabled) {
+      color: #059669;
+    }
+
+  .reaction-upvote-active {
+    color: #059669;
+  }
+
+  .reaction-downvote {
+    color: var(--vt-c-text-light-2);
+  }
+
+    .reaction-downvote:hover:not(:disabled) {
+      color: #dc2626;
+    }
+
+  .reaction-downvote-active {
+    color: #dc2626;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .reaction-upvote {
+      color: var(--vt-c-text-dark-2);
+    }
+
+      .reaction-upvote:hover:not(:disabled) {
+        color: #10b981;
+      }
+
+    .reaction-upvote-active {
+      color: #10b981;
+    }
+
+    .reaction-downvote {
+      color: var(--vt-c-text-dark-2);
+    }
+
+      .reaction-downvote:hover:not(:disabled) {
+        color: #f87171;
+      }
+
+    .reaction-downvote-active {
+      color: #f87171;
+    }
+  }
+
+  .action-button {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: colors 0.2s;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+  }
+
+    .action-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+  .action-button-reply {
+    color: var(--vt-c-text-light-2);
+  }
+
+    .action-button-reply:hover:not(:disabled) {
+      color: var(--color-heading);
+    }
+
+  .action-button-delete {
+    color: #dc2626;
+  }
+
+    .action-button-delete:hover:not(:disabled) {
+      color: #b91c1c;
+    }
+
+  .action-button-restore {
+    color: #059669;
+  }
+
+    .action-button-restore:hover:not(:disabled) {
+      color: #047857;
+    }
+
+  @media (prefers-color-scheme: dark) {
+    .action-button-reply {
+      color: var(--vt-c-text-dark-2);
+    }
+
+      .action-button-reply:hover:not(:disabled) {
+        color: var(--color-heading);
+      }
+
+    .action-button-delete {
+      color: #f87171;
+    }
+
+      .action-button-delete:hover:not(:disabled) {
+        color: #ef4444;
+      }
+
+    .action-button-restore {
+      color: #10b981;
+    }
+
+      .action-button-restore:hover:not(:disabled) {
+        color: #059669;
+      }
+  }
+
+  .reply-form {
+    margin-bottom: 1rem;
+  }
+
+  /* Collapsed Replies */
+  .collapsed-replies-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--color-background-soft);
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-heading);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+    .collapsed-replies-button:hover {
+      background: var(--color-background-mute);
+      border-color: var(--color-border-hover);
+    }
+
+  .expand-button {
+    color: var(--color-heading);
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    transition: background-color 0.2s;
+  }
+
+    .expand-button:hover {
+      background: var(--color-background-soft);
+    }
+
+  /* Thread System */
+  .thread-transition {
+    margin: 1rem 0;
+    padding: 0.5rem 0;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .thread-button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    background: var(--color-background-soft);
+    border: 2px solid var(--color-border);
+    border-radius: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--color-text);
+  }
+
+    .thread-button:hover {
+      background: var(--color-background-mute);
+      border-color: var(--vt-c-indigo);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+  @media (prefers-color-scheme: dark) {
+    .thread-button:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+  }
+
+  .thread-button-content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  .thread-stats {
+    font-size: 0.75rem;
+    color: var(--vt-c-text-light-2);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .thread-stats {
+      color: var(--vt-c-text-dark-2);
+    }
+  }
+
+  /* Thread Lines */
+  .thread-line-button {
+    position: absolute;
+    top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    border: none;
+    background: transparent;
+    outline: none;
+  }
+
+  .thread-line-main {
+    left: 0;
+    width: 1rem;
+  }
+
+  .thread-line-individual {
+    width: 0.75rem;
+  }
+
+  .thread-line {
+    transition: all 0.2s;
+  }
+
+  .thread-line-main-visual {
+    position: absolute;
+    left: 0.5rem;
+    top: 0;
+    width: 1px;
+    height: 100%;
+    background: var(--color-border);
+  }
+
+  .thread-line-button:hover .thread-line-main-visual {
+    background: var(--vt-c-indigo);
+    opacity: 0.8;
+  }
+
+  .thread-line-individual-visual {
+    width: 1px;
+    height: 100%;
+    background: var(--color-border);
+  }
+
+  .thread-line-button:hover .thread-line-individual-visual {
+    background: var(--vt-c-indigo);
+    opacity: 0.8;
+  }
 </style>

@@ -139,7 +139,7 @@
           <!-- Action Buttons -->
           <div class="px-4 mb-6 space-y-3">
             <!-- Read Button -->
-            <router-link v-if="titleData.chapterCount > 0"
+            <router-link v-if="canStartReading"
                          :to="getFirstChapterUrl()"
                          class="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 px-4 rounded-xl font-semibold text-center transition-all duration-200 hover:from-orange-600 hover:to-orange-700 hover:shadow-lg transform hover:-translate-y-0.5 flex items-center justify-center space-x-2">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -149,7 +149,7 @@
             </router-link>
 
             <!-- Continue Reading Button (only for authenticated users with bookmarks) -->
-            <router-link v-if="isAuthenticated && userBookmark && userBookmark.lastReadChapter > 0"
+            <router-link v-if="canContinueReading"
                          :to="getContinueReadingUrl()"
                          class="w-full bg-green-600 text-white py-3 px-4 rounded-xl font-semibold text-center transition-all duration-200 hover:bg-green-700 hover:shadow-lg transform hover:-translate-y-0.5 flex items-center justify-center space-x-2">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -281,7 +281,7 @@
                   <!-- Action Buttons -->
                   <div class="mt-6 space-y-3">
                     <!-- Read Button -->
-                    <router-link v-if="titleData.chapterCount > 0"
+                    <router-link v-if="canStartReading"
                                  :to="getFirstChapterUrl()"
                                  class="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 px-4 rounded-xl font-semibold text-center transition-all duration-200 hover:from-orange-600 hover:to-orange-700 hover:shadow-lg transform hover:-translate-y-0.5 flex items-center justify-center space-x-2">
                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -291,7 +291,7 @@
                     </router-link>
 
                     <!-- Continue Reading Button (only for authenticated users with bookmarks) -->
-                    <router-link v-if="isAuthenticated && userBookmark && userBookmark.lastReadChapter > 0"
+                    <router-link v-if="canContinueReading"
                                  :to="getContinueReadingUrl()"
                                  class="w-full bg-green-600 text-white py-3 px-4 rounded-xl font-semibold text-center transition-all duration-200 hover:bg-green-700 hover:shadow-lg transform hover:-translate-y-0.5 flex items-center justify-center space-x-2">
                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -511,6 +511,8 @@
   const initialTab = ref('info')
   const userBookmark = ref(null)
   const isAuthenticated = ref(false)
+  const chaptersData = ref([])
+  const loadingChapters = ref(false)
 
   // Rating modal
   const showRatingModal = ref(false)
@@ -523,6 +525,18 @@
   const actionDropdownRef = ref(null)
 
   // Computed properties
+  const canStartReading = computed(() => {
+    return titleData.value?.chapterCount > 0 && chaptersData.value.length > 0 && !loadingChapters.value
+  })
+
+  const canContinueReading = computed(() => {
+    return isAuthenticated.value &&
+      userBookmark.value &&
+      userBookmark.value.lastReadChapter > 0 &&
+      chaptersData.value.length > 0 &&
+      !loadingChapters.value
+  })
+
   const sidebarInfo = computed(() => {
     if (!titleData.value) return []
 
@@ -565,7 +579,7 @@
 
       if (result.success && result.data) {
         titleData.value = result.data
-
+        await loadChaptersData()
         // Update page title
         document.title = `${titleData.value.originalTitle} - FallenFaction`
 
@@ -706,14 +720,65 @@
     return num.toString()
   }
 
+  const loadChaptersData = async () => {
+    if (!titleData.value?.id) return
+
+    try {
+      loadingChapters.value = true
+      const result = await titleDetailsService.getChapters(titleData.value.id)
+
+      if (result.success && result.data) {
+        chaptersData.value = result.data
+        console.log('Chapters loaded for reading buttons:', chaptersData.value.length)
+      }
+    } catch (err) {
+      console.error('Error loading chapters for reading buttons:', err)
+    } finally {
+      loadingChapters.value = false
+    }
+  }
+
   const getFirstChapterUrl = () => {
-    if (!titleData.value || !titleData.value.chapterCount) return '#'
-    return `/${titleData.value.originalTitle}/chapter/1`
+    if (!titleData.value || !chaptersData.value.length) return '#'
+
+    // Sort chapters to get the first one (lowest volume, then lowest chapter number)
+    const sortedChapters = [...chaptersData.value].sort((a, b) => {
+      const volumeCompare = a.volumeNumber - b.volumeNumber
+      if (volumeCompare !== 0) return volumeCompare
+      return a.chapterNumber - b.chapterNumber
+    })
+
+    const firstChapter = sortedChapters[0]
+    if (!firstChapter) return '#'
+
+    const chapterName = firstChapter.name || firstChapter.chapterNumber.toString()
+    return `/${encodeURIComponent(titleData.value.originalTitle)}/chapter/${encodeURIComponent(chapterName)}/v${firstChapter.volumeNumber}/t${firstChapter.teamId || firstChapter.team?.id || 0}?viewMode=single`
   }
 
   const getContinueReadingUrl = () => {
-    if (!userBookmark.value) return '#'
-    return `/${titleData.value.originalTitle}/chapter/${userBookmark.value.lastReadChapter}`
+    if (!userBookmark.value || !chaptersData.value.length) return '#'
+
+    // Find the chapter to continue from based on bookmark
+    const continueChapter = chaptersData.value.find(chapter =>
+      chapter.chapterNumber === userBookmark.value.lastReadChapter
+    )
+
+    if (!continueChapter) {
+      // Fallback: find closest chapter
+      const sortedChapters = [...chaptersData.value]
+        .filter(c => c.chapterNumber <= userBookmark.value.lastReadChapter)
+        .sort((a, b) => b.chapterNumber - a.chapterNumber)
+
+      if (sortedChapters.length > 0) {
+        const chapter = sortedChapters[0]
+        const chapterName = chapter.name || chapter.chapterNumber.toString()
+        return `/${encodeURIComponent(titleData.value.originalTitle)}/chapter/${encodeURIComponent(chapterName)}/v${chapter.volumeNumber}/t${chapter.teamId || chapter.team?.id || 0}?viewMode=single`
+      }
+      return '#'
+    }
+
+    const chapterName = continueChapter.name || continueChapter.chapterNumber.toString()
+    return `/${encodeURIComponent(titleData.value.originalTitle)}/chapter/${encodeURIComponent(chapterName)}/v${continueChapter.volumeNumber}/t${continueChapter.teamId || continueChapter.team?.id || 0}?viewMode=single`
   }
 
   const getErrorTitle = () => {
@@ -809,6 +874,7 @@
       await loadTitleData()
     }
   })
+
 
   watch(() => route.query.section, (newTab) => {
     if (newTab) {
