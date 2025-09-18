@@ -557,7 +557,7 @@
   const chaptersList = ref([])
   const currentPage = ref(1)
   const debugMode = ref(false)
-  
+
   const showImageComments = ref(false)
   const imageCommentsVisible = ref(true)
 
@@ -682,7 +682,7 @@
       console.warn('Failed to save scroll position to localStorage:', error)
     }
 
-    console.log('📍 Saved scroll position:', { key, scrollY, scrollX })
+    console.log('ðŸ“ Saved scroll position:', { key, scrollY, scrollX })
   }
 
   // Enhanced restore scroll position with better fallback handling
@@ -703,7 +703,7 @@
     }
 
     if (position) {
-      console.log('🔄 Restoring scroll position:', { key, position })
+      console.log('ðŸ”„ Restoring scroll position:', { key, position })
       isRestoringScroll.value = true
 
       if (scrollRestoreTimeout.value) {
@@ -726,7 +726,7 @@
 
       return true
     } else {
-      console.log('🆕 No saved position found, using fallback:', fallbackBehavior)
+      console.log('ðŸ†• No saved position found, using fallback:', fallbackBehavior)
       nextTick(() => {
         if (fallbackBehavior === 'bottom') {
           scrollToBottom()
@@ -779,7 +779,7 @@
       currentHistoryIndex.value = Math.max(0, currentHistoryIndex.value - removeCount)
     }
 
-    console.log('📚 Navigation history updated:', {
+    console.log('ðŸ“š Navigation history updated:', {
       direction,
       currentIndex: currentHistoryIndex.value,
       historyLength: navigationHistory.value.length,
@@ -829,7 +829,7 @@
       Object.entries(savedPositions).forEach(([key, position]) => {
         scrollPositions.value.set(key, position)
       })
-      console.log('📋 Loaded saved scroll positions:', scrollPositions.value.size)
+      console.log('ðŸ“‹ Loaded saved scroll positions:', scrollPositions.value.size)
     } catch (error) {
       console.warn('Failed to load saved scroll positions:', error)
     }
@@ -935,10 +935,10 @@
 
       // Check if we're revisiting this page and restore position if available
       if (isRevisitingLocation(targetKey)) {
-        console.log('🔄 Revisiting next page, restoring scroll position')
+        console.log('ðŸ”„ Revisiting next page, restoring scroll position')
         restoreScrollPosition(targetKey, 'top')
       } else {
-        console.log('🆕 New next page, scrolling to top')
+        console.log('ðŸ†• New next page, scrolling to top')
         scrollToTop()
       }
     } else {
@@ -964,10 +964,10 @@
 
       // Always try to restore position for previous pages
       if (isRevisitingLocation(targetKey)) {
-        console.log('🔄 Going back to previous page, restoring scroll position')
+        console.log('ðŸ”„ Going back to previous page, restoring scroll position')
         restoreScrollPosition(targetKey, 'top')
       } else {
-        console.log('🆕 New previous page, scrolling to top')
+        console.log('ðŸ†• New previous page, scrolling to top')
         scrollToTop()
       }
     } else {
@@ -1003,7 +1003,7 @@
       }
     )
 
-    console.log('➡️ Navigating to next chapter:', {
+    console.log('âž¡ï¸ Navigating to next chapter:', {
       targetKey,
       hasPosition: isRevisitingLocation(targetKey)
     })
@@ -1038,7 +1038,7 @@
       }
     )
 
-    console.log('⬅️ Navigating to previous chapter:', {
+    console.log('â¬…ï¸ Navigating to previous chapter:', {
       targetKey,
       hasPosition: isRevisitingLocation(targetKey)
     })
@@ -1072,10 +1072,10 @@
     if (viewMode.value === 'single') {
       // For single page view, try to restore position if available
       if (isRevisitingLocation(targetKey)) {
-        console.log('🔄 Revisiting page via selector, restoring scroll position')
+        console.log('ðŸ”„ Revisiting page via selector, restoring scroll position')
         restoreScrollPosition(targetKey, 'top')
       } else {
-        console.log('🆕 New page via selector, scrolling to top')
+        console.log('ðŸ†• New page via selector, scrolling to top')
         scrollToTop()
       }
     }
@@ -1460,7 +1460,7 @@
     const scrollTo = route.query.scrollTo
     const currentKey = getCurrentLocationKey()
 
-    console.log('🎯 Handling scroll behavior:', { restoreScroll, scrollTo, currentKey })
+    console.log('ðŸŽ¯ Handling scroll behavior:', { restoreScroll, scrollTo, currentKey })
 
     if (restoreScroll === 'true' || scrollTo === 'restore') {
       // Try to restore the exact position for this location
@@ -2515,17 +2515,8 @@
 
   @media (max-width: 480px) {
     .navbar-content {
-      showImageComments padding: 0.25rem;
-    }
-
-    .chapter-nav {
-      gap: 0.25rem;
-    }
-
-    .settings-section.toggle-section {
-      flex-direction: column;
-      gap: 0.5rem;
-      align-items: flex-start;
+      padding: 0.25rem;
     }
   }
+
 </style>
