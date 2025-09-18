@@ -87,6 +87,7 @@
     <!-- Chapter Content -->
     <div v-else-if="chapterData && orderedImages.length > 0" class="chapter-content">
       <!-- Single Page View -->
+      <!-- Single Page View -->
       <div v-if="viewMode === 'single'" class="single-page-view">
         <!-- Content Area -->
         <div class="content-area" ref="singlePageContainer">
@@ -117,6 +118,43 @@
           </div>
         </div>
 
+        <!-- Image Comments Section - NEW -->
+        <div v-if="showImageComments && currentImage" class="image-comments-section">
+          <div class="max-w-4xl mx-auto px-4 py-6">
+            <!-- Image Comments Header -->
+            <div class="flex items-center justify-between mb-4">
+              <h4 class="text-lg font-semibold text-[var(--color-text)] flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path>
+                </svg>
+                Comments for Page {{ currentPage }}
+              </h4>
+              <button @click="imageCommentsVisible = !imageCommentsVisible"
+                      class="p-2 text-[var(--color-text)] opacity-60 hover:opacity-100 rounded-lg hover:bg-[var(--color-background-mute)] transition-all duration-200">
+                <svg v-if="imageCommentsVisible" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+                </svg>
+                <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Image Comments Container -->
+            <div v-if="imageCommentsVisible" class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-xl p-4">
+              <CommentsComponent v-if="chapterData.id"
+                                 :target-id="getImageCommentTargetId()"
+                                 :target-type="3"
+                                 :is-authenticated="isAuthenticated"
+                                 :current-user-id="currentUserId"
+                                 :is-admin="isAdmin"
+                                 @comments-loaded="onImageCommentsLoaded"
+                                 @comment-added="onImageCommentAdded"
+                                 @comments-updated="onImageCommentsUpdated" />
+            </div>
+          </div>
+        </div>
+
         <!-- Page Indicator -->
         <div class="page-indicator" :class="{ 'hidden': !uiVisible }">
           <select v-model="currentPage"
@@ -126,6 +164,54 @@
               {{ page }} / {{ totalPages }}
             </option>
           </select>
+        </div>
+
+        <!-- Comments Section for Single Page View (After last page) -->
+        <div v-if="currentPage === totalPages" class="single-page-comments-section">
+          <div class="max-w-4xl mx-auto px-4 py-8">
+            <div class="chapter-end-navigation mb-8">
+              <div class="flex justify-center gap-4 mb-6">
+                <button @click="enhancedGotoPrevChapter"
+                        :disabled="!chapterData.previousChapterId"
+                        class="nav-btn prev-chapter">
+                  <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                  </svg>
+                  Previous Chapter
+                </button>
+                <button @click="goToTitleDetails" class="nav-btn back-to-title">
+                  <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2z"></path>
+                  </svg>
+                  Back to Title
+                </button>
+                <button @click="enhancedGotoNextChapter"
+                        :disabled="!chapterData.nextChapterId"
+                        class="nav-btn next-chapter">
+                  Next Chapter
+                  <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Chapter Comments -->
+            <div class="mb-6">
+              <h3 class="text-xl font-semibold text-[var(--color-text)] mb-4 border-b border-[var(--color-border)] pb-2">
+                Chapter Comments
+              </h3>
+              <CommentsComponent v-if="chapterData.id"
+                                 :target-id="chapterData.id"
+                                 :target-type="2"
+                                 :is-authenticated="isAuthenticated"
+                                 :current-user-id="currentUserId"
+                                 :is-admin="isAdmin"
+                                 @comments-loaded="onCommentsLoaded"
+                                 @comment-added="onCommentAdded"
+                                 @comments-updated="onCommentsUpdated" />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -184,6 +270,21 @@
                         class="nav-btn next-chapter">
                   Next Chapter
                 </button>
+              </div>
+            </div>
+
+            <!-- Comments Section for All Pages View -->
+            <div class="all-pages-comments-section">
+              <div class="max-w-4xl mx-auto px-4 py-8">
+                <CommentsComponent v-if="chapterData.id"
+                                   :target-id="chapterData.id"
+                                   :target-type="2"
+                                   :is-authenticated="isAuthenticated"
+                                   :current-user-id="currentUserId"
+                                   :is-admin="isAdmin"
+                                   @comments-loaded="onCommentsLoaded"
+                                   @comment-added="onCommentAdded"
+                                   @comments-updated="onCommentsUpdated" />
               </div>
             </div>
           </div>
@@ -394,6 +495,19 @@
               <label for="hideHints"></label>
             </div>
           </div>
+          <!-- Image Comments Toggle -->
+          <div class="settings-section toggle-section">
+            <div class="settings-label">
+              <span>Show Image Comments</span>
+            </div>
+            <div class="toggle-switch">
+              <input type="checkbox"
+                     id="showImageComments"
+                     v-model="showImageComments"
+                     @change="setShowImageComments" />
+              <label for="showImageComments"></label>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -410,6 +524,7 @@
   import { useRoute, useRouter } from 'vue-router'
   import { titleDetailsService } from '../../services/titleDetailsService'
   import { chapterService } from '../../services/chapterService'
+  import CommentsComponent from '../title-details/CommentsComponent.vue'
 
   // Props
   const props = defineProps({
@@ -442,6 +557,14 @@
   const chaptersList = ref([])
   const currentPage = ref(1)
   const debugMode = ref(false)
+  
+  const showImageComments = ref(false)
+  const imageCommentsVisible = ref(true)
+
+  // Authentication state
+  const isAuthenticated = ref(false)
+  const currentUserId = ref('')
+  const isAdmin = ref(false)
 
   // Refs for image handling
   const currentImageRef = ref(null)
@@ -470,7 +593,36 @@
   const hideHints = ref(false)
 
   // ===================================================================
-  // ENHANCED SCROLL POSITION MEMORY SYSTEM
+  // AUTHENTICATION CHECK
+  // ===================================================================
+
+  const checkAuthStatus = () => {
+    try {
+      const token = localStorage.getItem('authToken')
+      const user = localStorage.getItem('authUser')
+
+      if (token && user) {
+        const userData = JSON.parse(user)
+        isAuthenticated.value = true
+        currentUserId.value = userData.id || userData.userId || ''
+        isAdmin.value = userData.role === 'Admin' || userData.roles?.includes('Admin') || false
+      }
+
+      console.log('ChapterReader auth status:', {
+        isAuthenticated: isAuthenticated.value,
+        currentUserId: currentUserId.value,
+        isAdmin: isAdmin.value
+      })
+    } catch (err) {
+      console.error('Error checking auth status in ChapterReader:', err)
+      isAuthenticated.value = false
+      currentUserId.value = ''
+      isAdmin.value = false
+    }
+  }
+
+  // ===================================================================
+  // SCROLL POSITION MEMORY SYSTEM
   // ===================================================================
 
   // Navigation history for tracking scroll positions with proper bidirectional support
@@ -699,26 +851,6 @@
     if (scrollRestoreTimeout.value) {
       clearTimeout(scrollRestoreTimeout.value)
     }
-  }
-
-  // Debug function to inspect scroll positions
-  const debugScrollPositions = () => {
-    console.log('📋 Current scroll positions:', {
-      memoryCount: scrollPositions.value.size,
-      currentKey: getCurrentLocationKey(),
-      historyIndex: currentHistoryIndex.value,
-      historyLength: navigationHistory.value.length,
-      positions: Array.from(scrollPositions.value.entries()).map(([key, pos]) => ({
-        key,
-        scrollY: pos.scrollY,
-        timestamp: new Date(pos.timestamp).toLocaleTimeString()
-      }))
-    })
-  }
-
-  // Export debug function for development use
-  if (typeof window !== 'undefined') {
-    window.debugScrollPositions = debugScrollPositions
   }
 
   // ===================================================================
@@ -978,6 +1110,48 @@
         showHint(`${actionPrefix}: ${hintMessage}`)
       }
     }
+  }
+
+  // ===================================================================
+  // COMMENTS SINGLE PAGE VIEW
+  // ===================================================================
+
+  const getImageCommentTargetId = () => {
+    // Create a unique identifier for each image
+    // Using chapter ID + page number to ensure uniqueness
+    return `${chapterData.value.id}_page_${currentPage.value}`
+  }
+
+  const setShowImageComments = () => {
+    savePreference('showImageComments', showImageComments.value)
+  }
+
+  const onImageCommentsLoaded = (data) => {
+    console.log('Image comments loaded for page', currentPage.value, ':', data)
+  }
+
+  const onImageCommentAdded = (comment) => {
+    console.log('New image comment added for page', currentPage.value, ':', comment)
+  }
+
+  const onImageCommentsUpdated = (data) => {
+    console.log('Image comments updated for page', currentPage.value, ':', data)
+  }
+
+  // ===================================================================
+  // COMMENTS EVENT HANDLERS
+  // ===================================================================
+
+  const onCommentsLoaded = (data) => {
+    console.log('Chapter comments loaded:', data)
+  }
+
+  const onCommentAdded = (comment) => {
+    console.log('New comment added to chapter:', comment)
+  }
+
+  const onCommentsUpdated = (data) => {
+    console.log('Chapter comments updated:', data)
   }
 
   // ===================================================================
@@ -1374,6 +1548,7 @@
     containerWidth.value = loadPreference('containerWidth', 100)
     hidePageNumbers.value = loadPreference('hidePageNumbers', false)
     hideHints.value = loadPreference('hideHints', false)
+    showImageComments.value = loadPreference('showImageComments', false)
 
     // FIXED: Don't set viewMode here - let loadChapter handle it with proper priority
     // The viewMode will be set in loadChapter with proper URL > saved preference > default logic
@@ -1421,6 +1596,9 @@
 
   // Lifecycle
   onMounted(async () => {
+    // Check authentication status first
+    checkAuthStatus()
+
     loadPreferences()
     await loadChapter()
 
@@ -1860,6 +2038,27 @@
     cursor: pointer;
   }
 
+  /* Comments Sections */
+  .single-page-comments-section {
+    position: relative;
+    background: var(--color-background);
+    border-top: 1px solid var(--color-border);
+    margin-top: 2rem;
+  }
+
+  .all-pages-comments-section {
+    position: relative;
+    background: var(--color-background);
+    border-top: 1px solid var(--color-border);
+    margin-top: 2rem;
+  }
+
+  .chapter-end-navigation {
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-background-soft);
+    padding: 2rem 0;
+  }
+
   /* Touch Zones - Completely invisible */
   .tap-zones-on-image {
     position: absolute;
@@ -1948,6 +2147,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    border: none;
   }
 
     .nav-btn.prev-chapter,
@@ -2315,7 +2515,7 @@
 
   @media (max-width: 480px) {
     .navbar-content {
-      padding: 0.25rem;
+      showImageComments padding: 0.25rem;
     }
 
     .chapter-nav {
