@@ -1261,7 +1261,6 @@ namespace FallenFaction.Server.Controllers
         /// POST: api/Titles/updateProgress
         /// </summary>
         [HttpPost("updateProgress")]
-        [Authorize]
         public async Task<ActionResult> UpdateReadingProgress([FromBody] UpdateProgressRequest request)
         {
             try
@@ -1269,7 +1268,12 @@ namespace FallenFaction.Server.Controllers
                 var user = await _userManager.GetUserAsync(User);
                 if (user == null)
                 {
-                    return Unauthorized();
+                    // For guest users, just return success without saving anything
+                    return Ok(new
+                    {
+                        message = "Progress tracking not available for guest users",
+                        isGuest = true
+                    });
                 }
 
                 // Find or create bookmark
