@@ -1,4 +1,4 @@
-<!-- TitleDetailsPage.vue - Updated to support guest users -->
+<!-- TitleDetailsPage.vue - Updated to allow guest users to read manga -->
 <template>
   <div class="min-h-screen bg-[var(--color-background)]">
     <!-- Loading State -->
@@ -125,9 +125,8 @@
                 <span class="text-2xl font-bold text-[var(--color-text)]">{{ titleData.averageRating?.toFixed(1) || '0.0' }}</span>
                 <span class="text-sm text-[var(--color-text)] opacity-75">({{ titleData.ratingCount || 0 }})</span>
               </div>
-              <button @click="showRatingModal = true"
-                      :disabled="!isAuthenticated"
-                      class="px-4 py-2 bg-[var(--color-background-mute)] border border-[var(--color-accent)] text-[var(--color-accent)] rounded-lg hover:bg-[var(--color-accent)] hover:text-white focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200">
+              <button @click="isAuthenticated ? (showRatingModal = true) : goToLogin()"
+                      class="px-4 py-2 bg-[var(--color-background-mute)] border border-[var(--color-accent)] text-[var(--color-accent)] rounded-lg hover:bg-[var(--color-accent)] hover:text-white focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] transition-all duration-200">
                 <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
                 </svg>
@@ -138,7 +137,7 @@
 
           <!-- Action Buttons -->
           <div class="px-4 mb-6 space-y-3">
-            <!-- Read Button -->
+            <!-- FIXED: Start Reading Button - Now available for guests -->
             <router-link v-if="canStartReading"
                          :to="getFirstChapterUrl()"
                          class="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 px-4 rounded-xl font-semibold text-center transition-all duration-200 hover:from-orange-600 hover:to-orange-700 hover:shadow-lg transform hover:-translate-y-0.5 flex items-center justify-center space-x-2">
@@ -280,7 +279,7 @@
 
                   <!-- Action Buttons -->
                   <div class="mt-6 space-y-3">
-                    <!-- Read Button -->
+                    <!-- FIXED: Start Reading Button - Now available for guests -->
                     <router-link v-if="canStartReading"
                                  :to="getFirstChapterUrl()"
                                  class="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 px-4 rounded-xl font-semibold text-center transition-all duration-200 hover:from-orange-600 hover:to-orange-700 hover:shadow-lg transform hover:-translate-y-0.5 flex items-center justify-center space-x-2">
@@ -524,12 +523,14 @@
   const showActionDropdown = ref(false)
   const actionDropdownRef = ref(null)
 
-  // Computed properties
+  // FIXED: Computed properties - Allow reading for everyone, bookmarks only for authenticated users
   const canStartReading = computed(() => {
+    // Allow all users (guests and authenticated) to start reading if chapters are available
     return titleData.value?.chapterCount > 0 && chaptersData.value.length > 0 && !loadingChapters.value
   })
 
   const canContinueReading = computed(() => {
+    // Only authenticated users with bookmarks can continue reading
     return isAuthenticated.value &&
       userBookmark.value &&
       userBookmark.value.lastReadChapter > 0 &&
@@ -738,6 +739,7 @@
     }
   }
 
+  // FIXED: Chapter URL generation for all users (guests and authenticated)
   const getFirstChapterUrl = () => {
     if (!titleData.value || !chaptersData.value.length) return '#'
 
@@ -752,6 +754,7 @@
     if (!firstChapter) return '#'
 
     const chapterName = firstChapter.name || firstChapter.chapterNumber.toString()
+    // Generate URL that works for both guests and authenticated users
     return `/${encodeURIComponent(titleData.value.originalTitle)}/chapter/${encodeURIComponent(chapterName)}/v${firstChapter.volumeNumber}/t${firstChapter.teamId || firstChapter.team?.id || 0}?viewMode=single`
   }
 
@@ -874,7 +877,6 @@
       await loadTitleData()
     }
   })
-
 
   watch(() => route.query.section, (newTab) => {
     if (newTab) {

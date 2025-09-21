@@ -118,10 +118,82 @@
           </div>
         </div>
 
-        <!-- Image Comments Section - NEW -->
-        <div v-if="showImageComments && currentImage" class="image-comments-section">
+        <!-- Navigation Buttons for Single Page View (Always visible) -->
+        <div v-if="viewMode === 'single'" class="single-page-navigation" :class="{ 'hidden': !uiVisible }">
           <div class="max-w-4xl mx-auto px-4 py-6">
-            <!-- Image Comments Header -->
+            <!-- Desktop Navigation -->
+            <div class="hidden md:flex justify-between items-center mb-6">
+              <!-- Left Navigation Button -->
+              <button @click="enhancedGoToPrevPage"
+                      :disabled="currentPage === 1 && !chapterData?.previousChapterId"
+                      class="flex items-center gap-2 px-4 py-3 bg-black/80 backdrop-blur-lg border border-white/20 rounded-xl text-white cursor-pointer transition-all duration-300 font-medium text-sm min-w-[140px] hover:bg-black/90 hover:border-[var(--color-accent)] hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
+                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                <span class="whitespace-nowrap">
+                  {{ currentPage === 1 ? 'Prev Chapter' : 'Prev Page' }}
+                </span>
+              </button>
+
+              <!-- Center Back to Title Button -->
+              <button @click="goToTitleDetails"
+                      class="flex items-center gap-2 px-4 py-3 bg-[var(--color-accent)] border border-[var(--color-accent)] rounded-xl text-white cursor-pointer transition-all duration-300 font-medium text-sm min-w-[140px] justify-center hover:bg-[var(--color-accent-hover)] hover:-translate-y-0.5 hover:shadow-lg">
+                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2z"></path>
+                </svg>
+                <span class="whitespace-nowrap">Back to Title</span>
+              </button>
+
+              <!-- Right Navigation Button -->
+              <button @click="enhancedGoToNextPage"
+                      :disabled="currentPage === totalPages && !chapterData?.nextChapterId"
+                      class="flex items-center gap-2 px-4 py-3 bg-black/80 backdrop-blur-lg border border-white/20 rounded-xl text-white cursor-pointer transition-all duration-300 font-medium text-sm min-w-[140px] justify-end hover:bg-black/90 hover:border-[var(--color-accent)] hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
+                <span class="whitespace-nowrap">
+                  {{ currentPage === totalPages ? 'Next Chapter' : 'Next Page' }}
+                </span>
+                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Mobile Navigation -->
+            <div class="md:hidden flex flex-col gap-3 mb-6">
+              <!-- Mobile Left Button -->
+              <button @click="enhancedGoToPrevPage"
+                      :disabled="currentPage === 1 && !chapterData?.previousChapterId"
+                      class="flex items-center justify-center gap-2 w-full px-4 py-3 bg-black/80 backdrop-blur-lg border border-white/20 rounded-xl text-white cursor-pointer transition-all duration-300 font-medium text-sm hover:bg-black/90 hover:border-[var(--color-accent)] disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                <span>{{ currentPage === 1 ? 'Previous Chapter' : 'Previous Page' }}</span>
+              </button>
+
+              <!-- Mobile Center Button -->
+              <button @click="goToTitleDetails"
+                      class="flex items-center justify-center gap-2 w-full px-4 py-3 bg-[var(--color-accent)] border border-[var(--color-accent)] rounded-xl text-white cursor-pointer transition-all duration-300 font-medium text-sm hover:bg-[var(--color-accent-hover)]">
+                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2z"></path>
+                </svg>
+                <span>Back to Title</span>
+              </button>
+
+              <!-- Mobile Right Button -->
+              <button @click="enhancedGoToNextPage"
+                      :disabled="currentPage === totalPages && !chapterData?.nextChapterId"
+                      class="flex items-center justify-center gap-2 w-full px-4 py-3 bg-black/80 backdrop-blur-lg border border-white/20 rounded-xl text-white cursor-pointer transition-all duration-300 font-medium text-sm hover:bg-black/90 hover:border-[var(--color-accent)] disabled:opacity-50 disabled:cursor-not-allowed">
+                <span>{{ currentPage === totalPages ? 'Next Chapter' : 'Next Page' }}</span>
+                <svg class="w-5 h-5 flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Image Comments Section (separate from navigation) -->
+        <div v-if="showImageComments && currentImage && viewMode === 'single'" class="image-comments-section">
+          <div class="max-w-4xl mx-auto px-4 py-6">
             <div class="flex items-center justify-between mb-4">
               <h4 class="text-lg font-semibold text-[var(--color-text)] flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -143,6 +215,7 @@
             <!-- Image Comments Container -->
             <div v-if="imageCommentsVisible" class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-xl p-4">
               <CommentsComponent v-if="chapterData.id"
+                                 :key="`image-comments-${chapterData.id}-page-${currentPage}`"
                                  :target-id="getImageCommentTargetId()"
                                  :target-type="3"
                                  :is-authenticated="isAuthenticated"
@@ -166,53 +239,7 @@
           </select>
         </div>
 
-        <!-- Comments Section for Single Page View (After last page) -->
-        <div v-if="currentPage === totalPages" class="single-page-comments-section">
-          <div class="max-w-4xl mx-auto px-4 py-8">
-            <div class="chapter-end-navigation mb-8">
-              <div class="flex justify-center gap-4 mb-6">
-                <button @click="enhancedGotoPrevChapter"
-                        :disabled="!chapterData.previousChapterId"
-                        class="nav-btn prev-chapter">
-                  <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                  </svg>
-                  Previous Chapter
-                </button>
-                <button @click="goToTitleDetails" class="nav-btn back-to-title">
-                  <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2z"></path>
-                  </svg>
-                  Back to Title
-                </button>
-                <button @click="enhancedGotoNextChapter"
-                        :disabled="!chapterData.nextChapterId"
-                        class="nav-btn next-chapter">
-                  Next Chapter
-                  <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                  </svg>
-                </button>
-              </div>
-            </div>
 
-            <!-- Chapter Comments -->
-            <div class="mb-6">
-              <h3 class="text-xl font-semibold text-[var(--color-text)] mb-4 border-b border-[var(--color-border)] pb-2">
-                Chapter Comments
-              </h3>
-              <CommentsComponent v-if="chapterData.id"
-                                 :target-id="chapterData.id"
-                                 :target-type="2"
-                                 :is-authenticated="isAuthenticated"
-                                 :current-user-id="currentUserId"
-                                 :is-admin="isAdmin"
-                                 @comments-loaded="onCommentsLoaded"
-                                 @comment-added="onCommentAdded"
-                                 @comments-updated="onCommentsUpdated" />
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- All Pages View -->
@@ -1117,9 +1144,13 @@
   // ===================================================================
 
   const getImageCommentTargetId = () => {
-    // Create a unique identifier for each image
-    // Using chapter ID + page number to ensure uniqueness
-    return `${chapterData.value.id}_page_${currentPage.value}`
+    // Use the actual image ID from the database instead of synthetic ID
+    if (!currentImage.value || !currentImage.value.id) {
+      console.warn('No current image or image ID available for comments')
+      return 0
+    }
+
+    return currentImage.value.id
   }
 
   const setShowImageComments = () => {

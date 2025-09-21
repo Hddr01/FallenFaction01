@@ -25,32 +25,32 @@
       </div>
     </div>
 
-    <div class="chapters-list">
-      <template v-if="filteredChapters.length > 0">
-        <div class="chapters-table">
-          <div class="chapters-table-header">
-            <div class="chapter-number">№</div>
-            <div class="chapter-name">Name</div>
-            <div class="chapter-team">Team</div>
-            <div class="chapter-date">Date</div>
+      <div class="chapters-list">
+        <template v-if="filteredChapters.length > 0">
+          <div class="chapters-table">
+            <div class="chapters-table-header">
+              <div class="chapter-number">№</div>
+              <div class="chapter-name">Name</div>
+              <div class="chapter-team">Team</div>
+              <div class="chapter-date">Date</div>
+            </div>
+            <div class="chapters-table-body">
+              <a v-for="chapter in paginatedChapters"
+                 :key="chapter.id"
+                 :href="getChapterUrl(chapter)"
+                 class="chapter-row">
+                <div class="chapter-number">
+                  <span class="volume-badge">Vol. {{ chapter.volumeNumber }}</span>
+                </div>
+                <div class="chapter-name">{{ chapter.name }}</div>
+                <div class="chapter-team">
+                  <span v-if="chapter.team">{{ chapter.team.name }}</span>
+                  <span v-else>Unknown</span>
+                </div>
+                <div class="chapter-date">{{ formatDate(chapter.createdDate) }}</div>
+              </a>
+            </div>
           </div>
-          <div class="chapters-table-body">
-            <a v-for="chapter in paginatedChapters"
-               :key="chapter.id"
-               :href="getChapterUrl(chapter)"
-               class="chapter-row">
-              <div class="chapter-number">
-                <span class="volume-badge">Vol. {{ chapter.volumeNumber }}</span>
-              </div>
-              <div class="chapter-name">{{ chapter.name }}</div>
-              <div class="chapter-team">
-                <span v-if="chapter.team">{{ chapter.team.name }}</span>
-                <span v-else>Unknown</span>
-              </div>
-              <div class="chapter-date">{{ formatDate(chapter.createdDate) }}</div>
-            </a>
-          </div>
-        </div>
 
         <!-- Pagination -->
         <div v-if="totalPages > 1" class="chapters-pagination">
