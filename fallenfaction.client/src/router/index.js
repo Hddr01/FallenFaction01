@@ -1,4 +1,4 @@
-// router/index.js
+// router/index.js - Updated with Content Management Routes
 import { createRouter, createWebHistory } from 'vue-router';
 import HomePage from '../HomePage.vue';
 import NotFoundPage from '../NotFoundPage.vue';
@@ -37,11 +37,16 @@ import AdminArtistManagement from '../components/admin/AdminArtistManagement.vue
 
 import AdminUserManagement from '../components/admin/AdminUserManagement.vue';
 import AdminTeamManagement from '../components/admin/AdminTeamManagement.vue';
-
 import AdminCommentsManagement from '../components/admin/AdminCommentsManagement.vue';
 
-import AddChapter from '../components/title-details/AddChapter.vue'
+// Content Management Components
+import ContentManagement from '../components/content/ContentManagement.vue';
+import TitlesManagement from '../components/content/TitlesManagement.vue';
+import ChaptersManagement from '../components/content/ChaptersManagement.vue';
+import TeamsManagement from '../components/content/TeamsManagement.vue';
+import ModerationManagement from '../components/content/ModerationManagement.vue';
 
+import AddChapter from '../components/title-details/AddChapter.vue'
 import ChapterReader from '../components/title-details/ChapterReader.vue';
 
 const routes = [
@@ -95,6 +100,83 @@ const routes = [
       title: 'Profile'
     }
   },
+
+  // === CONTENT MANAGEMENT ROUTES ===
+  // Main content management dashboard
+  {
+    path: '/user/content',
+    name: 'Content Management',
+    component: ContentManagement,
+    meta: {
+      requiresAuth: true,
+      title: 'Content Management'
+    }
+  },
+  // Legacy routes that redirect to main content management
+  {
+    path: '/user/content/index',
+    redirect: '/user/content'
+  },
+  {
+    path: '/user/content/uploads',
+    redirect: '/user/content'
+  },
+  // Specific content management sections (can be used for direct linking)
+  {
+    path: '/user/content/titles',
+    name: 'My Titles',
+    component: ContentManagement,
+    meta: {
+      requiresAuth: true,
+      title: 'My Titles',
+      defaultTab: 'titles'
+    }
+  },
+  {
+    path: '/user/content/chapters',
+    name: 'My Chapters',
+    component: ContentManagement,
+    meta: {
+      requiresAuth: true,
+      title: 'My Chapters',
+      defaultTab: 'chapters'
+    }
+  },
+  {
+    path: '/user/content/teams',
+    name: 'My Teams Content',
+    component: ContentManagement,
+    meta: {
+      requiresAuth: true,
+      title: 'My Teams',
+      defaultTab: 'teams'
+    }
+  },
+  // Admin moderation routes
+  {
+    path: '/user/content/moderation',
+    name: 'Content Moderation',
+    component: ContentManagement,
+    meta: {
+      requiresAuth: true,
+      requiresAdminOrModerator: true,
+      title: 'Content Moderation',
+      defaultTab: 'moderation'
+    }
+  },
+  // Legacy MVC-style routes for backward compatibility
+  {
+    path: '/user/content/rejected',
+    name: 'Rejected Content',
+    component: ContentManagement,
+    meta: {
+      requiresAuth: true,
+      title: 'Rejected Content',
+      defaultTab: 'titles'
+    }
+  },
+
+  // === TITLE AND CHAPTER ROUTES ===
   {
     path: '/manga/addtitle',
     name: 'Add Title',
@@ -104,8 +186,70 @@ const routes = [
       title: 'Add Title'
     }
   },
+  {
+    path: '/:titleName/AddChapter',
+    name: 'Add Chapter',
+    component: AddChapter,
+    meta: {
+      requiresAuth: true,
+      title: 'Add Chapter'
+    }
+  },
 
-  // Author routes
+  // === TEAM ROUTES ===
+  // Public viewing
+  {
+    path: '/teams',
+    name: 'Teams',
+    component: TeamList,
+    meta: {
+      requiresAuth: true,
+      title: 'Teams'
+    }
+  },
+  // My teams - redirect to content management
+  {
+    path: '/user/content/myteam',
+    redirect: '/user/content/teams'
+  },
+  // Create new team
+  {
+    path: '/team/addteam',
+    name: 'Add Team',
+    component: AddTeam,
+    meta: {
+      requiresAuth: true,
+      title: 'Create Team'
+    }
+  },
+  // View team details
+  {
+    path: '/team/:id',
+    name: 'Team Details',
+    component: TeamDetails,
+    props: route => ({
+      teamId: parseInt(route.params.id)
+    }),
+    meta: {
+      requiresAuth: true,
+      title: 'Team Details'
+    }
+  },
+  // Edit team (from content management)
+  {
+    path: '/user/content/editteam/:id',
+    name: 'Edit Team',
+    component: TeamDetails,
+    props: route => ({
+      teamId: parseInt(route.params.id)
+    }),
+    meta: {
+      requiresAuth: true,
+      title: 'Edit Team'
+    }
+  },
+
+  // === AUTHOR ROUTES ===
   // Public viewing
   {
     path: '/authors',
@@ -137,7 +281,7 @@ const routes = [
     }
   },
 
-  // Publisher routes
+  // === PUBLISHER ROUTES ===
   // Public viewing
   {
     path: '/publishers',
@@ -158,7 +302,7 @@ const routes = [
     }
   },
 
-  // Artist routes
+  // === ARTIST ROUTES ===
   // Public viewing
   {
     path: '/artists',
@@ -179,69 +323,8 @@ const routes = [
     }
   },
 
-  // Team routes
-  {
-    path: '/teams',
-    name: 'Teams',
-    component: TeamList,
-    meta: {
-      requiresAuth: true,
-      title: 'Teams'
-    }
-  },
-  {
-    path: '/user/content/myteam',
-    name: 'My Teams',
-    component: TeamList,
-    meta: {
-      requiresAuth: true,
-      title: 'My Teams'
-    }
-  },
-  {
-    path: '/team/addteam',
-    name: 'Add Team',
-    component: AddTeam,
-    meta: {
-      requiresAuth: true,
-      title: 'Create Team'
-    }
-  },
-  {
-    path: '/team/:id',
-    name: 'Team Details',
-    component: TeamDetails,
-    props: route => ({
-      teamId: parseInt(route.params.id)
-    }),
-    meta: {
-      requiresAuth: true,
-      title: 'Team Details'
-    }
-  },
-  {
-    path: '/:titleName/AddChapter',
-    name: 'Add Chapter',
-    component: AddChapter,
-    meta: {
-      requiresAuth: true,
-      title: 'Add Chapter'
-    }
-  },
-  {
-    path: '/user/content/editteam/:id',
-    name: 'Edit Team',
-    component: TeamDetails,
-    props: route => ({
-      teamId: parseInt(route.params.id)
-    }),
-    meta: {
-      requiresAuth: true,
-      title: 'Edit Team'
-    }
-  },
-
-  // Admin routes (require admin privileges)
+  // === ADMIN ROUTES ===
+  // Admin author management
   {
     path: '/admin/authors',
     name: 'Admin Author Management',
@@ -252,6 +335,7 @@ const routes = [
       title: 'Admin - Author Management'
     }
   },
+  // Admin publisher management
   {
     path: '/admin/publishers',
     name: 'Admin Publisher Management',
@@ -262,6 +346,7 @@ const routes = [
       title: 'Admin - Publisher Management'
     }
   },
+  // Admin artist management
   {
     path: '/admin/artists',
     name: 'Admin Artist Management',
@@ -272,6 +357,7 @@ const routes = [
       title: 'Admin - Artist Management'
     }
   },
+  // Admin title management
   {
     path: '/admin/titles/add',
     name: 'Admin New Titles Management',
@@ -292,6 +378,7 @@ const routes = [
       title: 'Admin - Title Management'
     }
   },
+  // Admin chapter management
   {
     path: '/admin/chapters',
     name: 'Admin Chapter Management',
@@ -302,7 +389,7 @@ const routes = [
       title: 'Admin - Chapter Management'
     }
   },
-  // ADD THIS: Comments Management Route
+  // Admin comments management
   {
     path: '/admin/comments',
     name: 'Admin Comments Management',
@@ -313,6 +400,7 @@ const routes = [
       title: 'Admin - Comments Management'
     }
   },
+  // Admin user management
   {
     path: '/admin/users',
     name: 'Admin User Management',
@@ -323,6 +411,7 @@ const routes = [
       title: 'Admin - User Management'
     }
   },
+  // Admin team management
   {
     path: '/admin/teams',
     name: 'Admin Team Management',
@@ -334,7 +423,7 @@ const routes = [
     }
   },
 
-  // Error pages
+  // === ERROR PAGES ===
   {
     path: '/error/:code',
     name: 'Error',
@@ -347,7 +436,8 @@ const routes = [
     })
   },
 
-  // Title Details Route - This should be near the end but before the catch-all 404
+  // === TITLE DETAILS ROUTE ===
+  // This should be near the end but before the catch-all 404
   {
     path: '/:titleName',
     name: 'TitleDetails',
@@ -375,7 +465,8 @@ const routes = [
     }
   },
 
-  // 404 - This should be the last route
+  // === 404 ROUTE ===
+  // This should be the last route
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
@@ -421,6 +512,28 @@ router.beforeEach(async (to, from, next) => {
         params: { code: '403' },
         query: {
           message: 'Access denied. Admin privileges required.',
+          path: to.fullPath
+        }
+      });
+    } else {
+      // If not authenticated, redirect to login
+      next({
+        name: 'Login',
+        query: { redirect: to.fullPath }
+      });
+    }
+    return;
+  }
+
+  // Check if route requires admin OR moderator role
+  if (to.meta.requiresAdminOrModerator && !authStore.isAdmin && !authStore.isModerator) {
+    // If user is authenticated but not admin/moderator, show 403 error
+    if (authStore.isAuthenticated) {
+      next({
+        name: 'Error',
+        params: { code: '403' },
+        query: {
+          message: 'Access denied. Admin or Moderator privileges required.',
           path: to.fullPath
         }
       });

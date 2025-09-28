@@ -103,5 +103,6 @@ namespace FallenFaction.Server.Data.Models
         public virtual ICollection<RejectedTitleChange> RejectedTitleChanges { get; set; }
         public ICollection<Rating> Ratings { get; set; }
         public ICollection<Bookmark> Bookmarks { get; set; }
+        public string CreatedByUserId { get; internal set; }
     }
 }
