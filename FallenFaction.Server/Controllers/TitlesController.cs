@@ -810,7 +810,131 @@ namespace FallenFaction.Server.Controllers
                 });
             }
         }
+        // Add these methods to your TitlesController.cs
 
+/// <summary>
+/// Get user's uploaded titles
+/// GET: api/Titles/UserTitles
+/// </summary>
+[HttpGet("UserTitles")]
+[Authorize]
+public async Task<ActionResult<IEnumerable<object>>> GetUserTitles()
+{
+    try
+    {
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null)
+        {
+            return Unauthorized();
+        }
+
+        // This depends on how you track title ownership
+        // You might need to add a CreatedByUserId field to Title model
+        var userTitles = await _context.Titles
+            .Where(t => t.CreatedByUserId == user.Id) // Add this field to Title model
+            .Include(t => t.Categories)
+            .Include(t => t.Teams)
+            .Include(t => t.Chapters)
+            .Select(t => new
+            {
+                t.Id,
+                t.OriginalTitle,
+                t.EnglishTitle,
+                t.CoverImagePath,
+                t.StatusTitle,
+                t.IsAvailable,
+                ChapterCount = t.Chapters.Count(),
+                LastUpdated = t.Chapters.Any() ? 
+                    t.Chapters.OrderByDescending(c => c.ReleaseDate).First().ReleaseDate : 
+                    (DateTime?)null
+            })
+            .ToListAsync();
+
+        return Ok(userTitles);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error getting user titles");
+        return StatusCode(500, new { message = "Error retrieving user titles" });
+    }
+}
+
+/// <summary>
+/// Get user's chapters
+/// GET: api/Titles/UserChapters
+/// </summary>
+[HttpGet("UserChapters")]
+[Authorize]
+public async Task<ActionResult<object>> GetUserChapters()
+{
+    try
+    {
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null)
+        {
+            return Unauthorized();
+        }
+
+        var userChapters = await _context.Chapters
+            .Where(c => c.UpdatedByUserId == user.Id)
+            .Include(c => c.Title)
+            .Include(c => c.Team)
+            .ToListAsync();
+
+        var pendingChapters = await _context.PendingChapters
+            .Where(c => c.UpdatedByUserId == user.Id)
+            .Include(c => c.Title)
+            .Include(c => c.Team)
+            .ToListAsync();
+
+        var rejectedChapters = await _context.RejectedChapters
+            .Where(c => c.UpdatedByUserId == user.Id)
+            .Include(c => c.Title)
+            .Include(c => c.Team)
+            .ToListAsync();
+
+        var result = new
+        {
+            ApprovedChapters = userChapters.Select(c => new
+            {
+                c.Id,
+                c.Name,
+                c.VolumeNumber,
+                c.ChapterNumber,
+                TitleName = c.Title.OriginalTitle,
+                TeamName = c.Team.Name,
+                c.ReleaseDate
+            }),
+            PendingChapters = pendingChapters.Select(c => new
+            {
+                c.Id,
+                c.Name,
+                c.VolumeNumber,
+                c.ChapterNumber,
+                TitleName = c.Title.OriginalTitle,
+                TeamName = c.Team.Name,
+                c.CreatedDate
+            }),
+            RejectedChapters = rejectedChapters.Select(c => new
+            {
+                c.Id,
+                c.Name,
+                c.VolumeNumber,
+                c.ChapterNumber,
+                TitleName = c.Title.OriginalTitle,
+                TeamName = c.Team.Name,
+                c.CreatedDate
+            })
+        };
+
+        return Ok(result);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error getting user chapters");
+        return StatusCode(500, new { message = "Error retrieving user chapters" });
+    }
+}
         /// <summary>
         /// Get featured titles for homepage
         /// GET: api/Titles/Featured

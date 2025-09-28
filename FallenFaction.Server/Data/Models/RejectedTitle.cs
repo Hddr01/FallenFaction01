@@ -26,6 +26,13 @@ namespace FallenFaction.Server.Data.Models
         public ICollection<Publisher> Publishers { get; set; } = new List<Publisher>();
         public ICollection<Team> Teams { get; set; } = new List<Team>();
 
+
+        public string? CreatedByUserId { get; set; }
+        public virtual AppUser? CreatedByUser { get; set; }
+        public DateTime RejectedAt { get; set; } = DateTime.UtcNow;
+        public string? RejectionReason { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
         [NotMapped]
         public List<string> ExternalLinks { get; set; } = new List<string>();
 
