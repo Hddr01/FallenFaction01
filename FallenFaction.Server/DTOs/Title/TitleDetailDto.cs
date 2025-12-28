@@ -1,5 +1,6 @@
 ﻿// DTOs/Title/TitleDetailDto.cs - New detailed DTO for title pages
 using FallenFaction.Server.Data.Models;
+using FallenFaction.Server.DTOs.Team;
 
 namespace FallenFaction.Server.DTOs.Title
 {
@@ -23,7 +24,7 @@ namespace FallenFaction.Server.DTOs.Title
         public int BookmarkCount { get; set; }
         public int ViewCount { get; set; }
         public DateTime? LastUpdated { get; set; }
-        public List<string> Teams { get; set; } = new List<string>();
+        public List<TeamSimpleDto> Teams { get; set; } = new List<TeamSimpleDto>();
         public List<string> Authors { get; set; } = new List<string>();
         public List<string> Artists { get; set; } = new List<string>();
         public List<string> Categories { get; set; } = new List<string>();

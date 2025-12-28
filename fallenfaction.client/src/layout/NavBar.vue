@@ -1,462 +1,555 @@
 <template>
-    <div class="navbar">
-        <div class="navbar-container">
-            <!-- Desktop Layout -->
-            <div class="desktop-navbar">
-                <div class="navbar-left">
-                    <router-link to="/" class="navbar-brand">Fallen Faction</router-link>
-                </div>
-
-                <div class="navbar-center">
-                    <div class="nav-item">
-                        <router-link to="/" class="nav-link">
-                            <i class="nav-icon home-icon"></i>
-                            <span class="nav-text">Home</span>
-                        </router-link>
-                    </div>
-                    <div class="nav-item">
-                        <router-link to="/home/cataloge" class="nav-link">
-                            <i class="nav-icon catalog-icon"></i>
-                            <span class="nav-text">Catalog</span>
-                        </router-link>
-                    </div>
-                    <div class="nav-item">
-                        <router-link to="/home/search" class="nav-link">
-                            <i class="nav-icon search-icon"></i>
-                            <span class="nav-text">Search</span>
-                        </router-link>
-                    </div>
-                    <div class="nav-item">
-                        <button class="nav-link more-btn" @click="toggleMoreMenu">
-                            <i class="nav-icon more-icon"></i>
-                        </button>
-                        <div v-if="showMoreMenu" class="more-menu">
-                            <router-link to="/home/fqa" class="more-menu-item">FAQ</router-link>
-                            <router-link to="/home/privacy" class="more-menu-item">Privacy</router-link>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="navbar-right">
-                    <!-- For authenticated users -->
-                    <template v-if="authStore.isAuthenticated">
-                        <!-- Teams dropdown -->
-                        <div class="nav-item">
-                            <button class="nav-link content-btn" @click="toggleTeamsMenu">
-                                <i class="nav-icon content-icon"></i>
-                            </button>
-                            <div v-if="showTeamsMenu" class="teams-menu">
-                                <div class="teams-header">
-                                    <span>Content & Teams</span>
-                                </div>
-
-                                <!-- Content managment section -->
-                                <div class="teams-section">
-                                    <router-link to="/user/content" class="teams-menu-item">
-                                        <i class="nav-icon content-icon"></i>
-                                        Content Management
-                                    </router-link>
-                                </div>
-
-                                <!-- Teams section -->
-                                <div class="teams-section">
-                                    <div class="section-header">My Teams</div>
-                                    <router-link to="/user/content/myteam" class="teams-menu-item">
-                                        <i class="circle-icon"></i>
-                                        View All Teams
-                                    </router-link>
-
-                                    <!-- Loading indicator -->
-                                    <div v-if="loadingTeams" class="loading-teams">
-                                        <span>Loading teams...</span>
-                                    </div>
-
-                                    <!-- Teams list from API -->
-                                    <template v-else-if="teams.length > 0">
-                                        <router-link v-for="team in teams"
-                                           :key="team.id"
-                                           :to="`/user/content/editteam/${team.id}`"
-                                           class="teams-menu-item team-item">
-                                            <i class="circle-icon team-circle"></i>
-                                            {{ team.name }}
-                                        </router-link>
-                                    </template>
-
-                                    <router-link to="/team/addteam" class="teams-menu-item create-team">
-                                        <i class="add-icon"></i> Create New Team
-                                    </router-link>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Create Content dropdown -->
-                        <div class="nav-item">
-                            <button class="nav-link grid-btn" @click="toggleGridMenu">
-                                <i class="nav-icon grid-icon"></i>
-                            </button>
-                            <div v-if="showGridMenu" class="grid-menu">
-                                <div class="grid-header">
-                                    <span>Add Content</span>
-                                </div>
-                                <div class="grid-section">
-                                    <router-link to="/manga/addtitle" class="grid-menu-item">
-                                        <i class="circle-icon title-circle"></i>
-                                        Add Title
-                                    </router-link>
-                                    <router-link to="/author/createa" class="grid-menu-item">
-                                        <i class="circle-icon author-circle"></i>
-                                        Add Author
-                                    </router-link>
-                                    <router-link to="/publisher/create" class="grid-menu-item">
-                                        <i class="circle-icon publisher-circle"></i>
-                                        Add Publisher
-                                    </router-link>
-                                    <router-link to="/artist/create" class="grid-menu-item">
-                                        <i class="circle-icon artist-circle"></i>
-                                        Add Artist
-                                    </router-link>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="nav-item">
-                            <router-link to="/home/notification" class="nav-link">
-                                <i class="nav-icon notification-icon"></i>
-                            </router-link>
-                        </div>
-
-                        <!-- Profile Avatar Dropdown -->
-                        <div class="nav-item profile-dropdown">
-                            <button class="nav-link profile-btn" @click="toggleProfileMenu">
-                                <img class="profile-img" :src="authStore.user.profilePicturePath" alt="Profile" />
-                            </button>
-                            <div v-if="showProfileMenu" class="profile-menu">
-                                <router-link to="/profile" class="profile-menu-item">
-                                    <i class="circle-icon profile-circle"></i>
-                                    My Profile
-                                </router-link>
-                                <div class="profile-menu-item user-name-item">
-                                    <i class="circle-icon user-circle"></i>
-                                    {{ authStore.userFullName || 'User' }}
-                                </div>
-                                <div class="profile-divider"></div>
-                                <button @click="logout" class="profile-menu-item logout-btn" :disabled="authStore.isLoading">
-                                    <i class="circle-icon logout-circle"></i>
-                                    {{ authStore.isLoading ? 'Logging out...' : 'Logout' }}
-                                </button>
-                            </div>
-                        </div>
-                    </template>
-                    <!-- For non-authenticated users -->
-                    <template v-else>
-                        <div class="nav-item">
-                            <router-link to="/account/login" class="nav-link login-link">Login</router-link>
-                        </div>
-                        <div class="nav-item">
-                            <router-link to="/account/register" class="nav-link register-link">Register</router-link>
-                        </div>
-                    </template>
-                </div>
-            </div>
-
-            <!-- Mobile Layout -->
-            <div class="mobile-navbar">
-                <div class="mobile-nav-left">
-                    <!-- Search Button -->
-                    <div class="nav-item">
-                        <router-link to="/home/search" class="nav-link mobile-search-btn">
-                            <i class="nav-icon search-icon"></i>
-                        </router-link>
-                    </div>
-                </div>
-
-                <div class="mobile-nav-right">
-                    <!-- Mobile Avatar/Menu Button -->
-                    <div class="nav-item">
-                        <button class="nav-link mobile-menu-btn" @click="toggleMobileSidebar">
-                            <img v-if="authStore.isAuthenticated" class="profile-img mobile-profile" :src="profileImage" alt="Profile" />
-                            <i v-else class="nav-icon menu-burger-icon"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
+  <div class="navbar">
+    <div class="navbar-container">
+      <!-- Desktop Layout -->
+      <div class="desktop-navbar">
+        <div class="navbar-left">
+          <router-link to="/" class="navbar-brand">Fallen Faction</router-link>
         </div>
 
-        <!-- Mobile Sidebar Overlay -->
-        <div v-if="showMobileSidebar" class="mobile-sidebar-overlay" @click="closeMobileSidebar">
-            <div class="mobile-sidebar" @click.stop>
-                <!-- Sidebar Header -->
-                <div class="sidebar-header">
-                    <div v-if="authStore.isAuthenticated" class="sidebar-user-info">
-                        <img class="sidebar-profile-img" :src="profileImage" alt="Profile" />
-                        <div class="sidebar-user-details">
-                            <div class="sidebar-username">{{ authStore.userFullName || 'User' }}</div>
-                            <router-link to="/profile" class="sidebar-profile-link">View Profile</router-link>
-                        </div>
-                    </div>
-                    <div v-else class="sidebar-guest-info">
-                        <div class="sidebar-brand">Fallen Faction</div>
-                    </div>
-                    <button class="sidebar-close-btn" @click="closeMobileSidebar">
-                        <i class="close-icon">×</i>
-                    </button>
-                </div>
+        <div class="navbar-center">
+          <div class="nav-item">
+            <router-link to="/" class="nav-link">
+              <Home class="nav-icon-lucide" :size="20" />
+              <span class="nav-text">Home</span>
+            </router-link>
+          </div>
+          <div class="nav-item">
+            <router-link to="/home/cataloge" class="nav-link">
+              <BookOpen class="nav-icon-lucide" :size="20" />
+              <span class="nav-text">Catalog</span>
+            </router-link>
+          </div>
+          <div class="nav-item">
+            <router-link to="/home/search" class="nav-link">
+              <Search class="nav-icon-lucide" :size="20" />
+              <span class="nav-text">Search</span>
+            </router-link>
+          </div>
 
-                <!-- Sidebar Content -->
-                <div class="sidebar-content">
-                    <!-- Main Navigation -->
-                    <div class="sidebar-section">
-                        <router-link to="/" class="sidebar-item" @click="closeMobileSidebar">
-                            <i class="sidebar-icon home-icon"></i>
-                            <span>Home</span>
-                        </router-link>
-                        <router-link to="/home/cataloge" class="sidebar-item" @click="closeMobileSidebar">
-                            <i class="sidebar-icon catalog-icon"></i>
-                            <span>Catalog</span>
-                        </router-link>
-                        <router-link to="/home/search" class="sidebar-item" @click="closeMobileSidebar">
-                            <i class="sidebar-icon search-icon"></i>
-                            <span>Search</span>
-                        </router-link>
-
-                        <!-- More Section -->
-                        <div class="sidebar-expandable">
-                            <button class="sidebar-item sidebar-toggle" @click="toggleMobileMore">
-                                <div class="sidebar-toggle-content">
-                                    <i class="sidebar-icon more-icon"></i>
-                                    <span>More</span>
-                                </div>
-                                <i class="sidebar-arrow" :class="{ 'expanded': showMobileMore }">›</i>
-                            </button>
-                            <div v-if="showMobileMore" class="sidebar-submenu">
-                                <router-link to="/home/fqa" class="sidebar-submenu-item" @click="closeMobileSidebar">FAQ</router-link>
-                                <router-link to="/home/privacy" class="sidebar-submenu-item" @click="closeMobileSidebar">Privacy</router-link>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Authenticated User Content -->
-                    <template v-if="authStore.isAuthenticated">
-                        <div class="sidebar-divider"></div>
-
-                        <!-- Content & Teams Section -->
-                        <div class="sidebar-section">
-                            <div class="sidebar-expandable">
-                                <button class="sidebar-item sidebar-toggle" @click="toggleMobileTeams">
-                                    <div class="sidebar-toggle-content">
-                                        <i class="sidebar-icon content-icon"></i>
-                                        <span>Content & Teams</span>
-                                    </div>
-                                    <i class="sidebar-arrow" :class="{ 'expanded': showMobileTeams }">›</i>
-                                </button>
-                                <div v-if="showMobileTeams" class="sidebar-submenu">
-                                    <router-link to="/user/content" class="sidebar-submenu-item" @click="closeMobileSidebar">
-                                        Content Management
-                                    </router-link>
-                                    <router-link to="/user/content/myteam" class="sidebar-submenu-item" @click="closeMobileSidebar">
-                                        View All Teams
-                                    </router-link>
-
-                                    <!-- Teams List -->
-                                    <div v-if="loadingTeams" class="sidebar-loading">
-                                        Loading teams...
-                                    </div>
-                                    <template v-else-if="teams.length > 0">
-                                        <div v-for="team in teams" :key="team.id" class="sidebar-team-item">
-                                            <router-link :to="`/user/content/editteam/${team.id}`"
-                                               class="sidebar-submenu-item"
-                                               @click="closeMobileSidebar">
-                                                <i class="team-dot"></i>
-                                                {{ team.name }}
-                                            </router-link>
-                                        </div>
-                                    </template>
-
-                                    <router-link to="/team/addteam" class="sidebar-submenu-item create-team" @click="closeMobileSidebar">
-                                        <i class="add-icon-small">+</i>
-                                        Create New Team
-                                    </router-link>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Add Content Section -->
-                        <div class="sidebar-section">
-                            <div class="sidebar-expandable">
-                                <button class="sidebar-item sidebar-toggle" @click="toggleMobileAddContent">
-                                    <div class="sidebar-toggle-content">
-                                        <i class="sidebar-icon grid-icon"></i>
-                                        <span>Add Content</span>
-                                    </div>
-                                    <i class="sidebar-arrow" :class="{ 'expanded': showMobileAddContent }">›</i>
-                                </button>
-                                <div v-if="showMobileAddContent" class="sidebar-submenu">
-                                    <router-link to="/manga/addtitle" class="sidebar-submenu-item" @click="closeMobileSidebar">
-                                        <i class="content-dot title-dot"></i>
-                                        Add Title
-                                    </router-link>
-                                    <router-link to="/author/createa" class="sidebar-submenu-item" @click="closeMobileSidebar">
-                                        <i class="content-dot author-dot"></i>
-                                        Add Author
-                                    </router-link>
-                                    <router-link to="/publisher/create" class="sidebar-submenu-item" @click="closeMobileSidebar">
-                                        <i class="content-dot publisher-dot"></i>
-                                        Add Publisher
-                                    </router-link>
-                                    <router-link to="/people/create" class="sidebar-submenu-item" @click="closeMobileSidebar">
-                                        <i class="content-dot artist-dot"></i>
-                                        Add Artist
-                                    </router-link>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Notifications -->
-                        <div class="sidebar-section">
-                            <router-link to="/home/notification" class="sidebar-item" @click="closeMobileSidebar">
-                                <i class="sidebar-icon notification-icon"></i>
-                                <span>Notifications</span>
-                            </router-link>
-                        </div>
-
-                        <div class="sidebar-divider"></div>
-
-                        <!-- logout -->
-                        <div class="sidebar-section">
-                            <button @click="logout" class="sidebar-item logout-item" :disabled="authStore.isLoading">
-                                <i class="sidebar-icon logout-icon"></i>
-                                <span>{{ authStore.isLoading ? 'Logging out...' : 'Logout' }}</span>
-                            </button>
-                        </div>
-                    </template>
-
-                    <!-- Non-authenticated User Content -->
-                    <template v-else>
-                        <div class="sidebar-divider"></div>
-                        <div class="sidebar-section">
-                            <router-link to="/account/login" class="sidebar-item" @click="closeMobileSidebar">
-                                <i class="sidebar-icon login-icon"></i>
-                                <span>Login</span>
-                            </router-link>
-                            <router-link to="/account/register" class="sidebar-item" @click="closeMobileSidebar">
-                                <i class="sidebar-icon register-icon"></i>
-                                <span>Register</span>
-                            </router-link>
-                        </div>
-                    </template>
-                </div>
-            </div>
+          <!-- More Dropdown -->
+          <DropdownMenu :modal="false">
+            <DropdownMenuTrigger as-child>
+              <Button variant="ghost" size="sm" class="nav-link">
+                <MoreHorizontal class="nav-icon-lucide" :size="20" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" class="dropdown-menu-content" :sideOffset="5">
+              <DropdownMenuLabel class="dropdown-menu-label">More</DropdownMenuLabel>
+              <DropdownMenuSeparator class="dropdown-menu-separator" />
+              <DropdownMenuGroup>
+                <DropdownMenuItem as-child class="dropdown-menu-item">
+                  <router-link to="/home/fqa" class="dropdown-item-link">
+                    <HelpCircle :size="16" class="mr-2" />
+                    FAQ
+                  </router-link>
+                </DropdownMenuItem>
+                <DropdownMenuItem as-child class="dropdown-menu-item">
+                  <router-link to="/home/privacy" class="dropdown-item-link">
+                    <Shield :size="16" class="mr-2" />
+                    Privacy
+                  </router-link>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
+
+        <div class="navbar-right">
+          <!-- For authenticated users -->
+          <template v-if="authStore.isAuthenticated">
+            <!-- Teams Dropdown -->
+            <DropdownMenu :modal="false">
+              <DropdownMenuTrigger as-child>
+                <Button variant="ghost" size="sm" class="nav-link" @click="fetchUserTeams">
+                  <Layers class="nav-icon-lucide" :size="20" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" class="dropdown-menu-content w-56" :sideOffset="5">
+                <DropdownMenuLabel class="dropdown-menu-label">Content & Teams</DropdownMenuLabel>
+                <DropdownMenuSeparator class="dropdown-menu-separator" />
+
+                <DropdownMenuGroup>
+                  <DropdownMenuItem as-child class="dropdown-menu-item">
+                    <router-link to="/user/content" class="dropdown-item-link">
+                      <FolderOpen :size="16" class="mr-2" />
+                      Content Management
+                    </router-link>
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+
+                <DropdownMenuSeparator class="dropdown-menu-separator" />
+                <DropdownMenuLabel class="dropdown-menu-label">My Teams</DropdownMenuLabel>
+
+                <DropdownMenuGroup>
+                  <DropdownMenuItem as-child class="dropdown-menu-item">
+                    <router-link to="/user/content/myteam" class="dropdown-item-link">
+                      <Users :size="16" class="mr-2" />
+                      View All Teams
+                    </router-link>
+                  </DropdownMenuItem>
+
+                  <template v-if="loadingTeams">
+                    <div class="px-3 py-2 text-sm text-gray-500">
+                      Loading teams...
+                    </div>
+                  </template>
+
+                  <template v-else-if="teams.length > 0">
+                    <DropdownMenuItem v-for="team in teams" :key="team.id" as-child class="dropdown-menu-item">
+                      <router-link :to="`/user/content/editteam/${team.id}`" class="dropdown-item-link pl-8">
+                        <div class="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                        {{ team.name }}
+                      </router-link>
+                    </DropdownMenuItem>
+                  </template>
+                </DropdownMenuGroup>
+
+                <DropdownMenuSeparator class="dropdown-menu-separator" />
+                <DropdownMenuItem as-child class="dropdown-menu-item">
+                  <router-link to="/team/addteam" class="dropdown-item-link">
+                    <PlusCircle :size="16" class="mr-2" />
+                    Create New Team
+                  </router-link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <!-- Add Content Dropdown -->
+            <DropdownMenu :modal="false">
+              <DropdownMenuTrigger as-child>
+                <Button variant="ghost" size="sm" class="nav-link">
+                  <Grid3x3 class="nav-icon-lucide" :size="20" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" class="dropdown-menu-content w-56" :sideOffset="5">
+                <DropdownMenuLabel class="dropdown-menu-label">Add Content</DropdownMenuLabel>
+                <DropdownMenuSeparator class="dropdown-menu-separator" />
+                <DropdownMenuGroup>
+                  <DropdownMenuItem as-child class="dropdown-menu-item">
+                    <router-link to="/manga/addtitle" class="dropdown-item-link">
+                      <BookPlus :size="16" class="mr-2 text-red-400" />
+                      Add Title
+                    </router-link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem as-child class="dropdown-menu-item">
+                    <router-link to="/author/createa" class="dropdown-item-link">
+                      <UserPlus :size="16" class="mr-2 text-blue-400" />
+                      Add Author
+                    </router-link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem as-child class="dropdown-menu-item">
+                    <router-link to="/publisher/create" class="dropdown-item-link">
+                      <Building2 :size="16" class="mr-2 text-orange-400" />
+                      Add Publisher
+                    </router-link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem as-child class="dropdown-menu-item">
+                    <router-link to="/artist/create" class="dropdown-item-link">
+                      <Palette :size="16" class="mr-2 text-purple-400" />
+                      Add Artist
+                    </router-link>
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <div class="nav-item">
+              <router-link to="/home/notification" class="nav-link">
+                <Bell class="nav-icon-lucide" :size="20" />
+              </router-link>
+            </div>
+
+            <!-- Profile Dropdown -->
+            <DropdownMenu :modal="false">
+              <DropdownMenuTrigger as-child>
+                <Button variant="ghost" size="icon" class="profile-btn">
+                  <Avatar class="h-8 w-8">
+                    <AvatarImage :src="authStore.user.profilePicturePath" :alt="authStore.userFullName" />
+                    <AvatarFallback>{{ getInitials(authStore.userFullName) }}</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" class="dropdown-menu-content w-56" :sideOffset="5">
+                <DropdownMenuLabel class="dropdown-menu-label">
+                  {{ authStore.userFullName || 'My Account' }}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator class="dropdown-menu-separator" />
+                <DropdownMenuGroup>
+                  <DropdownMenuItem as-child class="dropdown-menu-item">
+                    <router-link to="/profile" class="dropdown-item-link">
+                      <UserCircle :size="16" class="mr-2" />
+                      My Profile
+                    </router-link>
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator class="dropdown-menu-separator" />
+                <DropdownMenuItem @click="logout" :disabled="authStore.isLoading" class="dropdown-menu-item text-red-400 focus:text-red-400">
+                  <LogOut :size="16" class="mr-2" />
+                  {{ authStore.isLoading ? 'Logging out...' : 'Logout' }}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </template>
+
+          <!-- For non-authenticated users -->
+          <template v-else>
+            <div class="nav-item">
+              <Button variant="ghost" size="sm" as-child>
+                <router-link to="/account/login" class="nav-link">
+                  <LogIn :size="20" class="mr-2" />
+                  Login
+                </router-link>
+              </Button>
+            </div>
+            <div class="nav-item">
+              <Button variant="ghost" size="sm" as-child>
+                <router-link to="/account/register" class="nav-link">
+                  <UserPlus :size="20" class="mr-2" />
+                  Register
+                </router-link>
+              </Button>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Mobile Layout -->
+      <div class="mobile-navbar">
+        <div class="mobile-nav-left">
+          <Button variant="ghost" size="icon" as-child class="mobile-search-btn">
+            <router-link to="/home/search">
+              <Search :size="20" />
+            </router-link>
+          </Button>
+        </div>
+
+        <div class="mobile-nav-right">
+          <Button variant="ghost" size="icon" @click="toggleMobileSidebar" class="mobile-menu-btn">
+            <Avatar v-if="authStore.isAuthenticated" class="h-7 w-7">
+              <AvatarImage :src="authStore.user.profilePicturePath" :alt="authStore.userFullName" />
+              <AvatarFallback>{{ getInitials(authStore.userFullName) }}</AvatarFallback>
+            </Avatar>
+            <Menu v-else :size="20" />
+          </Button>
+        </div>
+      </div>
     </div>
+
+    <!-- Mobile Sidebar Overlay -->
+    <div v-if="showMobileSidebar" class="mobile-sidebar-overlay" @click="closeMobileSidebar">
+      <div class="mobile-sidebar" @click.stop>
+        <!-- Sidebar Header -->
+        <div class="sidebar-header">
+          <div v-if="authStore.isAuthenticated" class="sidebar-user-info">
+            <Avatar class="h-10 w-10">
+              <AvatarImage :src="authStore.user.profilePicturePath" :alt="authStore.userFullName" />
+              <AvatarFallback>{{ getInitials(authStore.userFullName) }}</AvatarFallback>
+            </Avatar>
+            <div class="sidebar-user-details">
+              <div class="sidebar-username">{{ authStore.userFullName || 'User' }}</div>
+              <router-link to="/profile" class="sidebar-profile-link" @click="closeMobileSidebar">
+                View Profile
+              </router-link>
+            </div>
+          </div>
+          <div v-else class="sidebar-guest-info">
+            <div class="sidebar-brand">Fallen Faction</div>
+          </div>
+          <Button variant="ghost" size="icon" @click="closeMobileSidebar" class="sidebar-close-btn">
+            <X :size="24" />
+          </Button>
+        </div>
+
+        <!-- Sidebar Content -->
+        <div class="sidebar-content">
+          <!-- Main Navigation -->
+          <div class="sidebar-section">
+            <Button variant="ghost" as-child class="sidebar-item">
+              <router-link to="/" @click="closeMobileSidebar">
+                <Home :size="20" class="mr-3" />
+                <span>Home</span>
+              </router-link>
+            </Button>
+            <Button variant="ghost" as-child class="sidebar-item">
+              <router-link to="/home/cataloge" @click="closeMobileSidebar">
+                <BookOpen :size="20" class="mr-3" />
+                <span>Catalog</span>
+              </router-link>
+            </Button>
+            <Button variant="ghost" as-child class="sidebar-item">
+              <router-link to="/home/search" @click="closeMobileSidebar">
+                <Search :size="20" class="mr-3" />
+                <span>Search</span>
+              </router-link>
+            </Button>
+
+            <!-- More Collapsible -->
+            <Collapsible v-model:open="showMobileMore" class="sidebar-expandable">
+              <CollapsibleTrigger as-child>
+                <Button variant="ghost" class="sidebar-item sidebar-toggle">
+                  <div class="sidebar-toggle-content">
+                    <MoreHorizontal :size="20" class="mr-3" />
+                    <span>More</span>
+                  </div>
+                  <ChevronRight :size="16" class="sidebar-arrow" :class="{ 'expanded': showMobileMore }" />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent class="sidebar-submenu">
+                <Button variant="ghost" as-child class="sidebar-submenu-item">
+                  <router-link to="/home/fqa" @click="closeMobileSidebar">
+                    <HelpCircle :size="16" class="mr-2" />
+                    FAQ
+                  </router-link>
+                </Button>
+                <Button variant="ghost" as-child class="sidebar-submenu-item">
+                  <router-link to="/home/privacy" @click="closeMobileSidebar">
+                    <Shield :size="16" class="mr-2" />
+                    Privacy
+                  </router-link>
+                </Button>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+
+          <!-- Authenticated User Content -->
+          <template v-if="authStore.isAuthenticated">
+            <Separator class="sidebar-divider" />
+
+            <!-- Content & Teams Collapsible -->
+            <div class="sidebar-section">
+              <Collapsible v-model:open="showMobileTeams" class="sidebar-expandable">
+                <CollapsibleTrigger as-child>
+                  <Button variant="ghost" class="sidebar-item sidebar-toggle" @click="onTeamsToggle">
+                    <div class="sidebar-toggle-content">
+                      <Layers :size="20" class="mr-3" />
+                      <span>Content & Teams</span>
+                    </div>
+                    <ChevronRight :size="16" class="sidebar-arrow" :class="{ 'expanded': showMobileTeams }" />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent class="sidebar-submenu">
+                  <Button variant="ghost" as-child class="sidebar-submenu-item">
+                    <router-link to="/user/content" @click="closeMobileSidebar">
+                      <FolderOpen :size="16" class="mr-2" />
+                      Content Management
+                    </router-link>
+                  </Button>
+                  <Button variant="ghost" as-child class="sidebar-submenu-item">
+                    <router-link to="/user/content/myteam" @click="closeMobileSidebar">
+                      <Users :size="16" class="mr-2" />
+                      View All Teams
+                    </router-link>
+                  </Button>
+
+                  <div v-if="loadingTeams" class="sidebar-loading">
+                    Loading teams...
+                  </div>
+                  <template v-else-if="teams.length > 0">
+                    <div v-for="team in teams" :key="team.id" class="sidebar-team-item">
+                      <Button variant="ghost" as-child class="sidebar-submenu-item">
+                        <router-link :to="`/user/content/editteam/${team.id}`" @click="closeMobileSidebar">
+                          <div class="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                          {{ team.name }}
+                        </router-link>
+                      </Button>
+                    </div>
+                  </template>
+
+                  <Button variant="ghost" as-child class="sidebar-submenu-item create-team">
+                    <router-link to="/team/addteam" @click="closeMobileSidebar">
+                      <PlusCircle :size="16" class="mr-2" />
+                      Create New Team
+                    </router-link>
+                  </Button>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
+
+            <!-- Add Content Collapsible -->
+            <div class="sidebar-section">
+              <Collapsible v-model:open="showMobileAddContent" class="sidebar-expandable">
+                <CollapsibleTrigger as-child>
+                  <Button variant="ghost" class="sidebar-item sidebar-toggle">
+                    <div class="sidebar-toggle-content">
+                      <Grid3x3 :size="20" class="mr-3" />
+                      <span>Add Content</span>
+                    </div>
+                    <ChevronRight :size="16" class="sidebar-arrow" :class="{ 'expanded': showMobileAddContent }" />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent class="sidebar-submenu">
+                  <Button variant="ghost" as-child class="sidebar-submenu-item">
+                    <router-link to="/manga/addtitle" @click="closeMobileSidebar">
+                      <BookPlus :size="16" class="mr-2 text-red-500" />
+                      Add Title
+                    </router-link>
+                  </Button>
+                  <Button variant="ghost" as-child class="sidebar-submenu-item">
+                    <router-link to="/author/createa" @click="closeMobileSidebar">
+                      <UserPlus :size="16" class="mr-2 text-blue-500" />
+                      Add Author
+                    </router-link>
+                  </Button>
+                  <Button variant="ghost" as-child class="sidebar-submenu-item">
+                    <router-link to="/publisher/create" @click="closeMobileSidebar">
+                      <Building2 :size="16" class="mr-2 text-orange-500" />
+                      Add Publisher
+                    </router-link>
+                  </Button>
+                  <Button variant="ghost" as-child class="sidebar-submenu-item">
+                    <router-link to="/people/create" @click="closeMobileSidebar">
+                      <Palette :size="16" class="mr-2 text-purple-500" />
+                      Add Artist
+                    </router-link>
+                  </Button>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
+
+            <!-- Notifications -->
+            <div class="sidebar-section">
+              <Button variant="ghost" as-child class="sidebar-item">
+                <router-link to="/home/notification" @click="closeMobileSidebar">
+                  <Bell :size="20" class="mr-3" />
+                  <span>Notifications</span>
+                </router-link>
+              </Button>
+            </div>
+
+            <Separator class="sidebar-divider" />
+
+            <!-- Logout -->
+            <div class="sidebar-section">
+              <Button variant="ghost" @click="logout" class="sidebar-item logout-item" :disabled="authStore.isLoading">
+                <LogOut :size="20" class="mr-3" />
+                <span>{{ authStore.isLoading ? 'Logging out...' : 'Logout' }}</span>
+              </Button>
+            </div>
+          </template>
+
+          <!-- Non-authenticated User Content -->
+          <template v-else>
+            <Separator class="sidebar-divider" />
+            <div class="sidebar-section">
+              <Button variant="ghost" as-child class="sidebar-item">
+                <router-link to="/account/login" @click="closeMobileSidebar">
+                  <LogIn :size="20" class="mr-3" />
+                  <span>Login</span>
+                </router-link>
+              </Button>
+              <Button variant="ghost" as-child class="sidebar-item">
+                <router-link to="/account/register" @click="closeMobileSidebar">
+                  <UserPlus :size="20" class="mr-3" />
+                  <span>Register</span>
+                </router-link>
+              </Button>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { useRouter } from 'vue-router';
-import { useAuthStore } from '../stores/authStore';
-import { teamService } from '../services/teamService';
+  import { ref, onMounted, onUnmounted } from 'vue';
+  import { useRouter } from 'vue-router';
+  import { useAuthStore } from '../stores/authStore';
+  import { teamService } from '../services/teamService';
+  import { Button } from '@/components/ui/button';
+  import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+  import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+  import { Separator } from '@/components/ui/separator';
+  import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+    DropdownMenuGroup,
+  } from '@/components/ui/dropdown-menu';
+  import {
+    Home,
+    BookOpen,
+    Search,
+    MoreHorizontal,
+    Layers,
+    Grid3x3,
+    Bell,
+    UserCircle,
+    LogOut,
+    LogIn,
+    UserPlus,
+    ChevronRight,
+    X,
+    Menu,
+    HelpCircle,
+    Shield,
+    FolderOpen,
+    Users,
+    PlusCircle,
+    BookPlus,
+    Building2,
+    Palette,
+  } from 'lucide-vue-next';
 
+  const router = useRouter();
+  const authStore = useAuthStore();
 
-const router = useRouter();
-const authStore = useAuthStore();
+  // Reactive state
+  const showMobileSidebar = ref(false);
+  const showMobileMore = ref(false);
+  const showMobileTeams = ref(false);
+  const showMobileAddContent = ref(false);
+  const teams = ref([]);
+  const loadingTeams = ref(false);
 
-// Reactive state
-const profileImage = ref('/img/logo.png');
-const showMoreMenu = ref(false);
-const showTeamsMenu = ref(false);
-const showGridMenu = ref(false);
-const showProfileMenu = ref(false);
-const showMobileSidebar = ref(false);
-const showMobileMore = ref(false);
-const showMobileTeams = ref(false);
-const showMobileAddContent = ref(false);
-const teams = ref([]);
-const loadingTeams = ref(false);
+  // Helper to get initials for avatar fallback
+  const getInitials = (name) => {
+    if (!name) return 'U';
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
-// Methods
-const toggleProfileMenu = () => {
-    showProfileMenu.value = !showProfileMenu.value;
-    if (showProfileMenu.value) {
-        showMoreMenu.value = false;
-        showTeamsMenu.value = false;
-        showGridMenu.value = false;
-    }
-};
-
-const toggleMoreMenu = () => {
-    showMoreMenu.value = !showMoreMenu.value;
-    if (showMoreMenu.value) {
-        showProfileMenu.value = false;
-        showTeamsMenu.value = false;
-        showGridMenu.value = false;
-    }
-};
-
-const toggleTeamsMenu = () => {
-    showTeamsMenu.value = !showTeamsMenu.value;
-    if (showTeamsMenu.value) {
-        showProfileMenu.value = false;
-        showMoreMenu.value = false;
-        showGridMenu.value = false;
-        fetchUserTeams();
-    }
-};
-
-const toggleGridMenu = () => {
-    showGridMenu.value = !showGridMenu.value;
-    if (showGridMenu.value) {
-        showProfileMenu.value = false;
-        showMoreMenu.value = false;
-        showTeamsMenu.value = false;
-    }
-};
-
-const toggleMobileSidebar = () => {
+  const toggleMobileSidebar = () => {
     showMobileSidebar.value = !showMobileSidebar.value;
     if (showMobileSidebar.value && authStore.isAuthenticated) {
-        fetchUserTeams();
+      fetchUserTeams();
     }
-    // Prevent body scroll when sidebar is open
     document.body.style.overflow = showMobileSidebar.value ? 'hidden' : '';
-};
+  };
 
-const closeMobileSidebar = () => {
+  const closeMobileSidebar = () => {
     showMobileSidebar.value = false;
     document.body.style.overflow = '';
-    // Reset mobile submenu states
     showMobileMore.value = false;
     showMobileTeams.value = false;
     showMobileAddContent.value = false;
-};
+  };
 
-const toggleMobileMore = () => {
-    showMobileMore.value = !showMobileMore.value;
-};
-
-const toggleMobileTeams = () => {
-    showMobileTeams.value = !showMobileTeams.value;
-    if (showMobileTeams.value) {
-        fetchUserTeams();
+  const onTeamsToggle = () => {
+    if (!showMobileTeams.value) {
+      fetchUserTeams();
     }
-};
+  };
 
-const toggleMobileAddContent = () => {
-    showMobileAddContent.value = !showMobileAddContent.value;
-};
-
-const logout = async () => {
+  const logout = async () => {
     closeMobileSidebar();
-    
+
     try {
-        await authStore.logout();
-        // Redirect to home after logout
-        router.push('/');
+      await authStore.logout();
+      router.push('/');
     } catch (error) {
-        console.error('Logout error:', error);
-        // Fallback: redirect to home page
-        router.push('/');
+      console.error('Logout error:', error);
+      router.push('/');
     }
-};
+  };
 
   const fetchUserTeams = async () => {
     if ((teams.value.length === 0) && !loadingTeams.value && authStore.isAuthenticated) {
@@ -479,61 +572,90 @@ const logout = async () => {
     }
   };
 
-const handleClickOutside = (event) => {
-    if (showProfileMenu.value && !event.target.closest('.profile-btn') && !event.target.closest('.profile-menu')) {
-        showProfileMenu.value = false;
-    }
-
-    if (showMoreMenu.value && !event.target.closest('.more-btn') && !event.target.closest('.more-menu')) {
-        showMoreMenu.value = false;
-    }
-
-    if (showTeamsMenu.value && !event.target.closest('.content-btn') && !event.target.closest('.teams-menu')) {
-        showTeamsMenu.value = false;
-    }
-
-    if (showGridMenu.value && !event.target.closest('.grid-btn') && !event.target.closest('.grid-menu')) {
-        showGridMenu.value = false;
-    }
-};
-
-const handleScroll = () => {
+  const handleScroll = () => {
     if (showMobileSidebar.value) {
-        closeMobileSidebar();
+      closeMobileSidebar();
     }
-};
+  };
 
-// Lifecycle
-onMounted(() => {
-    // Close menus when clicking outside (desktop)
-    document.addEventListener('click', handleClickOutside);
-    // Handle scroll events to close mobile sidebar
+  onMounted(() => {
     window.addEventListener('scroll', handleScroll);
-});
+  });
 
-onUnmounted(() => {
-    // Clean up event listeners
-    document.removeEventListener('click', handleClickOutside);
+  onUnmounted(() => {
     window.removeEventListener('scroll', handleScroll);
     document.body.style.overflow = '';
-});
+  });
 </script>
+<style>
+  /* Global dropdown styles - NOT scoped */
+  [data-radix-popper-content-wrapper],
+  [data-radix-portal] {
+    z-index: 9999 !important;
+  }
 
+  .dropdown-menu-content,
+  [role="menu"] {
+    background-color: #171717 !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    border-radius: 10px !important;
+    padding: 6px !important;
+    box-shadow: 0 10px 38px -10px rgba(0, 0, 0, 0.5), 0 10px 20px -15px rgba(0, 0, 0, 0.4) !important;
+    min-width: 220px !important;
+    z-index: 9999 !important;
+    position: fixed !important;
+  }
+
+  .dropdown-menu-item,
+  [role="menuitem"] {
+    color: rgba(255, 255, 255, 0.95) !important;
+    padding: 8px 10px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    transition: all 0.12s ease !important;
+    font-size: 14px !important;
+    outline: none !important;
+    line-height: 1.5 !important;
+  }
+
+    .dropdown-menu-item:hover,
+    [role="menuitem"]:hover,
+    [role="menuitem"][data-highlighted] {
+      background-color: rgba(255, 255, 255, 0.06) !important;
+      color: white !important;
+    }
+
+  .dropdown-menu-label {
+    color: rgba(255, 255, 255, 0.95) !important;
+    padding: 8px 10px 6px 10px !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+  }
+
+  .dropdown-menu-separator,
+  [role="separator"] {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+    margin: 6px 0 !important;
+    height: 1px !important;
+  }
+</style>
 <style scoped>
-/* Keep all your existing CSS styles exactly as they are */
-.navbar {
-    background-color: #212121;
+  .navbar {
+    background-color: rgba(0, 0, 0, 0.75);
     width: 100vw;
     height: 60px;
     color: white;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
     position: fixed;
     top: 0;
     left: 0;
     z-index: 1000;
-}
+    backdrop-filter: blur(20px) brightness(1.1);
+    -webkit-backdrop-filter: blur(20px) brightness(1.1);
+  }
 
-.navbar-container {
+  .navbar-container {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -542,35 +664,35 @@ onUnmounted(() => {
     max-width: 1272px;
     margin: 0 auto;
     width: 100%;
-}
+  }
 
-/* Desktop Navbar Styles */
-.desktop-navbar {
+  .desktop-navbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
     width: 100%;
-}
+  }
 
-.mobile-navbar {
+  .mobile-navbar {
     display: none;
     justify-content: space-between;
     align-items: center;
     width: 100%;
-}
+  }
 
-.navbar-left, .navbar-right, .navbar-center {
+  .navbar-left, .navbar-right, .navbar-center {
     display: flex;
     align-items: center;
-}
+    gap: 4px;
+  }
 
-.navbar-center {
+  .navbar-center {
     flex: 1;
     justify-content: center;
     margin-left: 40px;
-}
+  }
 
-.navbar-brand {
+  .navbar-brand {
     font-size: 18px;
     font-weight: 500;
     margin-right: 50px;
@@ -579,109 +701,18 @@ onUnmounted(() => {
     text-decoration: none;
     padding: 8px 12px;
     border-radius: 4px;
-    transition: background-color 0.2s, color 0.2s;
-}
+    transition: background-color 0.2s;
+  }
 
     .navbar-brand:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-        color: white;
-        text-decoration: none;
+      background-color: rgba(255, 255, 255, 0.1);
     }
 
-.profile-dropdown {
+  .nav-item {
     position: relative;
-}
+  }
 
-.profile-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 4px;
-    border-radius: 50%;
-    transition: background-color 0.2s;
-}
-
-    .profile-btn:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-    }
-
-.profile-menu {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    background-color: #333;
-    border-radius: 4px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-    z-index: 1000;
-    min-width: 200px;
-    overflow: hidden;
-    margin-top: 5px;
-}
-
-.profile-menu-item {
-    display: flex;
-    align-items: center;
-    color: white;
-    text-decoration: none;
-    padding: 12px 15px;
-    transition: background-color 0.2s;
-    border: none;
-    background: none;
-    width: 100%;
-    text-align: left;
-    cursor: pointer;
-    font-size: 14px;
-}
-
-    .profile-menu-item:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-    }
-
-.user-name-item {
-    color: #aaa;
-    cursor: default;
-    font-weight: 500;
-}
-
-    .user-name-item:hover {
-        background-color: transparent;
-    }
-
-.logout-btn {
-    color: #ff6b6b;
-}
-
-    .logout-btn:hover {
-        background-color: rgba(255, 107, 107, 0.1);
-    }
-
-.profile-divider {
-    height: 1px;
-    background-color: rgba(255, 255, 255, 0.1);
-    margin: 5px 0;
-}
-
-.profile-circle {
-    background-color: #4caf50;
-    opacity: 0.7;
-}
-
-.user-circle {
-    background-color: #2196f3;
-    opacity: 0.7;
-}
-
-.logout-circle {
-    background-color: #ff6b6b;
-    opacity: 0.7;
-}
-
-.nav-item {
-    position: relative;
-    margin: 0 5px;
-}
-
-.nav-link {
+  .nav-link {
     display: flex;
     align-items: center;
     color: white;
@@ -690,219 +721,60 @@ onUnmounted(() => {
     border-radius: 4px;
     transition: background-color 0.2s;
     white-space: nowrap;
-}
+  }
 
     .nav-link:hover {
-        background-color: rgba(255, 255, 255, 0.1);
+      background-color: rgba(255, 255, 255, 0.1);
+      color: white;
+      text-decoration: none;
     }
 
-.nav-icon {
-    width: 20px;
-    height: 20px;
-    margin-right: 5px;
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
+  .nav-icon-lucide {
+    margin-right: 6px;
     flex-shrink: 0;
-}
+  }
 
-.home-icon {
-    background-image: url('../navicons/home.svg');
-}
-
-.catalog-icon {
-    background-image: url('../navicons/catalog.svg');
-}
-
-.search-icon {
-    background-image: url('../navicons/search.svg');
-}
-
-.more-icon {
-    background-image: url('../navicons/more.svg');
-}
-
-.content-icon {
-    background-image: url('../navicons/content.svg');
-}
-
-.grid-icon {
-    background-image: url('../navicons/addtab.svg');
-}
-
-.notification-icon {
-    background-image: url('../navicons/notification.svg');
-}
-
-.more-btn, .content-btn, .grid-btn {
-    background: none;
-    border: none;
-    color: white;
-    cursor: pointer;
-}
-
-.more-menu, .teams-menu, .grid-menu {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    background-color: #333;
-    border-radius: 4px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-    z-index: 1000;
-    min-width: 220px;
-    overflow: hidden;
-}
-
-.teams-menu, .grid-menu {
-    right: 0;
-    left: auto;
-}
-
-.teams-header, .grid-header {
-    padding: 10px 15px;
-    background-color: #444;
-    font-weight: 500;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.teams-section, .grid-section {
-    padding-bottom: 10px;
-}
-
-    .teams-section:not(:last-child) {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-.section-header {
-    padding: 8px 15px;
-    font-size: 0.9rem;
-    color: #aaa;
-    font-weight: 500;
-}
-
-/* Create simple CSS-based icons instead of using SVG files */
-.circle-icon {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
+  .profile-btn {
+    padding: 4px;
     border-radius: 50%;
-    background-color: white;
-    opacity: 0.7;
-    margin-right: 8px;
-    flex-shrink: 0;
-}
+  }
 
-.team-circle {
-    opacity: 0.5;
-    background-color: #4caf50;
-}
-
-.title-circle {
-    background-color: #f44336;
-    opacity: 0.5;
-}
-
-.author-circle {
-    background-color: #2196f3;
-    opacity: 0.5;
-}
-
-.publisher-circle {
-    background-color: #ff9800;
-    opacity: 0.5;
-}
-
-.artist-circle {
-    background-color: #9c27b0;
-    opacity: 0.5;
-}
-
-.loading-teams {
-    padding: 5px 15px;
-    color: #aaa;
-    font-size: 0.9rem;
-    font-style: italic;
-}
-
-.team-item {
-    padding-left: 25px;
-}
-
-.more-menu-item, .teams-menu-item, .grid-menu-item {
+  .dropdown-item-link {
     display: flex;
     align-items: center;
-    color: white;
+    width: 100%;
+    color: inherit;
     text-decoration: none;
-    padding: 10px 15px;
-    transition: background-color 0.2s;
-}
+  }
 
-    .more-menu-item:hover, .teams-menu-item:hover, .grid-menu-item:hover {
-        background-color: rgba(255, 255, 255, 0.1);
+    .dropdown-item-link:hover {
+      text-decoration: none;
     }
 
-.create-team {
-    display: flex;
-    align-items: center;
-    margin-top: 5px;
-}
+  /* Ensure consistent icon and text alignment */
+  :deep(.dropdown-menu-item svg) {
+    flex-shrink: 0 !important;
+  }
 
-.add-icon {
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    position: relative;
-    margin-right: 8px;
-    flex-shrink: 0;
-}
+  /* Additional dropdown customization */
+  :deep(.dropdown-menu-content[data-state="open"]) {
+    animation: slideIn 0.15s ease-out !important;
+  }
 
-    .add-icon:before, .add-icon:after {
-        content: '';
-        position: absolute;
-        background-color: white;
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-5px);
     }
 
-    .add-icon:before {
-        width: 14px;
-        height: 2px;
-        top: 6px;
-        left: 0;
+    to {
+      opacity: 1;
+      transform: translateY(0);
     }
+  }
 
-    .add-icon:after {
-        width: 2px;
-        height: 14px;
-        top: 0;
-        left: 6px;
-    }
-
-.profile-img {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    object-fit: cover;
-    flex-shrink: 0;
-}
-
-.profile-link {
-    padding: 0;
-    margin-left: 10px;
-}
-
-button.nav-link {
-    background: none;
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-}
-
-.navbar-right .nav-icon {
-    margin-right: 0;
-}
-
-/* Mobile Sidebar Styles */
-.mobile-sidebar-overlay {
+  /* Mobile Sidebar */
+  .mobile-sidebar-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -912,373 +784,237 @@ button.nav-link {
     z-index: 2000;
     display: flex;
     justify-content: flex-end;
-}
+  }
 
-.mobile-sidebar {
+  .mobile-sidebar {
     width: 300px;
     max-width: 85vw;
     height: 100vh;
-    background-color: #2a2a2a;
+    background-color: rgba(0, 0, 0, 0.95);
+    backdrop-filter: blur(20px) brightness(1.05);
+    -webkit-backdrop-filter: blur(20px) brightness(1.05);
     box-shadow: -2px 0 10px rgba(0, 0, 0, 0.3);
     display: flex;
     flex-direction: column;
     animation: slideInRight 0.3s ease-out;
-}
+  }
 
-@keyframes slideInRight {
+  @keyframes slideInRight {
     from {
-        transform: translateX(100%);
+      transform: translateX(100%);
     }
 
     to {
-        transform: translateX(0);
+      transform: translateX(0);
     }
-}
+  }
 
-.sidebar-header {
+  .sidebar-header {
     padding: 20px;
-    border-bottom: 1px solid #3a3a3a;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     display: flex;
     justify-content: space-between;
     align-items: center;
     min-height: 80px;
-}
+  }
 
-.sidebar-user-info {
+  .sidebar-user-info {
     display: flex;
     align-items: center;
     flex: 1;
-}
+    gap: 12px;
+  }
 
-.sidebar-profile-img {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    object-fit: cover;
-    margin-right: 12px;
-}
-
-.sidebar-user-details {
+  .sidebar-user-details {
     flex: 1;
-}
+  }
 
-.sidebar-username {
+  .sidebar-username {
     font-weight: 500;
     color: white;
     margin-bottom: 4px;
-}
+  }
 
-.sidebar-profile-link {
+  .sidebar-profile-link {
     color: #aaa;
     text-decoration: none;
     font-size: 12px;
-}
+  }
 
     .sidebar-profile-link:hover {
-        color: white;
+      color: white;
     }
 
-.sidebar-guest-info {
+  .sidebar-guest-info {
     flex: 1;
-}
+  }
 
-.sidebar-brand {
+  .sidebar-brand {
     font-size: 18px;
     font-weight: 500;
     color: white;
-}
+  }
 
-.sidebar-close-btn {
-    background: none;
-    border: none;
-    color: #aaa;
-    font-size: 24px;
-    cursor: pointer;
-    padding: 5px;
+  .sidebar-close-btn {
     margin-left: 10px;
-    transition: color 0.2s;
-}
+  }
 
-    .sidebar-close-btn:hover {
-        color: white;
-    }
-
-.close-icon {
-    font-style: normal;
-}
-
-.sidebar-content {
+  .sidebar-content {
     flex: 1;
     overflow-y: auto;
     padding: 10px 0;
-}
+  }
 
-.sidebar-section {
+  .sidebar-section {
     margin-bottom: 10px;
-}
+  }
 
-.sidebar-item {
+  .sidebar-item {
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     padding: 15px 20px;
     color: white;
     text-decoration: none;
-    transition: background-color 0.2s;
-    border: none;
-    background: none;
     width: 100%;
     text-align: left;
-    cursor: pointer;
     font-size: 15px;
-}
+    height: auto;
+  }
 
     .sidebar-item:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-        color: white;
-        text-decoration: none;
+      background-color: rgba(255, 255, 255, 0.1);
+      color: white;
+      text-decoration: none;
     }
 
-.sidebar-icon {
-    width: 20px;
-    height: 20px;
-    margin-right: 15px;
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    flex-shrink: 0;
-}
-
-.sidebar-expandable {
+  .sidebar-expandable {
     position: relative;
-}
+  }
 
-.sidebar-toggle {
+  .sidebar-toggle {
     justify-content: space-between;
-}
+  }
 
-.sidebar-toggle-content {
+  .sidebar-toggle-content {
     display: flex;
     align-items: center;
-}
+  }
 
-.sidebar-arrow {
-    font-size: 16px;
+  .sidebar-arrow {
     transition: transform 0.2s;
     color: #aaa;
-}
+  }
 
     .sidebar-arrow.expanded {
-        transform: rotate(90deg);
+      transform: rotate(90deg);
     }
 
-.sidebar-submenu {
-    background-color: rgba(0, 0, 0, 0.2);
-    animation: slideDown 0.2s ease-out;
-}
+  .sidebar-submenu {
+    background-color: rgba(0, 0, 0, 0.3);
+  }
 
-@keyframes slideDown {
-    from {
-        opacity: 0;
-        max-height: 0;
-    }
-
-    to {
-        opacity: 1;
-        max-height: 500px;
-    }
-}
-
-.sidebar-submenu-item {
+  .sidebar-submenu-item {
     display: flex;
     align-items: center;
     padding: 12px 20px 12px 55px;
     color: #ccc;
     text-decoration: none;
     font-size: 14px;
-    transition: background-color 0.2s;
-}
+    justify-content: flex-start;
+    width: 100%;
+    text-align: left;
+    height: auto;
+  }
 
     .sidebar-submenu-item:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-        color: white;
-        text-decoration: none;
+      background-color: rgba(255, 255, 255, 0.1);
+      color: white;
+      text-decoration: none;
     }
 
-.sidebar-team-item {
+  .sidebar-team-item {
     position: relative;
-}
+  }
 
-.team-dot {
-    width: 6px;
-    height: 6px;
-    background-color: #4caf50;
-    border-radius: 50%;
-    margin-right: 10px;
-    opacity: 0.7;
-}
-
-.content-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    margin-right: 10px;
-    opacity: 0.7;
-}
-
-.title-dot {
-    background-color: #f44336;
-}
-
-.author-dot {
-    background-color: #2196f3;
-}
-
-.publisher-dot {
-    background-color: #ff9800;
-}
-
-.artist-dot {
-    background-color: #9c27b0;
-}
-
-.add-icon-small {
-    width: 16px;
-    height: 16px;
-    background-color: #4caf50;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 10px;
-    font-size: 12px;
-    font-weight: bold;
-}
-
-.sidebar-loading {
+  .sidebar-loading {
     padding: 12px 20px 12px 55px;
     color: #888;
     font-size: 14px;
     font-style: italic;
-}
+  }
 
-.sidebar-divider {
-    height: 1px;
-    background-color: #3a3a3a;
+  .sidebar-divider {
+    background-color: rgba(255, 255, 255, 0.1);
     margin: 10px 0;
-}
+  }
 
-.logout-item {
+  .logout-item {
     color: #ff6b6b;
-}
+  }
 
     .logout-item:hover {
-        background-color: rgba(255, 107, 107, 0.1);
-        color: #ff6b6b;
+      background-color: rgba(255, 107, 107, 0.1);
+      color: #ff6b6b;
     }
 
-.logout-icon {
-    background-color: #ff6b6b;
-    mask: radial-gradient(circle, transparent 30%, #ff6b6b 30%);
-    -webkit-mask: radial-gradient(circle, transparent 30%, #ff6b6b 30%);
-}
-
-.login-icon,
-.register-icon {
-    background-color: #4caf50;
-    mask: radial-gradient(circle, transparent 30%, #4caf50 30%);
-    -webkit-mask: radial-gradient(circle, transparent 30%, #4caf50 30%);
-}
-
-.mobile-search-btn,
-.mobile-menu-btn {
-    padding: 8px;
-    border-radius: 50%;
-}
-
-.mobile-profile {
-    width: 28px;
-    height: 28px;
-}
-
-.menu-burger-icon {
-    width: 20px;
-    height: 20px;
-    background-image: linear-gradient(to bottom, white 2px, transparent 2px, transparent 6px, white 6px, white 8px, transparent 8px, transparent 12px, white 12px, white 14px, transparent 14px);
-    margin-right: 0;
-}
-
-/* Responsive Design */
-@media (max-width: 1300px) {
+  /* Responsive Design */
+  @media (max-width: 1300px) {
     .navbar-container {
-        max-width: 95%;
-        padding: 0 15px;
+      max-width: 95%;
+      padding: 0 15px;
     }
-}
+  }
 
-@media (max-width: 1024px) {
+  @media (max-width: 1024px) {
     .navbar-center {
-        margin-left: 20px;
+      margin-left: 20px;
     }
 
     .navbar-brand {
-        margin-right: 20px;
-        font-size: 16px;
-        padding: 6px 10px;
+      margin-right: 20px;
+      font-size: 16px;
     }
+  }
 
-    .nav-item {
-        margin: 0 3px;
-    }
-
-    .nav-link {
-        padding: 6px 8px;
-        font-size: 14px;
-    }
-}
-
-@media (max-width: 768px) {
-    /* Hide desktop navbar, show mobile */
+  @media (max-width: 768px) {
     .desktop-navbar {
-        display: none;
+      display: none;
     }
 
     .mobile-navbar {
-        display: flex;
+      display: flex;
     }
 
     .navbar-container {
-        padding: 0 15px;
+      padding: 0 15px;
     }
 
     .mobile-nav-left,
     .mobile-nav-right {
-        display: flex;
-        align-items: center;
+      display: flex;
+      align-items: center;
     }
 
     .mobile-sidebar {
-        width: 280px;
+      width: 280px;
     }
+  }
 
-    .sidebar-submenu-item {
-        padding-left: 50px;
-    }
-}
-
-@media (max-width: 480px) {
+  @media (max-width: 480px) {
     .navbar-container {
-        padding: 0 10px;
+      padding: 0 10px;
     }
 
     .mobile-sidebar {
-        width: 260px;
+      width: 260px;
     }
-}
+  }
 
-@media (max-width: 375px) {
+  @media (max-width: 375px) {
     .mobile-sidebar {
-        width: 100%;
-        max-width: 100%;
+      width: 100%;
+      max-width: 100%;
     }
-}
+  }
 </style>

@@ -11,6 +11,8 @@ namespace FallenFaction.Server.Data.Models
         public string UserId { get; set; }
         public DateTime AddedDate { get; set; }
         public int LastReadChapter { get; set; }
+        public string Status { get; set; } = "plan-to-read"; // Default status
+
 
         // Navigation properties
         [ForeignKey("TitleId")]

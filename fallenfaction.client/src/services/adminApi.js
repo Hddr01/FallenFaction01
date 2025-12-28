@@ -1,4 +1,4 @@
-// services/adminApi.js - Complete admin API service with chapter management
+// services/adminApi.js - FIXED Complete admin API service with chapter management
 import axios from 'axios';
 
 // Create axios instance with base configuration
@@ -18,17 +18,38 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Log requests in development
+    if (import.meta.env.DEV) {
+      console.log(`Admin API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`, config.data);
+    }
+
     return config;
   },
   (error) => {
+    console.error('Admin API Request Error:', error);
     return Promise.reject(error);
   }
 );
 
 // Response interceptor to handle token expiration
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Log responses in development
+    if (import.meta.env.DEV) {
+      console.log(`Admin API Response: ${response.status} ${response.config.url}`, response.data);
+    }
+    return response;
+  },
   (error) => {
+    console.error('Admin API Error:', error);
+    console.error('Error details:', {
+      status: error.response?.status,
+      message: error.response?.data?.message,
+      data: error.response?.data,
+      url: error.config?.url
+    });
+
     if (error.response?.status === 401) {
       localStorage.removeItem('authToken');
       localStorage.removeItem('authUser');
@@ -43,10 +64,11 @@ api.interceptors.response.use(
 const adminApi = {
   // TITLE MANAGEMENT METHODS
 
-  // Get pending titles for approval
+  // FIXED: Get pending titles for approval - use correct endpoint
   async getPendingTitles() {
     try {
-      const response = await api.get('/TitleApi/pending');
+      console.log('Calling: GET /api/AdminTitle/PendingTitles');
+      const response = await api.get('/AdminTitle/PendingTitles');
       return {
         success: true,
         data: response.data
@@ -54,7 +76,7 @@ const adminApi = {
     } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.message || error.message,
+        error: error.response?.data?.message || error.message || 'Failed to load pending titles',
         data: []
       };
     }
@@ -63,6 +85,7 @@ const adminApi = {
   // Get pending title details
   async getPendingTitleDetails(titleId) {
     try {
+      console.log(`Calling: GET /api/AdminTitle/GetPendingTitleDetails?id=${titleId}`);
       const response = await api.get(`/AdminTitle/GetPendingTitleDetails?id=${titleId}`);
       return {
         success: true,
@@ -71,14 +94,15 @@ const adminApi = {
     } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.message || error.message
+        error: error.response?.data?.message || error.message || 'Failed to load title details'
       };
     }
   },
 
-  // Accept pending title
+  // FIXED: Accept pending title - use TitleApiController endpoint
   async acceptTitle(titleId) {
     try {
+      console.log(`Calling: POST /api/TitleApi/approve/${titleId}`);
       const response = await api.post(`/TitleApi/approve/${titleId}`);
       return {
         success: true,
@@ -88,7 +112,7 @@ const adminApi = {
     } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.message || error.message
+        error: error.response?.data?.message || error.message || 'Failed to approve title'
       };
     }
   },
@@ -96,6 +120,7 @@ const adminApi = {
   // Reject pending title
   async rejectTitle(titleId, reason = '') {
     try {
+      console.log('Calling: POST /api/AdminTitle/RejectTitle');
       const response = await api.post('/AdminTitle/RejectTitle', {
         id: titleId,
         reason: reason
@@ -108,7 +133,7 @@ const adminApi = {
     } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.message || error.message
+        error: error.response?.data?.message || error.message || 'Failed to reject title'
       };
     }
   },
@@ -116,6 +141,7 @@ const adminApi = {
   // Get approved titles for management
   async getApprovedTitles() {
     try {
+      console.log('Calling: GET /api/AdminTitle/AdminTitleManagement');
       const response = await api.get('/AdminTitle/AdminTitleManagement');
       return {
         success: true,
@@ -124,7 +150,7 @@ const adminApi = {
     } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.message || error.message,
+        error: error.response?.data?.message || error.message || 'Failed to load approved titles',
         data: []
       };
     }
@@ -133,6 +159,7 @@ const adminApi = {
   // Get title details for editing
   async getTitleDetails(titleId) {
     try {
+      console.log(`Calling: GET /api/AdminTitle/GetTitleDetails/${titleId}`);
       const response = await api.get(`/AdminTitle/GetTitleDetails/${titleId}`);
       return {
         success: true,
@@ -141,70 +168,66 @@ const adminApi = {
     } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.message || error.message
+        error: error.response?.data?.message || error.message || 'Failed to load title details'
       };
     }
   },
 
-  // Update title
+  // FIXED: Update title - properly handle FormData
   async updateTitle(updateData) {
     try {
+      console.log('Calling: POST /api/AdminTitle/UpdateTitle');
       const formData = new FormData();
 
-      // Add files
-      if (updateData.coverImage) {
+      // Add ID first (required)
+      formData.append('id', updateData.id);
+
+      // Add files if present
+      if (updateData.coverImage && updateData.coverImage instanceof File) {
         formData.append('coverImage', updateData.coverImage);
       }
-      if (updateData.backgroundImage) {
+      if (updateData.backgroundImage && updateData.backgroundImage instanceof File) {
         formData.append('backgroundImage', updateData.backgroundImage);
       }
 
-      // Add simple fields
-      formData.append('id', updateData.id);
-      formData.append('originalTitle', updateData.originalTitle || '');
-      formData.append('englishTitle', updateData.englishTitle || '');
-      formData.append('alternativeNames', updateData.alternativeNames || '');
-      formData.append('releaseDate', updateData.releaseDate || '');
-      formData.append('description', updateData.description || '');
-      formData.append('statusTitle', updateData.statusTitle || 'inproces');
-      formData.append('statusTranslation', updateData.statusTranslation || 'inproces');
+      // Add simple text fields
+      const textFields = [
+        'originalTitle', 'englishTitle', 'alternativeNames', 'releaseDate',
+        'description', 'statusTitle', 'statusTranslation'
+      ];
+
+      textFields.forEach(field => {
+        formData.append(field, updateData[field] || '');
+      });
+
+      // Add numeric fields
       formData.append('type', updateData.type || '1');
       formData.append('ageRestriction', updateData.ageRestriction || '0');
-      formData.append('isAvailable', updateData.isAvailable || false);
-      formData.append('areCommentsEnabled', updateData.areCommentsEnabled || false);
-      formData.append('areChapterCommentsEnabled', updateData.areChapterCommentsEnabled || false);
 
-      // Add array fields
-      if (updateData.authors) {
-        updateData.authors.forEach(id => formData.append('authors', id));
-      }
-      if (updateData.artists) {
-        updateData.artists.forEach(id => formData.append('artists', id));
-      }
-      if (updateData.publishers) {
-        updateData.publishers.forEach(id => formData.append('publishers', id));
-      }
-      if (updateData.teams) {
-        updateData.teams.forEach(id => formData.append('teams', id));
-      }
-      if (updateData.categories) {
-        updateData.categories.forEach(id => formData.append('categories', id));
-      }
-      if (updateData.tags) {
-        updateData.tags.forEach(id => formData.append('tags', id));
-      }
-      if (updateData.formats) {
-        updateData.formats.forEach(id => formData.append('formats', id));
-      }
+      // Add boolean fields
+      formData.append('isAvailable', updateData.isAvailable !== undefined ? updateData.isAvailable : true);
+      formData.append('areCommentsEnabled', updateData.areCommentsEnabled !== undefined ? updateData.areCommentsEnabled : true);
+      formData.append('areChapterCommentsEnabled', updateData.areChapterCommentsEnabled !== undefined ? updateData.areChapterCommentsEnabled : true);
+
+      // Add array fields (many-to-many relationships)
+      const arrayFields = ['authors', 'artists', 'publishers', 'teams', 'categories', 'tags', 'formats'];
+
+      arrayFields.forEach(field => {
+        if (updateData[field] && Array.isArray(updateData[field])) {
+          updateData[field].forEach(id => formData.append(field, id));
+        }
+      });
 
       // Add external links
-      if (updateData.externalLinks) {
-        updateData.externalLinks.forEach(link => formData.append('externalLinks', link));
+      if (updateData.externalLinks && Array.isArray(updateData.externalLinks)) {
+        updateData.externalLinks.filter(link => link && link.trim()).forEach(link => {
+          formData.append('externalLinks', link);
+        });
       }
 
       const response = await api.post('/AdminTitle/UpdateTitle', formData, {
         headers: {
-          'Content-Type': undefined
+          'Content-Type': 'multipart/form-data'
         }
       });
 
@@ -216,7 +239,7 @@ const adminApi = {
     } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.message || error.message
+        error: error.response?.data?.message || error.message || 'Failed to update title'
       };
     }
   },
@@ -224,6 +247,7 @@ const adminApi = {
   // Delete title
   async deleteTitle(titleId) {
     try {
+      console.log('Calling: POST /api/AdminTitle/DeleteTitle');
       const response = await api.post('/AdminTitle/DeleteTitle', { id: titleId });
       return {
         success: true,
@@ -233,7 +257,7 @@ const adminApi = {
     } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.message || error.message
+        error: error.response?.data?.message || error.message || 'Failed to delete title'
       };
     }
   },
@@ -241,6 +265,7 @@ const adminApi = {
   // Toggle title availability
   async toggleTitleAvailability(titleId) {
     try {
+      console.log('Calling: POST /api/AdminTitle/ToggleTitleAvailability');
       const response = await api.post('/AdminTitle/ToggleTitleAvailability', { id: titleId });
       return {
         success: true,
@@ -250,7 +275,7 @@ const adminApi = {
     } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.message || error.message
+        error: error.response?.data?.message || error.message || 'Failed to update title availability'
       };
     }
   },
@@ -258,6 +283,7 @@ const adminApi = {
   // Toggle title comments
   async toggleTitleComments(titleId) {
     try {
+      console.log('Calling: POST /api/AdminTitle/ToggleTitleComments');
       const response = await api.post('/AdminTitle/ToggleTitleComments', { id: titleId });
       return {
         success: true,
@@ -267,7 +293,7 @@ const adminApi = {
     } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.message || error.message
+        error: error.response?.data?.message || error.message || 'Failed to update title comments'
       };
     }
   },
@@ -275,6 +301,7 @@ const adminApi = {
   // Toggle chapter comments
   async toggleChapterComments(titleId) {
     try {
+      console.log('Calling: POST /api/AdminTitle/ToggleChapterComments');
       const response = await api.post('/AdminTitle/ToggleChapterComments', { id: titleId });
       return {
         success: true,
@@ -284,7 +311,25 @@ const adminApi = {
     } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.message || error.message
+        error: error.response?.data?.message || error.message || 'Failed to update chapter comments'
+      };
+    }
+  },
+
+  // Search titles
+  async searchTitles(searchString) {
+    try {
+      console.log(`Calling: GET /api/AdminTitle/SearchTitle?searchString=${searchString}`);
+      const response = await api.get(`/AdminTitle/SearchTitle?searchString=${encodeURIComponent(searchString)}`);
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message || 'Failed to search titles',
+        data: []
       };
     }
   },
@@ -294,6 +339,7 @@ const adminApi = {
   // Get pending chapters for admin review
   async getPendingChapters() {
     try {
+      console.log('Calling: GET /api/Titles/chapters/pending');
       const response = await api.get('/Titles/chapters/pending');
       return {
         success: true,
@@ -312,6 +358,7 @@ const adminApi = {
   // Get detailed information about a specific pending chapter
   async getPendingChapterDetails(chapterId) {
     try {
+      console.log(`Calling: GET /api/Titles/chapters/pending/${chapterId}`);
       const response = await api.get(`/Titles/chapters/pending/${chapterId}`);
       return {
         success: true,
@@ -329,6 +376,7 @@ const adminApi = {
   // Accept/approve a pending chapter
   async acceptChapter(chapterId) {
     try {
+      console.log(`Calling: POST /api/Titles/chapters/pending/${chapterId}/approve`);
       const response = await api.post(`/Titles/chapters/pending/${chapterId}/approve`);
       return {
         success: true,
@@ -347,6 +395,7 @@ const adminApi = {
   // Reject a pending chapter
   async rejectChapter(chapterId, reason = '') {
     try {
+      console.log(`Calling: POST /api/Titles/chapters/pending/${chapterId}/reject`);
       const response = await api.post(`/Titles/chapters/pending/${chapterId}/reject`, {
         reason: reason
       });
@@ -364,15 +413,154 @@ const adminApi = {
     }
   },
 
-  // Test API connectivity for chapters
+  // UTILITY METHODS
+
+  // Test API connectivity
+  async testConnection() {
+    try {
+      console.log('Testing admin API connection...');
+      const response = await api.get('/AdminTitle/AdminTitleManagement');
+      console.log('Admin API connection test successful');
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error('Admin API connection test failed:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+
+  // Add to the adminApi object in adminApi.js
+
+  // TITLE CHANGE MANAGEMENT METHODS
+
+  // Get all pending title changes
+  async getPendingTitleChanges() {
+    try {
+      console.log('Calling: GET /api/AdminTitle/PendingChanges');
+      const response = await api.get('/AdminTitle/PendingChanges');
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message || 'Failed to load pending changes',
+        data: []
+      };
+    }
+  },
+
+  // Get pending changes for a specific title
+  async getPendingChangesForTitle(titleId) {
+    try {
+      console.log(`Calling: GET /api/AdminTitle/PendingChanges/${titleId}`);
+      const response = await api.get(`/AdminTitle/PendingChanges/${titleId}`);
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message || 'Failed to load title changes'
+      };
+    }
+  },
+
+  // Approve all pending changes for a title
+  async approveTitleChanges(titleId, adminComment = '') {
+    try {
+      console.log(`Calling: POST /api/AdminTitle/ApproveChanges/${titleId}`);
+      const response = await api.post(`/AdminTitle/ApproveChanges/${titleId}`, {
+        adminComment: adminComment
+      });
+      return {
+        success: true,
+        message: response.data.message || 'Changes approved successfully!',
+        data: response.data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message || 'Failed to approve changes'
+      };
+    }
+  },
+
+  // Reject all pending changes for a title
+  async rejectTitleChanges(titleId, rejectionReason, adminComment = '') {
+    try {
+      console.log(`Calling: POST /api/AdminTitle/RejectChanges/${titleId}`);
+      const response = await api.post(`/AdminTitle/RejectChanges/${titleId}`, {
+        rejectionReason: rejectionReason,
+        adminComment: adminComment
+      });
+      return {
+        success: true,
+        message: response.data.message || 'Changes rejected successfully!',
+        data: response.data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message || 'Failed to reject changes'
+      };
+    }
+  },
+
+  // Test chapter API connectivity
   async testChapterConnection() {
     try {
+      console.log('Testing chapter API connection...');
       const response = await api.get('/Titles/chapters/pending');
-      return response.status === 200;
+      console.log('Chapter API connection test successful');
+      return { success: true, data: response.data };
     } catch (error) {
       console.error('Chapter API connection test failed:', error);
-      return false;
+      return { success: false, error: error.message };
     }
+  },
+
+  // Helper method to validate data before sending
+  validateTitleData(titleData) {
+    const errors = [];
+
+    if (!titleData.id) {
+      errors.push('Title ID is required');
+    }
+
+    if (!titleData.englishTitle || titleData.englishTitle.trim() === '') {
+      errors.push('English title is required');
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors: errors
+    };
+  },
+
+  // Helper method to prepare form data
+  prepareFormData(data) {
+    const formData = new FormData();
+
+    Object.keys(data).forEach(key => {
+      const value = data[key];
+
+      if (value === null || value === undefined) {
+        return; // Skip null/undefined values
+      }
+
+      if (value instanceof File) {
+        formData.append(key, value);
+      } else if (Array.isArray(value)) {
+        value.forEach(item => formData.append(key, item));
+      } else {
+        formData.append(key, String(value));
+      }
+    });
+
+    return formData;
   }
 };
 

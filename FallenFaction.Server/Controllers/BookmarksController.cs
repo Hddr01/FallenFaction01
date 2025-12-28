@@ -28,15 +28,14 @@ namespace FallenFaction.Server.Controllers
         }
 
         [HttpGet("GetFolders")]
-        [AllowAnonymous]  // Allow guest users to access this endpoint
+        [AllowAnonymous]
         public async Task<ActionResult<BookmarkFoldersResponseDto>> GetFolders([FromQuery] int? titleId = null)
         {
-            AppUser? user = null; // Declare user outside try block
+            AppUser? user = null;
             try
             {
                 user = await _userManager.GetUserAsync(User);
 
-                // Handle guest users - return empty data
                 if (user == null)
                 {
                     return new BookmarkFoldersResponseDto
@@ -46,10 +45,8 @@ namespace FallenFaction.Server.Controllers
                     };
                 }
 
-                // Ensure user has default folders
                 await EnsureDefaultFoldersExist(user.Id);
 
-                // Get all user's folders
                 var folders = await _context.BookmarkFolders
                     .Where(f => f.UserId == user.Id)
                     .OrderBy(f => f.DisplayOrder)
@@ -63,7 +60,6 @@ namespace FallenFaction.Server.Controllers
                     })
                     .ToListAsync();
 
-                // Check if title is already bookmarked
                 BookmarkDto? currentBookmark = null;
                 if (titleId.HasValue)
                 {
@@ -564,6 +560,341 @@ namespace FallenFaction.Server.Controllers
             }
         }
 
+        /// <summary>
+        /// Update bookmark status (reading, completed, on-hold, plan-to-read, dropped)
+        /// PUT: api/Bookmarks/UpdateStatus
+        /// </summary>
+        [HttpPut("UpdateStatus")]
+        [Authorize]
+        public async Task<IActionResult> UpdateStatus([FromBody] UpdateBookmarkStatusRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            AppUser? user = null;
+            try
+            {
+                user = await _userManager.GetUserAsync(User);
+                if (user == null)
+                {
+                    return Unauthorized();
+                }
+
+                // Check if title exists
+                var titleExists = await _context.Titles.AnyAsync(t => t.Id == request.TitleId);
+                if (!titleExists)
+                {
+                    return NotFound("Title not found");
+                }
+
+                // Find existing bookmark
+                var bookmark = await _context.Bookmarks
+                    .FirstOrDefaultAsync(b => b.TitleId == request.TitleId && b.UserId == user.Id);
+
+                if (bookmark == null)
+                {
+                    // If bookmark doesn't exist, create it with the specified status
+                    // First, ensure default folders exist and get one
+                    await EnsureDefaultFoldersExist(user.Id);
+                    var defaultFolder = await _context.BookmarkFolders
+                        .FirstOrDefaultAsync(f => f.UserId == user.Id && f.IsDefault);
+
+                    if (defaultFolder == null)
+                    {
+                        return StatusCode(500, new { message = "Failed to create default folder" });
+                    }
+
+                    bookmark = new Bookmark
+                    {
+                        TitleId = request.TitleId,
+                        FolderId = defaultFolder.Id,
+                        UserId = user.Id,
+                        AddedDate = DateTime.UtcNow,
+                        LastReadChapter = 0,
+                        Status = request.Status
+                    };
+
+                    _context.Bookmarks.Add(bookmark);
+                }
+                else
+                {
+                    // Update existing bookmark status
+                    bookmark.Status = request.Status;
+                    _context.Bookmarks.Update(bookmark);
+                }
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"Bookmark status updated to {request.Status}",
+                    data = new
+                    {
+                        bookmarkId = bookmark.Id,
+                        status = bookmark.Status,
+                        titleId = bookmark.TitleId
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating bookmark status for user {UserId}", user?.Id);
+                return StatusCode(500, new { message = "Error updating bookmark status", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Remove bookmark by titleId (DELETE method)
+        /// DELETE: api/Bookmarks/RemoveBookmark?titleId={titleId}
+        /// </summary>
+        [HttpDelete("RemoveBookmark")]
+        [Authorize]
+        public async Task<IActionResult> RemoveBookmarkByTitleId([FromQuery] int titleId)
+        {
+            AppUser? user = null;
+            try
+            {
+                user = await _userManager.GetUserAsync(User);
+                if (user == null)
+                {
+                    return Unauthorized();
+                }
+
+                var bookmark = await _context.Bookmarks
+                    .FirstOrDefaultAsync(b => b.TitleId == titleId && b.UserId == user.Id);
+
+                if (bookmark == null)
+                {
+                    return NotFound(new { success = false, message = "Bookmark not found" });
+                }
+
+                // CRITICAL: Save reading progress before deleting bookmark
+                if (bookmark.LastReadChapter > 0)
+                {
+                    var existingProgress = await _context.ReadingProgress
+                        .FirstOrDefaultAsync(rp => rp.TitleId == titleId && rp.UserId == user.Id);
+
+                    if (existingProgress != null)
+                    {
+                        // Update existing progress record
+                        existingProgress.LastReadChapter = bookmark.LastReadChapter;
+                        existingProgress.LastReadDate = DateTime.UtcNow;
+                        _context.ReadingProgress.Update(existingProgress);
+                    }
+                    else
+                    {
+                        // Create new progress record
+                        var progress = new ReadingProgress
+                        {
+                            TitleId = titleId,
+                            UserId = user.Id,
+                            LastReadChapter = bookmark.LastReadChapter,
+                            LastReadDate = DateTime.UtcNow
+                        };
+                        _context.ReadingProgress.Add(progress);
+                    }
+                }
+
+                // Now remove the bookmark
+                _context.Bookmarks.Remove(bookmark);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { success = true, message = "Bookmark removed successfully, reading progress preserved" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error removing bookmark for user {UserId}", user?.Id);
+                return StatusCode(500, new { message = "Error removing bookmark", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Check if user has bookmarked a title
+        /// GET: api/Bookmarks/CheckBookmark?titleId={titleId}
+        /// </summary>
+        [HttpGet("CheckBookmark")]
+        [Authorize]
+        public async Task<ActionResult<object>> CheckBookmark([FromQuery] int titleId)
+        {
+            AppUser? user = null;
+            try
+            {
+                user = await _userManager.GetUserAsync(User);
+                if (user == null)
+                {
+                    return Unauthorized();
+                }
+
+                var bookmark = await _context.Bookmarks
+                    .FirstOrDefaultAsync(b => b.TitleId == titleId && b.UserId == user.Id);
+
+                return Ok(new
+                {
+                    isBookmarked = bookmark != null,
+                    bookmarkId = bookmark?.Id,
+                    status = bookmark?.Status
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking bookmark for user {UserId}", user?.Id);
+                return StatusCode(500, new { message = "Error checking bookmark", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// NEW METHOD: Get reading progress for a title (independent of bookmark)
+        /// GET: api/Bookmarks/GetReadingProgress?titleId={titleId}
+        /// </summary>
+        [HttpGet("GetReadingProgress")]
+        [Authorize]
+        public async Task<ActionResult<object>> GetReadingProgress([FromQuery] int titleId)
+        {
+            AppUser? user = null;
+            try
+            {
+                user = await _userManager.GetUserAsync(User);
+                if (user == null)
+                {
+                    return Unauthorized();
+                }
+
+                // First check if there's a bookmark with reading progress
+                var bookmark = await _context.Bookmarks
+                    .FirstOrDefaultAsync(b => b.TitleId == titleId && b.UserId == user.Id);
+
+                if (bookmark != null && bookmark.LastReadChapter > 0)
+                {
+                    return Ok(new
+                    {
+                        success = true,
+                        hasProgress = true,
+                        lastReadChapter = bookmark.LastReadChapter,
+                        titleId = titleId
+                    });
+                }
+
+                // If no bookmark or no progress, check ReadingProgress table
+                var progress = await _context.ReadingProgress
+                    .FirstOrDefaultAsync(rp => rp.TitleId == titleId && rp.UserId == user.Id);
+
+                if (progress != null)
+                {
+                    return Ok(new
+                    {
+                        success = true,
+                        hasProgress = true,
+                        lastReadChapter = progress.LastReadChapter,
+                        titleId = titleId
+                    });
+                }
+
+                return Ok(new
+                {
+                    success = true,
+                    hasProgress = false,
+                    lastReadChapter = 0,
+                    titleId = titleId
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting reading progress for user {UserId}", user?.Id);
+                return StatusCode(500, new { message = "Error getting reading progress", error = ex.Message });
+            }
+        }
+
+
+        /// <summary>
+        /// MODIFIED: Get user's bookmark for a specific title
+        /// Now includes reading progress even if bookmark doesn't exist
+        /// GET: api/Bookmarks/GetUserBookmark?titleId={titleId}
+        /// </summary>
+        [HttpGet("GetUserBookmark")]
+        [Authorize]
+        public async Task<ActionResult<object>> GetUserBookmark([FromQuery] int titleId)
+        {
+            AppUser? user = null;
+            try
+            {
+                user = await _userManager.GetUserAsync(User);
+                if (user == null)
+                {
+                    return Unauthorized();
+                }
+
+                var bookmark = await _context.Bookmarks
+                    .Include(b => b.Folder)
+                    .Include(b => b.Title)
+                    .FirstOrDefaultAsync(b => b.TitleId == titleId && b.UserId == user.Id);
+
+                // Check for reading progress even if no bookmark exists
+                var progress = await _context.ReadingProgress
+                    .FirstOrDefaultAsync(rp => rp.TitleId == titleId && rp.UserId == user.Id);
+
+                int lastReadChapter = 0;
+
+                // Priority: bookmark progress > separate progress record
+                if (bookmark != null && bookmark.LastReadChapter > 0)
+                {
+                    lastReadChapter = bookmark.LastReadChapter;
+                }
+                else if (progress != null)
+                {
+                    lastReadChapter = progress.LastReadChapter;
+                }
+
+                // If bookmark exists, return full data
+                if (bookmark != null)
+                {
+                    return Ok(new
+                    {
+                        success = true,
+                        data = new
+                        {
+                            bookmarkId = bookmark.Id,
+                            titleId = bookmark.TitleId,
+                            folderId = bookmark.FolderId,
+                            folderName = bookmark.Folder.Name,
+                            status = bookmark.Status,
+                            lastReadChapter = lastReadChapter, // Use combined progress
+                            addedDate = bookmark.AddedDate,
+                            hasBookmark = true
+                        }
+                    });
+                }
+
+                // If no bookmark but has reading progress, return progress only
+                if (lastReadChapter > 0)
+                {
+                    return Ok(new
+                    {
+                        success = true,
+                        data = new
+                        {
+                            bookmarkId = (int?)null,
+                            titleId = titleId,
+                            folderId = (int?)null,
+                            folderName = (string?)null,
+                            status = (string?)null,
+                            lastReadChapter = lastReadChapter,
+                            addedDate = (DateTime?)null,
+                            hasBookmark = false
+                        }
+                    });
+                }
+
+                return NotFound(new { success = false, message = "No bookmark or reading progress found for this title" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting user bookmark for user {UserId}", user?.Id);
+                return StatusCode(500, new { message = "Error getting user bookmark", error = ex.Message });
+            }
+        }
         /// <summary>
         /// Health check endpoint
         /// GET: api/Bookmarks/health

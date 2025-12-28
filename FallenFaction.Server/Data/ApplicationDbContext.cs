@@ -1,5 +1,4 @@
 using FallenFaction.Server.Data.Models;
-using LibManga.Data;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -21,9 +20,11 @@ namespace FallenFaction.Server.Data
         public DbSet<Format> Formats { get; set; }
         public DbSet<UserTeamRole> UserTeamRoles { get; set; }
         public DbSet<UserTeamPermission> UserTeamPermissions { get; set; }
+        // ADD THIS MISSING DbSet
+        public DbSet<UserTeamRolePermission> UserTeamRolePermissions { get; set; }
         public DbSet<Chapter> Chapters { get; set; }
         public DbSet<Comment> Comments { get; set; }
-        public DbSet<CommentReaction> CommentReactions { get; set; } // Added CommentReactions DbSet
+        public DbSet<CommentReaction> CommentReactions { get; set; }
         public DbSet<PendingChapter> PendingChapters { get; set; }
         public DbSet<RejectedChapter> RejectedChapters { get; set; }
         public DbSet<ChapterImage> ChapterImages { get; set; }
@@ -34,6 +35,7 @@ namespace FallenFaction.Server.Data
         public DbSet<BookmarkFolder> BookmarkFolders { get; set; }
         public DbSet<Bookmark> Bookmarks { get; set; }
         public DbSet<Rating> Ratings { get; set; }
+        public DbSet<ReadingProgress> ReadingProgress { get; set; }
         public DbSet<ChapterView> ChapterViews { get; set; }
 
         public IQueryable<Chapter> GetUserChapters(string userId)
@@ -51,81 +53,105 @@ namespace FallenFaction.Server.Data
             return RejectedChapters.Where(rc => rc.UpdatedByUserId == userId);
         }
 
-
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
 
-            // Existing entity configurations
+            // Configure Title -> AppUser relationship with NO ACTION on delete
+            builder.Entity<Title>()
+                .HasOne(t => t.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(t => t.CreatedByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Configure PendingTitle -> AppUser relationship with NO ACTION on delete
+            builder.Entity<PendingTitle>()
+                .HasOne(pt => pt.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(pt => pt.CreatedByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Configure RejectedTitle -> AppUser relationship with NO ACTION on delete
+            builder.Entity<RejectedTitle>()
+                .HasOne(rt => rt.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(rt => rt.CreatedByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Title many-to-many relationships
             builder.Entity<Title>()
                 .HasMany(t => t.Categories)
                 .WithMany(c => c.Titles)
                 .UsingEntity(j => j.ToTable("TitleCategories"));
-
-            builder.Entity<PendingTitle>()
-                .HasMany(p => p.Categories)
-                .WithMany(c => c.PendingTitles)
-                .UsingEntity(j => j.ToTable("PendingTitleCategories"));
 
             builder.Entity<Title>()
                 .HasMany(t => t.Tags)
                 .WithMany(tg => tg.Titles)
                 .UsingEntity(j => j.ToTable("TitleTags"));
 
-            builder.Entity<PendingTitle>()
-                .HasMany(p => p.Tags)
-                .WithMany(tg => tg.PendingTitles)
-                .UsingEntity(j => j.ToTable("PendingTitleTags"));
-
             builder.Entity<Title>()
                 .HasMany(t => t.Formats)
                 .WithMany(f => f.Titles)
                 .UsingEntity(j => j.ToTable("TitleFormats"));
-
-            builder.Entity<PendingTitle>()
-                .HasMany(p => p.Formats)
-                .WithMany(f => f.PendingTitles)
-                .UsingEntity(j => j.ToTable("PendingTitleFormats"));
 
             builder.Entity<Title>()
                 .HasMany(t => t.Authors)
                 .WithMany(a => a.Titles)
                 .UsingEntity(j => j.ToTable("TitleAuthors"));
 
-            builder.Entity<PendingTitle>()
-                .HasMany(p => p.Authors)
-                .WithMany(a => a.PendingTitles)
-                .UsingEntity(j => j.ToTable("PendingTitleAuthors"));
-
             builder.Entity<Title>()
                 .HasMany(t => t.Artists)
                 .WithMany(a => a.Titles)
                 .UsingEntity(j => j.ToTable("TitleArtists"));
-
-            builder.Entity<PendingTitle>()
-                .HasMany(p => p.Artists)
-                .WithMany(a => a.PendingTitles)
-                .UsingEntity(j => j.ToTable("PendingTitleArtists"));
 
             builder.Entity<Title>()
                 .HasMany(t => t.Publishers)
                 .WithMany(p => p.Titles)
                 .UsingEntity(j => j.ToTable("TitlePublishers"));
 
-            builder.Entity<PendingTitle>()
-                .HasMany(p => p.Publishers)
-                .WithMany(p => p.PendingTitles)
-                .UsingEntity(j => j.ToTable("PendingTitlePublishers"));
-
             builder.Entity<Title>()
                 .HasMany(t => t.Teams)
                 .WithMany(te => te.Titles)
                 .UsingEntity(j => j.ToTable("TitleTeams"));
 
+            // PendingTitle many-to-many relationships
+            builder.Entity<PendingTitle>()
+                .HasMany(p => p.Categories)
+                .WithMany(c => c.PendingTitles)
+                .UsingEntity(j => j.ToTable("PendingTitleCategories"));
+
+            builder.Entity<PendingTitle>()
+                .HasMany(p => p.Tags)
+                .WithMany(tg => tg.PendingTitles)
+                .UsingEntity(j => j.ToTable("PendingTitleTags"));
+
+            builder.Entity<PendingTitle>()
+                .HasMany(p => p.Formats)
+                .WithMany(f => f.PendingTitles)
+                .UsingEntity(j => j.ToTable("PendingTitleFormats"));
+
+            builder.Entity<PendingTitle>()
+                .HasMany(p => p.Authors)
+                .WithMany(a => a.PendingTitles)
+                .UsingEntity(j => j.ToTable("PendingTitleAuthors"));
+
+            builder.Entity<PendingTitle>()
+                .HasMany(p => p.Artists)
+                .WithMany(a => a.PendingTitles)
+                .UsingEntity(j => j.ToTable("PendingTitleArtists"));
+
+            builder.Entity<PendingTitle>()
+                .HasMany(p => p.Publishers)
+                .WithMany(p => p.PendingTitles)
+                .UsingEntity(j => j.ToTable("PendingTitlePublishers"));
+
             builder.Entity<PendingTitle>()
                 .HasMany(p => p.Teams)
                 .WithMany(te => te.PendingTitles)
                 .UsingEntity(j => j.ToTable("PendingTitleTeams"));
+
+            // NOTE: RejectedTitle many-to-many relationships REMOVED to avoid compilation errors
+            // RejectedTitle will store relationship data as collections without database relationships
 
             // Configure many-to-many relationship between AppUser and Team
             builder.Entity<AppUser>()
@@ -133,18 +159,21 @@ namespace FallenFaction.Server.Data
                 .WithMany(t => t.Members)
                 .UsingEntity(j => j.ToTable("AppUserTeams"));
 
+            // UserTeamRole configuration
             builder.Entity<UserTeamRole>()
                 .HasKey(utr => new { utr.AppUserId, utr.TeamId });
 
             builder.Entity<UserTeamRole>()
                 .HasOne(utr => utr.AppUser)
                 .WithMany(au => au.UserTeamRoles)
-                .HasForeignKey(utr => utr.AppUserId);
+                .HasForeignKey(utr => utr.AppUserId)
+                .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<UserTeamRole>()
                 .HasOne(utr => utr.Team)
                 .WithMany(t => t.UserTeamRoles)
-                .HasForeignKey(utr => utr.TeamId);
+                .HasForeignKey(utr => utr.TeamId)
+                .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<UserTeamRole>()
                 .HasMany(utr => utr.UserTeamRolePermissions)
@@ -159,57 +188,69 @@ namespace FallenFaction.Server.Data
                 .WithMany(utp => utp.UserTeamRolePermissions)
                 .HasForeignKey(utrp => utrp.PermissionId);
 
-            // Configure Chapter, PendingChapter, and RejectedChapter relationships
+            // Configure Chapter relationships
             builder.Entity<Chapter>()
                 .HasOne(c => c.Title)
                 .WithMany(t => t.Chapters)
-                .HasForeignKey(c => c.TitleId);
+                .HasForeignKey(c => c.TitleId)
+                .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<Chapter>()
                 .HasOne(c => c.Team)
                 .WithMany(t => t.Chapters)
-                .HasForeignKey(c => c.TeamId);
+                .HasForeignKey(c => c.TeamId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            builder.Entity<Chapter>()
+                .HasOne(c => c.UpdatedByUser)
+                .WithMany()
+                .HasForeignKey(c => c.UpdatedByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<PendingChapter>()
                 .HasOne(pc => pc.Title)
                 .WithMany(t => t.PendingChapters)
-                .HasForeignKey(pc => pc.TitleId);
+                .HasForeignKey(pc => pc.TitleId)
+                .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<PendingChapter>()
                 .HasOne(pc => pc.Team)
                 .WithMany(t => t.PendingChapters)
-                .HasForeignKey(pc => pc.TeamId);
+                .HasForeignKey(pc => pc.TeamId)
+                .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<RejectedChapter>()
                 .HasOne(rc => rc.Title)
                 .WithMany(t => t.RejectedChapters)
-                .HasForeignKey(rc => rc.TitleId);
+                .HasForeignKey(rc => rc.TitleId)
+                .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<RejectedChapter>()
                 .HasOne(rc => rc.Team)
                 .WithMany(t => t.RejectedChapters)
-                .HasForeignKey(rc => rc.TeamId);
+                .HasForeignKey(rc => rc.TeamId)
+                .OnDelete(DeleteBehavior.NoAction);
 
-            // Configuring ChapterImage to support optional foreign keys to Chapter types with no cascading deletes
+            // ChapterImage relationships
             builder.Entity<ChapterImage>()
                 .HasOne(ci => ci.Chapter)
                 .WithMany(c => c.ImagePaths)
                 .HasForeignKey(ci => ci.ChapterId)
-                .OnDelete(DeleteBehavior.NoAction);  // Set NoAction to avoid multiple cascade paths
+                .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<ChapterImage>()
                 .HasOne(ci => ci.PendingChapter)
                 .WithMany(pc => pc.ImagePaths)
                 .HasForeignKey(ci => ci.PendingChapterId)
-                .OnDelete(DeleteBehavior.NoAction);  // Set NoAction to avoid multiple cascade paths
+                .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<ChapterImage>()
                 .HasOne(ci => ci.RejectedChapter)
                 .WithMany(rc => rc.ImagePaths)
                 .HasForeignKey(ci => ci.RejectedChapterId)
-                .OnDelete(DeleteBehavior.NoAction);  // Set NoAction to avoid multiple cascade paths
+                .OnDelete(DeleteBehavior.NoAction);
 
-            // Configure the relationship between Title and TitleChangeLog
+            // TitleChangeLog relationships
             builder.Entity<TitleChangeLog>()
                 .HasOne(t => t.Title)
                 .WithMany(t => t.ChangeLogs)
@@ -220,31 +261,23 @@ namespace FallenFaction.Server.Data
                 .HasOne(t => t.UpdatedByUser)
                 .WithMany()
                 .HasForeignKey(t => t.UpdatedByUserId)
-                .OnDelete(DeleteBehavior.NoAction);  // Changed to NoAction
+                .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<TitleChangeLog>()
                 .HasOne(t => t.ReviewedByUser)
                 .WithMany()
                 .HasForeignKey(t => t.ReviewedByUserId)
-                .OnDelete(DeleteBehavior.NoAction);  // Changed to NoAction
+                .OnDelete(DeleteBehavior.NoAction);
 
-            // Add this new configuration here
             builder.Entity<TitleChangeLog>()
                 .Property(t => t.ReviewedByUserId)
                 .IsRequired(false);
 
-            // Make RejectionReason nullable to prevent similar errors
             builder.Entity<TitleChangeLog>()
                 .Property(t => t.RejectionReason)
                 .IsRequired(false);
 
-            // Make AdminComment nullable in PendingTitleChanges
-            builder.Entity<PendingTitleChange>()
-                .Property(t => t.AdminComment)
-                .IsRequired(false);
-
-
-            // For PendingTitleChange
+            // PendingTitleChange relationships
             builder.Entity<PendingTitleChange>()
                 .HasOne(t => t.Title)
                 .WithMany(t => t.PendingTitleChanges)
@@ -257,7 +290,11 @@ namespace FallenFaction.Server.Data
                 .HasForeignKey(t => t.UpdatedByUserId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // For ApprovedTitleChange
+            builder.Entity<PendingTitleChange>()
+                .Property(t => t.AdminComment)
+                .IsRequired(false);
+
+            // ApprovedTitleChange relationships
             builder.Entity<ApprovedTitleChange>()
                 .HasOne(t => t.Title)
                 .WithMany(t => t.ApprovedTitleChanges)
@@ -276,7 +313,7 @@ namespace FallenFaction.Server.Data
                 .HasForeignKey(t => t.ReviewedByUserId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // For RejectedTitleChange
+            // RejectedTitleChange relationships
             builder.Entity<RejectedTitleChange>()
                 .HasOne(t => t.Title)
                 .WithMany(t => t.RejectedTitleChanges)
@@ -295,80 +332,67 @@ namespace FallenFaction.Server.Data
                 .HasForeignKey(t => t.ReviewedByUserId)
                 .OnDelete(DeleteBehavior.NoAction);
 
+            // Rating configuration
             builder.Entity<Rating>(entity =>
             {
                 entity.HasKey(e => e.Id);
 
-                // Rating value must be between 1 and 10
                 entity.Property(e => e.Value)
                     .IsRequired()
                     .HasAnnotation("Range", new[] { 1, 10 });
 
-                // User ID is required
                 entity.Property(e => e.UserId).IsRequired();
-
-                // Title ID is required
                 entity.Property(e => e.TitleId).IsRequired();
-
-                // CreatedAt and UpdatedAt are required
                 entity.Property(e => e.CreatedAt).IsRequired();
                 entity.Property(e => e.UpdatedAt).IsRequired();
 
-                // Configure relationship with AppUser
                 entity.HasOne(r => r.User)
                     .WithMany(u => u.Ratings)
                     .HasForeignKey(r => r.UserId)
-                    .OnDelete(DeleteBehavior.NoAction); // Prevent cascade delete issues
+                    .OnDelete(DeleteBehavior.NoAction);
 
-                // Configure relationship with Title
                 entity.HasOne(r => r.Title)
                     .WithMany(t => t.Ratings)
                     .HasForeignKey(r => r.TitleId)
-                    .OnDelete(DeleteBehavior.Cascade); // When title is deleted, delete ratings
+                    .OnDelete(DeleteBehavior.Cascade);
 
-                // Add unique constraint - one rating per user per title
                 entity.HasIndex(r => new { r.UserId, r.TitleId })
                     .IsUnique()
                     .HasDatabaseName("IX_Ratings_UserId_TitleId");
 
-                // Add index for efficient querying by title
                 entity.HasIndex(r => r.TitleId)
                     .HasDatabaseName("IX_Ratings_TitleId");
 
-                // Add index for efficient querying by creation date
                 entity.HasIndex(r => r.CreatedAt)
                     .HasDatabaseName("IX_Ratings_CreatedAt");
             });
 
-
-            builder.Entity<BookmarkFolder>()
-            .HasMany(f => f.Bookmarks)
-            .WithOne(b => b.Folder)
-            .HasForeignKey(b => b.FolderId)
-            .OnDelete(DeleteBehavior.Cascade);
+            // BookmarkFolder configuration
             builder.Entity<BookmarkFolder>(entity =>
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.UserId).IsRequired();
 
-                // ADD this missing relationship to AppUser
                 entity.HasOne(e => e.User)
-                    .WithMany() // AppUser doesn't have BookmarkFolders navigation property
+                    .WithMany()
                     .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
 
-                // ADD this unique constraint to prevent duplicate folder names per user
                 entity.HasIndex(e => new { e.UserId, e.Name }).IsUnique();
             });
 
+            builder.Entity<BookmarkFolder>()
+                .HasMany(f => f.Bookmarks)
+                .WithOne(b => b.Folder)
+                .HasForeignKey(b => b.FolderId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Bookmark configuration
             builder.Entity<Bookmark>(entity =>
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.UserId).IsRequired();
-
-                // Your existing relationships are fine, but ADD this unique constraint:
-                // ADD this line - user can only bookmark a title once
                 entity.HasIndex(e => new { e.UserId, e.TitleId }).IsUnique();
             });
 
@@ -378,11 +402,18 @@ namespace FallenFaction.Server.Data
                .HasForeignKey(b => b.UserId)
                .OnDelete(DeleteBehavior.NoAction);
 
+            builder.Entity<Bookmark>()
+               .HasOne(b => b.Title)
+               .WithMany(t => t.Bookmarks)
+               .HasForeignKey(b => b.TitleId)
+               .OnDelete(DeleteBehavior.Cascade);
+
+            // ChapterView configuration
             builder.Entity<ChapterView>()
                 .HasOne(cv => cv.Chapter)
                 .WithMany(c => c.Views)
                 .HasForeignKey(cv => cv.ChapterId)
-                .OnDelete(DeleteBehavior.NoAction);  // Change from Cascade to NoAction
+                .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<ChapterView>()
                 .HasOne(cv => cv.User)
@@ -394,43 +425,54 @@ namespace FallenFaction.Server.Data
             builder.Entity<Comment>(entity =>
             {
                 entity.HasKey(c => c.Id);
+
                 entity.HasOne(c => c.User)
                       .WithMany(u => u.Comments)
                       .HasForeignKey(c => c.UserId)
-                      .OnDelete(DeleteBehavior.NoAction); // Changed from Cascade to NoAction
+                      .OnDelete(DeleteBehavior.NoAction);
+
                 entity.HasOne(c => c.DeletedByUser)
                       .WithMany()
                       .HasForeignKey(c => c.DeletedByUserId)
                       .OnDelete(DeleteBehavior.SetNull);
+
                 entity.HasOne(c => c.Title)
                       .WithMany(t => t.Comments)
                       .HasForeignKey(c => c.TitleId)
-                      .OnDelete(DeleteBehavior.NoAction) // Changed to NoAction to avoid cascade conflicts
+                      .OnDelete(DeleteBehavior.NoAction)
                       .IsRequired(false);
+
                 entity.HasOne(c => c.Chapter)
                       .WithMany()
                       .HasForeignKey(c => c.ChapterId)
-                      .OnDelete(DeleteBehavior.NoAction) // Changed to NoAction to avoid cascade conflicts
+                      .OnDelete(DeleteBehavior.NoAction)
                       .IsRequired(false);
+
                 entity.HasOne(c => c.ChapterImage)
                       .WithMany()
                       .HasForeignKey(c => c.ChapterImageId)
-                      .OnDelete(DeleteBehavior.NoAction) // Changed to NoAction to avoid cascade conflicts
+                      .OnDelete(DeleteBehavior.NoAction)
                       .IsRequired(false);
+
                 entity.HasOne(c => c.ParentComment)
                       .WithMany(c => c.Replies)
                       .HasForeignKey(c => c.ParentCommentId)
-                      .OnDelete(DeleteBehavior.Restrict) // Changed to Restrict for parent-child relationships
+                      .OnDelete(DeleteBehavior.Restrict)
                       .IsRequired(false);
+
                 entity.Property(c => c.PostedDate)
                       .HasDefaultValueSql("GETUTCDATE()");
+
                 entity.Property(c => c.Content)
                       .IsRequired()
                       .HasMaxLength(2000);
+
                 entity.Property(c => c.LikesCount)
                       .HasDefaultValue(0);
+
                 entity.Property(c => c.DislikesCount)
                       .HasDefaultValue(0);
+
                 entity.Property(c => c.IsDeleted)
                       .HasDefaultValue(false);
             });
@@ -439,23 +481,56 @@ namespace FallenFaction.Server.Data
             builder.Entity<CommentReaction>(entity =>
             {
                 entity.HasKey(cr => cr.Id);
-                // Composite unique index to prevent duplicate reactions from same user on same comment
+
                 entity.HasIndex(cr => new { cr.CommentId, cr.UserId })
                       .IsUnique()
                       .HasDatabaseName("IX_CommentReactions_CommentId_UserId");
+
                 entity.HasOne(cr => cr.Comment)
                       .WithMany(c => c.Reactions)
                       .HasForeignKey(cr => cr.CommentId)
                       .OnDelete(DeleteBehavior.Cascade);
+
                 entity.HasOne(cr => cr.User)
                       .WithMany(u => u.CommentReactions)
                       .HasForeignKey(cr => cr.UserId)
                       .OnDelete(DeleteBehavior.Cascade);
+
                 entity.Property(cr => cr.CreatedAt)
                       .HasDefaultValueSql("GETUTCDATE()");
             });
 
-            SeedData.Seed(builder);
+
+            // ReadingProgress configuration
+            builder.Entity<ReadingProgress>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                // Create composite unique index for fast lookups by user and title
+                entity.HasIndex(rp => new { rp.UserId, rp.TitleId })
+                      .IsUnique()
+                      .HasDatabaseName("IX_ReadingProgress_UserId_TitleId");
+
+                // Foreign key to Title
+                entity.HasOne(rp => rp.Title)
+                      .WithMany()
+                      .HasForeignKey(rp => rp.TitleId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                // Foreign key to User
+                entity.HasOne(rp => rp.User)
+                      .WithMany()
+                      .HasForeignKey(rp => rp.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                // Required properties
+                entity.Property(rp => rp.UserId).IsRequired();
+                entity.Property(rp => rp.TitleId).IsRequired();
+                entity.Property(rp => rp.LastReadChapter).IsRequired();
+                entity.Property(rp => rp.LastReadDate).IsRequired();
+            });
+            // Call the seed data from LibManga.Data namespace
+            FallenFaction.Server.Data.SeedData.SeedData.Seed(builder);
         }
     }
 }

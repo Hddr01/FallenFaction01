@@ -315,6 +315,28 @@ const getTypeColor = (type) => {
   return typeColors[type] || 'bg-gray-100 text-gray-800'
 }
 
+
+  // Add this method to load pending changes
+  const loadPendingChanges = async () => {
+    try {
+      const response = await axios.get('/api/AdminTitle/PendingChanges')
+      pendingChanges.value = response.data
+    } catch (error) {
+      console.error('Error loading pending changes:', error)
+    }
+  }
+
+  // Add approval method
+  const approveChange = async (changeId) => {
+    try {
+      await axios.post(`/api/AdminTitle/ApproveChange/${changeId}`)
+      showMessage('Change approved successfully', 'success')
+      await loadPendingChanges()
+    } catch (error) {
+      showMessage(error.response?.data?.error || 'Failed to approve change', 'error')
+    }
+  }
+
 const loadPendingTitles = async () => {
   isLoading.value = true
   error.value = ''

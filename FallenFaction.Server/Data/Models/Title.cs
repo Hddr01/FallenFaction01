@@ -67,12 +67,21 @@ namespace FallenFaction.Server.Data.Models
         public MangaType Type { get; set; }
 
         public int AgeRestriction { get; set; }
-        // In Title.cs, add these properties
-        public bool IsAvailable { get; set; } = true; // If false, title is marked as no longer available
-        public bool AreCommentsEnabled { get; set; } = true; // If false, comments are disabled for this title
-        public bool AreChapterCommentsEnabled { get; set; } = true; // If false, comments are disabled for all chapters
+
+        // Title availability and comment settings
+        public bool IsAvailable { get; set; } = true;
+        public bool AreCommentsEnabled { get; set; } = true;
+        public bool AreChapterCommentsEnabled { get; set; } = true;
 
         public string? AdminComment { get; set; }
+
+        // FIXED: Add missing creator and timestamp properties
+        [Required]
+        public string CreatedByUserId { get; set; } = string.Empty;
+
+        public virtual AppUser? CreatedByUser { get; set; }
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         // External links serialization
         [NotMapped]
@@ -103,6 +112,5 @@ namespace FallenFaction.Server.Data.Models
         public virtual ICollection<RejectedTitleChange> RejectedTitleChanges { get; set; }
         public ICollection<Rating> Ratings { get; set; }
         public ICollection<Bookmark> Bookmarks { get; set; }
-        public string CreatedByUserId { get; internal set; }
     }
 }

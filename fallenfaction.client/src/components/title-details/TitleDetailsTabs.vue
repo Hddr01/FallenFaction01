@@ -1,825 +1,860 @@
 <template>
-  <div class="content-z51 pap-473">
-    <!-- FIXED: Horizontal Tab Navigation -->
-    <div class="tabs-k5y _bo-2yz">
-      <div class="menu-7a9">
+  <div class="space-y-6 h-auto">
+    <!-- ANIMATED: Horizontal Tab Navigation with motion-v -->
+    <div class="border-b border-gray-700 bg-background rounded-t-lg overflow-hidden shadow-lg">
+      <div class="flex w-full overflow-x-auto whitespace-nowrap bg-transparent p-1.5 gap-1 scrollbar-hide">
         <a v-for="tab in tabs"
            :key="tab.key"
-           class="item-qx3 fa-ic3"
-           :class="{ 'is-chy': activeTab === tab.key }"
+           class="flex-shrink-0 block cursor-pointer bg-transparent rounded-md transition-all duration-300 ease-out no-underline text-gray-400 relative overflow-visible hover:text-gray-100 hover:-translate-y-0.5"
+           :class="{ 'text-purple-500': activeTab === tab.key }"
            href="#"
            @click.prevent="switchTab(tab.key)">
-          <div class="item-9y5">
+          <div class="px-4 py-2 relative block font-semibold text-sm tracking-wide z-10">
             {{ tab.title }}
             <i v-if="loading && activeTab === tab.key" class="fas fa-spinner fa-spin fa-sm ml-2"></i>
+
+            <!-- Animated background indicator -->
+            <Motion v-if="activeTab === tab.key"
+                    layout-id="tab-indicator"
+                    class="absolute inset-0 -z-10 bg-gradient-to-br from-white/10 to-white/5 border border-white/20 rounded-md shadow-[0_4px_12px_rgba(255,255,255,0.15),inset_0_1px_0_rgba(255,255,255,0.1)]"
+                    :initial="{ opacity: 0 }"
+                    :animate="{ opacity: 1 }"
+                    :transition="{
+                type: 'spring',
+                stiffness: 300,
+                damping: 30
+              }" />
           </div>
         </a>
       </div>
     </div>
 
     <!-- Tab Content -->
-    <div class="section-pfr">
+    <div class="mt-6 tab-content-container">
       <!-- About Title Tab -->
       <div v-show="activeTab === 'info'" class="tab-content-panel">
-        <template v-if="tabData.info.loaded">
-          <!-- Description -->
-          <div class="t6_-pzq">
-            <div class="text-wqk col-l5f style-W8hJO" id="style-W8hJO">
-              <div class="t6_-5dv" :class="{ 'expanded': descriptionExpanded }">
-                {{ titleData.description }}
+        <Motion :initial="{ opacity: 0 }"
+                :animate="{ opacity: 1 }"
+                :transition="{ duration: 0.2 }">
+          <template v-if="tabData.info.loaded">
+            <!-- Description -->
+            <div class="mb-6 px-2">
+              <div class="text-base leading-relaxed">
+                <div class="transition-all duration-300 ease-in-out text-gray-100 break-words"
+                     :class="descriptionExpanded ? '' : 'line-clamp-3'">
+                  {{ titleData.description }}
+                </div>
               </div>
+              <button v-if="titleData.description && titleData.description.length > 200"
+                      class="mt-2 text-sm text-purple-500 hover:text-purple-400 transition-colors"
+                      type="button"
+                      @click="toggleDescription">
+                {{ descriptionExpanded ? 'Read less...' : 'Read more...' }}
+              </button>
             </div>
-            <button v-if="titleData.description && titleData.description.length > 300"
-                    class="btn-zor link-qky variant-7q9 button-t3d"
-                    type="button"
-                    @click="toggleDescription">
-              {{ descriptionExpanded ? 'Read less...' : 'Read more...' }}
-            </button>
-          </div>
 
-          <!-- Tags/Categories -->
-          <div class="xn_-5zv t5_-lfm">
-            <a v-if="titleData.ageRestriction > 0"
-               :href="`/catalog?ageRestriction=${titleData.ageRestriction}`"
-               class="c1_-wkm c1_-me4 c1_-k2o"
-               data-type="restriction">
-              <span>{{ titleData.ageRestriction }}+</span>
-            </a>
-
-            <a v-for="category in titleData.categories"
-               :key="category.id"
-               :href="`/catalog?category=${category.id}`"
-               class="c1_-wkm c1_-me4 c1_-c5l"
-               data-type="genre">
-              <span>{{ category.name }}</span>
-            </a>
-
-            <a v-for="(tag, index) in visibleTags"
-               :key="tag.id"
-               :href="`/catalog?tag=${tag.id}`"
-               class="c1_-wkm c1_-me4 c1_-c5l"
-               data-type="tag">
-              <span>{{ tag.name }}</span>
-            </a>
-
-            <div v-if="titleData.tags && titleData.tags.length > 10"
-                 class="c1_-wkm c1_-me4 c1_-c5l"
-                 @click="showAllTags = !showAllTags"
-                 style="cursor: pointer;">
-              <span>{{ showAllTags ? 'Show less' : `+${titleData.tags.length - 10} more` }}</span>
-            </div>
-          </div>
-
-          <!-- Translators Section -->
-          <div v-if="titleData.teams && titleData.teams.length > 0" class="section-pfr pr_-o6a" style="margin-top: 30px;">
-            <div>
-              <div class="section-6th size-o8d">Translators</div>
-            </div>
-            <div class="cu_-vhr cu_-nvs" data-scroll-container="">
-              <div class="cu_-n68 cu_-4dv cu_-aog cu_-7s8"
-                   @click="scrollTranslators(-200)"
-                   :style="{ display: showLeftTranslatorButton ? 'flex' : 'none' }">
-                <div class="cu_-rij"><i class="fas fa-chevron-left"></i></div>
-              </div>
-              <div class="cu_-n68 cu_-83k cu_-aog cu_-7s8"
-                   @click="scrollTranslators(200)"
-                   :style="{ display: showRightTranslatorButton ? 'flex' : 'none' }">
-                <div class="cu_-rij"><i class="fas fa-chevron-right"></i></div>
-              </div>
-              <div class="pr_-j5q cu_-s9p"
-                   data-scroll-content=""
-                   ref="translatorsContainer"
-                   @scroll="checkTranslatorButtons">
-                <a v-for="team in titleData.teams"
-                   :key="team.id"
-                   :href="`/team/${team.id}`"
-                   class="item-nja size-v8y sha-mdq">
-                  <div class="item-3im">
-                    <span class="cov-oga item-lnl">
-                      <div class="cov-oj9 _ratio-qka">
-                        <!--<img src="/img/logo.png"
-                         class="cov-6id _lo-m2q"
-                         :alt="team.name">-->
-                      </div>
-                    </span>
-                  </div>
-                  <div class="item-2ke">
-                    <div class="item-y18"><span>{{ team.name }}</span></div>
-                  </div>
+            <!-- Tags/Categories -->
+            <div class="flex flex-wrap gap-2 mb-6 px-2">
+              <!-- Age Restriction Button - Always dark red background -->
+              <Button v-if="titleData.ageRestriction > 0"
+                      variant="outline"
+                      size="sm"
+                      as-child
+                      class="border-red-800 text-red-100 bg-red-900 hover:bg-red-800 hover:text-white hover:border-red-700 dark:border-red-700 dark:text-red-100 dark:bg-red-900 dark:hover:bg-red-800 dark:hover:text-white transition-all duration-300">
+                <a :href="`/catalog?ageRestriction=${titleData.ageRestriction}`">
+                  {{ titleData.ageRestriction }}+
                 </a>
+              </Button>
+
+              <!-- Category Buttons -->
+              <Button v-for="(category, index) in titleData.categories"
+                      :key="`category-${index}`"
+                      variant="outline"
+                      size="sm"
+                      as-child
+                      class="transition-all duration-300 bg-[#141414] hover:-translate-y-0.5">
+                <a :href="`/catalog?category=${encodeURIComponent(category)}`">
+                  {{ category }}
+                </a>
+              </Button>
+
+              <!-- Tag Buttons -->
+              <Button v-for="(tag, index) in visibleTags"
+                      :key="`tag-${index}`"
+                      variant="outline"
+                      size="sm"
+                      as-child
+                      class="transition-all duration-300 bg-[#141414] hover:-translate-y-0.5">
+                <a :href="`/catalog?tag=${encodeURIComponent(tag)}`">
+                  {{ tag }}
+                </a>
+              </Button>
+
+              <!-- Show More/Less Button -->
+              <Button v-if="titleData.tags && titleData.tags.length > 10"
+                      variant="outline"
+                      size="sm"
+                      class="transition-all duration-300"
+                      @click="showAllTags = !showAllTags">
+                {{ showAllTags ? 'Show less' : `+${titleData.tags.length - 10} more` }}
+              </Button>
+            </div>
+
+            <!-- Translators Section - CAROUSEL VERSION -->
+            <div v-if="titleData.teams && titleData.teams.length > 0" class="px-2 mt-8">
+              <div class="mb-4">
+                <h2 class="text-lg font-semibold text-gray-100">Translators</h2>
+              </div>
+
+              <!-- Carousel for Translators -->
+              <Carousel :opts="{
+                        align: 'start' ,
+                        loop: titleData.teams.length>
+                4,
+                dragFree: true,
+                containScroll: 'trimSnaps',
+                watchDrag: true,
+                skipSnaps: false,
+                }"
+                class="w-full">
+                <CarouselContent class="-ml-4">
+                  <CarouselItem v-for="team in titleData.teams"
+                                :key="team.id"
+                                class="pl-4 basis-auto">
+                    <Button variant="outline"
+                            as-child
+                            class="bg-[#141414] h-auto p-0 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+                      <a :href="`/team/${team.id}`"
+                         class="flex flex-col items-center w-32">
+                        <!-- Avatar Section -->
+                        <div class="w-full aspect-square bg-muted flex items-center justify-center p-4">
+                          <Avatar class="w-20 h-20">
+                            <AvatarImage :src="`/api/teams/${team.id}/avatar`"
+                                         :alt="team.name" />
+                            <AvatarFallback class="text-2xl font-bold">
+                              {{ team.name?.substring(0, 2).toUpperCase() || 'TE' }}
+                            </AvatarFallback>
+                          </Avatar>
+                        </div>
+
+                        <!-- Team Name -->
+                        <div class="w-full p-3 bg-muted/50">
+                          <div class="text-sm font-medium text-center truncate">
+                            {{ team.name }}
+                          </div>
+                        </div>
+                      </a>
+                    </Button>
+                  </CarouselItem>
+                </CarouselContent>
+
+                <!-- Optional: Navigation Arrows (uncomment if you want them) -->
+                <!-- <CarouselPrevious class="left-2" />
+                <CarouselNext class="right-2" /> -->
+              </Carousel>
+            </div>
+
+            <!-- Statistics Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8 px-2">
+              <!-- Rating Statistics Section - FIXED: 10-grade system -->
+              <div>
+                <Card class="w-full">
+                  <CardHeader class="border-b-0 pb-3">
+                    <CardTitle class="text-lg">Rating Statistics</CardTitle>
+                    <CardDescription>
+                      Based on {{ ratingStatsTotalCount }} {{ ratingStatsTotalCount === 1 ? 'review' : 'reviews' }}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent class="space-y-2 pt-0">
+                    <!-- Loading State -->
+                    <div v-if="loadingRatingStats" class="flex items-center justify-center py-8">
+                      <i class="fas fa-spinner fa-spin text-2xl text-muted-foreground"></i>
+                    </div>
+
+                    <!-- Rating Distribution - 10 grades -->
+                    <template v-else-if="ratingStatsDistribution.length > 0">
+                      <div v-for="item in ratingStatsDistribution"
+                           :key="item.value"
+                           class="flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-2.5 min-w-[60px]">
+                          <span class="w-6 text-sm font-medium text-right">{{ item.value }}</span>
+                          <Star class="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                        </div>
+
+                        <!-- Progress bar -->
+                        <div class="flex-1 h-2 bg-muted rounded-full overflow-hidden max-w-[200px]">
+                          <div class="h-full bg-yellow-400 transition-all duration-300 rounded-full"
+                               :style="`width: ${item.percentage}%`"></div>
+                        </div>
+
+                        <div class="flex items-center gap-1 text-sm text-muted-foreground min-w-[70px] justify-end">
+                          <span>{{ item.count }}</span>
+                          <span>({{ item.percentage.toFixed(1) }}%)</span>
+                        </div>
+                      </div>
+                    </template>
+
+                    <!-- Empty State -->
+                    <div v-else class="text-center py-6 text-muted-foreground">
+                      <StarIcon class="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p class="text-sm">No ratings yet</p>
+                    </div>
+
+                    <!-- Rate Button - Dialog Implementation -->
+                    <div class="pt-2">
+                      <Dialog v-if="isAuthenticated" v-model:open="isRatingDialogOpen">
+                        <DialogTrigger as-child>
+                          <Button size="sm"
+                                  variant="outline"
+                                  class="w-full">
+                            <StarIcon class="w-4 h-4 mr-1" />
+                            Rate this Title
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent class="sm:max-w-md bg-black border-white/20">
+                          <DialogHeader>
+                            <DialogTitle class="text-[var(--color-white)] text-center">Rate this title</DialogTitle>
+                            <DialogDescription class="text-center text-muted-foreground">
+                              Share your rating with the community
+                            </DialogDescription>
+                          </DialogHeader>
+
+                          <div class="p-4 space-y-6">
+                            <!-- Star Rating (10 stars) -->
+                            <div class="flex justify-center space-x-2">
+                              <button v-for="star in 10"
+                                      :key="star"
+                                      type="button"
+                                      @click="setRating(star)"
+                                      @mouseover="hoverRating = star"
+                                      @mouseleave="hoverRating = 0"
+                                      class="w-8 h-8 transition-all duration-200 transform hover:scale-110"
+                                      :class="{
+                                      'text-yellow-400' : star <= (hoverRating || selectedRating),
+                            'text-gray-600': star > (hoverRating || selectedRating)
+                          }">
+                    <svg class="w-full h-full" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                    </svg>
+                  </button>
+                            </div>
+
+                            <!-- Rating Text -->
+                            <p class="text-white font-medium text-center min-h-6">
+                              {{ getRatingText(hoverRating || selectedRating) }}
+                            </p>
+                          </div>
+
+                          <DialogFooter class="sm:justify-center gap-2">
+                            <Button type="button"
+                                    variant="outline"
+                                    class="bg-[#141414] ring-[0.3px] ring-white hover:text-white"
+                                    @click="isRatingDialogOpen = false">
+                              Cancel
+                            </Button>
+                            <Button type="button"
+                                    @click="submitRating"
+                                    :disabled="!selectedRating || submittingRating"
+                                    class="justify-center bg-[#e6e6e6] text-black hover:bg-gray-100 hover:text-black">
+                              <span v-if="submittingRating" class="inline-flex items-center">
+                                <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Submitting...
+                              </span>
+                              <span v-else>Submit Rating</span>
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+
+                      <Button v-else
+                              size="sm"
+                              variant="outline"
+                              class="w-full"
+                              @click="emit('go-to-login')">
+                        <StarIcon class="w-4 h-4 mr-1" />
+                        Sign in to Rate
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <!-- Bookmarks Section -->
+              <div>
+                <Card class="w-full">
+                  <CardHeader class="border-b-0 pb-3">
+                    <CardTitle class="text-lg">Reading Lists</CardTitle>
+                    <CardDescription>
+                      {{ bookmarkStatsTotalCount }} {{ bookmarkStatsTotalCount === 1 ? 'person has' : 'people have' }} this in their lists
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent class="space-y-3 pt-0">
+                    <!-- Loading State -->
+                    <div v-if="loadingBookmarkStats" class="flex items-center justify-center py-8">
+                      <i class="fas fa-spinner fa-spin text-2xl text-muted-foreground"></i>
+                    </div>
+
+                    <!-- Bookmark Distribution -->
+                    <template v-else-if="bookmarkStatsDistribution && bookmarkStatsDistribution.length > 0">
+                      <div v-for="stat in bookmarkStatsDistribution"
+                           :key="stat.folderId"
+                           class="flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-2.5">
+                          <component :is="getStatusIcon(stat.folderName)"
+                                     class="h-4 w-4"
+                                     :class="getStatusColor(stat.folderName)" />
+                          <span class="text-sm font-medium">{{ stat.folderName }}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                          <!-- Progress bar -->
+                          <div class="w-32 h-2 bg-muted rounded-full overflow-hidden">
+                            <div class="h-full transition-all duration-300 rounded-full"
+                                 :class="getStatusBgColor(stat.folderName)"
+                                 :style="`width: ${stat.percentage}%`"></div>
+                          </div>
+                          <div class="flex items-center gap-0.5 text-sm text-muted-foreground min-w-[70px] justify-end">
+                            <span>{{ stat.count }}</span>
+                            <span>({{ stat.percentage.toFixed(1) }}%)</span>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+
+                    <!-- Empty State -->
+                    <div v-else class="text-center py-6 text-muted-foreground">
+                      <BookmarkIcon class="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p class="text-sm">No one has bookmarked this yet</p>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             </div>
+          </template>
+
+          <div v-else-if="tabData.info.error" class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 bg-gray-900 rounded-b-lg">
+            <i class="fas fa-exclamation-triangle text-6xl mb-8 text-red-500"></i>
+            <p class="text-base mb-4">{{ tabData.info.error }}</p>
+            <button @click="loadTabContent('info')" class="px-4 py-2 bg-transparent border border-gray-600 rounded text-gray-300 hover:bg-gray-800 transition-colors">Retry</button>
           </div>
 
-          <!-- Statistics Section -->
-          <div class="xq_-rz4" style="margin-top: 30px;">
-            <!-- Ratings Section -->
-            <div class="section-pfr pr_-o6a" data-stats="rating">
-              <div>
-                <div class="section-6th size-o8d">
-                  <span>User Ratings</span>
-                  <div class="rat-dtk _ml-ext">
-                    <div class="info-4wf">
-                      <i class="fas fa-star rating-info__star"></i>
-                      <span class="info-csc" id="stats-rating-value">{{ ratingStats.average.toFixed(2) }}</span>
-                      <span class="info-mj1" id="stats-rating-count">({{ ratingStats.total }})</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="ac5-97d" id="rating-stats">
-                <template v-if="ratingStats.total > 0">
-                  <div v-for="stat in ratingStats.distribution" :key="stat.value" class="ac5-cfp">
-                    <div class="ac5-ine">
-                      <div class="ac5-khr">
-                        <span>{{ stat.value }}</span>
-                        <i class="fas fa-star"></i>
-                      </div>
-                    </div>
-                    <div class="ac5-ine ac5-eo9">
-                      <div class="progress-g8a ac5-mga" :data-stats-id="stat.value">
-                        <div class="progress-dwj _ho-2oh" :style="`width: ${stat.percentage}%`"></div>
-                      </div>
-                    </div>
-                    <div class="ac5-ine ac5-k9y">{{ stat.percentage.toFixed(1) }}%</div>
-                    <div class="ac5-ine ac5-o5z">{{ stat.count }}</div>
-                  </div>
-                </template>
-                <div v-else class="empty-stats">No ratings yet</div>
-              </div>
-            </div>
-
-            <!-- Bookmarks Section -->
-            <div class="section-pfr pr_-o6a" data-stats="bookmarks">
-              <div>
-                <div class="section-6th size-o8d">
-                  In Lists: <span id="bookmark-count">{{ bookmarkStats.totalBookmarks }}</span> people
-                </div>
-              </div>
-              <div class="ac5-97d" id="bookmark-stats">
-                <template v-if="bookmarkStats.folderDistribution && bookmarkStats.folderDistribution.length > 0">
-                  <div v-for="stat in bookmarkStats.folderDistribution" :key="stat.folderName" class="ac5-cfp">
-                    <div class="ac5-ine">
-                      <div class="ac5-khr">{{ stat.folderName }}</div>
-                    </div>
-                    <div class="ac5-ine ac5-eo9">
-                      <div class="progress-g8a ac5-mga" :data-stats-id="stat.folderName.toLowerCase().replace(/\s+/g, '-')">
-                        <div class="progress-dwj _ho-2oh" :style="`width: ${stat.percentage}%`"></div>
-                      </div>
-                    </div>
-                    <div class="ac5-ine ac5-k9y">{{ stat.percentage.toFixed(1) }}%</div>
-                    <div class="ac5-ine ac5-o5z">{{ stat.count }}</div>
-                  </div>
-                </template>
-                <div v-else class="empty-stats">No bookmarks yet</div>
-              </div>
-            </div>
+          <div v-else class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 bg-gray-900 rounded-b-lg">
+            <i class="fas fa-spinner fa-spin text-6xl mb-8 text-purple-500"></i>
+            <p class="text-base mb-4">Loading title information...</p>
           </div>
-        </template>
-
-        <div v-else-if="tabData.info.error" class="error-state">
-          <i class="fas fa-exclamation-triangle"></i>
-          <p>{{ tabData.info.error }}</p>
-          <button @click="loadTabContent('info')" class="btn btn-outline-secondary">Retry</button>
-        </div>
-
-        <div v-else class="loading-state">
-          <i class="fas fa-spinner fa-spin"></i>
-          <p>Loading title information...</p>
-        </div>
+        </Motion>
       </div>
 
       <!-- Chapters Tab -->
       <div v-show="activeTab === 'chapters'" class="tab-content-panel">
-        <template v-if="tabData.chapters.loaded">
-          <div v-if="!titleData.areChapterCommentsEnabled" class="alert alert-warning mb-3">
-            <i class="fas fa-comment-slash"></i>
-            Comments have been disabled for chapters of this title.
+        <Motion :initial="{ opacity: 0 }"
+                :animate="{ opacity: 1 }"
+                :transition="{ duration: 0.2 }">
+          <template v-if="tabData.chapters.loaded">
+            <div v-if="!titleData.areChapterCommentsEnabled" class="flex items-center gap-3 p-4 mb-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 font-medium">
+              <i class="fas fa-comment-slash text-xl"></i>
+              Comments have been disabled for chapters of this title.
+            </div>
+
+            <ChaptersComponent :chapters="tabData.chapters.data"
+                               :title-name="titleData.originalTitle" />
+          </template>
+
+          <div v-else-if="tabData.chapters.error" class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 bg-gray-900 rounded-b-lg">
+            <i class="fas fa-exclamation-triangle text-6xl mb-8 text-red-500"></i>
+            <p class="text-base mb-4">{{ tabData.chapters.error }}</p>
+            <button @click="loadTabContent('chapters')" class="px-4 py-2 bg-transparent border border-gray-600 rounded text-gray-300 hover:bg-gray-800 transition-colors">Retry</button>
           </div>
 
-          <ChaptersComponent :chapters="tabData.chapters.data" :title-name="titleData.originalTitle" />
-        </template>
-
-        <div v-else-if="tabData.chapters.error" class="error-state">
-          <i class="fas fa-exclamation-triangle"></i>
-          <p>{{ tabData.chapters.error }}</p>
-          <button @click="loadTabContent('chapters')" class="btn btn-outline-secondary">Retry</button>
-        </div>
-
-        <div v-else class="loading-state">
-          <i class="fas fa-spinner fa-spin"></i>
-          <p>Loading chapters...</p>
-        </div>
+          <div v-else class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 bg-gray-900 rounded-b-lg">
+            <i class="fas fa-spinner fa-spin text-6xl mb-8 text-purple-500"></i>
+            <p class="text-base mb-4">Loading chapters...</p>
+          </div>
+        </Motion>
       </div>
 
       <!-- Comments Tab -->
       <div v-show="activeTab === 'comments'" class="tab-content-panel">
-        <template v-if="tabData.comments.loaded">
-          <!-- FIXED: Better comment disabled check -->
-          <div v-if="titleCommentsDisabled" class="alert alert-warning mb-3">
-            <i class="fas fa-comment-slash"></i>
-            Comments have been disabled for this title.
-          </div>
-          <div v-else>
-            <CommentsComponent :comments="tabData.comments.data"
-                               :target-id="titleId"
-                               target-type="1"
-                               :is-authenticated="isAuthenticated"
-                               @comments-updated="onCommentsUpdated" />
-          </div>
-        </template>
+        <Motion :initial="{ opacity: 0 }"
+                :animate="{ opacity: 1 }"
+                :transition="{ duration: 0.2 }">
+          <template v-if="tabData.comments.loaded">
+            <div>
+              <CommentsComponent :comments="tabData.comments.data"
+                                 :target-id="titleId"
+                                 target-type="1"
+                                 :is-authenticated="isAuthenticated"
+                                 @comments-updated="onCommentsUpdated" />
+            </div>
+          </template>
 
-        <div v-else-if="tabData.comments.error" class="error-state">
-          <i class="fas fa-exclamation-triangle"></i>
-          <p>{{ tabData.comments.error }}</p>
-          <button @click="loadTabContent('comments')" class="btn btn-outline-secondary">Retry</button>
-        </div>
+          <div v-else-if="tabData.comments.error" class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 bg-gray-900 rounded-b-lg">
+            <i class="fas fa-exclamation-triangle text-6xl mb-8 text-red-500"></i>
+            <p class="text-base mb-4">{{ tabData.comments.error }}</p>
+            <button @click="loadTabContent('comments')" class="px-4 py-2 bg-transparent border border-gray-600 rounded text-gray-300 hover:bg-gray-800 transition-colors">Retry</button>
+          </div>
 
-        <div v-else class="loading-state">
-          <i class="fas fa-spinner fa-spin"></i>
-          <p>Loading comments...</p>
-        </div>
+          <div v-else class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 bg-gray-900 rounded-b-lg">
+            <i class="fas fa-spinner fa-spin text-6xl mb-8 text-purple-500"></i>
+            <p class="text-base mb-4">Loading comments...</p>
+          </div>
+        </Motion>
       </div>
 
-      <!-- Reviews Tab -->
-      <div v-show="activeTab === 'reviews'" class="tab-content-panel">
-        <div class="coming-soon">
-          <i class="fas fa-star"></i>
-          <h3>Reviews Coming Soon</h3>
-          <p>User reviews and ratings will be available in a future update.</p>
-        </div>
+      <!-- Art Tab -->
+      <div v-show="activeTab === 'art'" class="tab-content-panel">
+        <Motion :initial="{ opacity: 0 }"
+                :animate="{ opacity: 1 }"
+                :transition="{ duration: 0.2 }">
+          <div class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 rounded-b-lg">
+            <i class="fas fa-palette text-6xl mb-8 text-purple-500 opacity-70"></i>
+            <h3 class="mb-4 text-gray-100 text-2xl font-semibold">Art Gallery</h3>
+            <p class="text-base opacity-80 max-w-md leading-6">Fan art and official artwork will be displayed here soon!</p>
+          </div>
+        </Motion>
+      </div>
+
+      <!-- Related Tab -->
+      <div v-show="activeTab === 'related'" class="tab-content-panel">
+        <Motion :initial="{ opacity: 0 }"
+                :animate="{ opacity: 1 }"
+                :transition="{ duration: 0.2 }">
+          <div class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 rounded-b-lg">
+            <i class="fas fa-link text-6xl mb-8 text-purple-500 opacity-70"></i>
+            <h3 class="mb-4 text-gray-100 text-2xl font-semibold">Related Titles</h3>
+            <p class="text-base opacity-80 max-w-md leading-6">Discover similar manga and related series here!</p>
+          </div>
+        </Motion>
       </div>
     </div>
   </div>
 </template>
 
-<script>
+<script setup>
+  import { ref, computed, watch, onMounted, nextTick } from 'vue'
+  import { Motion } from 'motion-v'
   import ChaptersComponent from './ChaptersComponent.vue'
   import CommentsComponent from './CommentsComponent.vue'
-  import { titleDetailsService } from '../../services/titleDetailsService'
+  import {
+    Star,
+    StarIcon,
+    BookmarkIcon,
+    BookOpen,
+    CheckCircle2,
+    PauseCircle,
+    Clock,
+    XCircle
+  } from 'lucide-vue-next'
+  import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+  import { Button } from '@/components/ui/button'
+  import {
+    Carousel,
+    CarouselContent,
+    CarouselItem,
+    CarouselNext,
+    CarouselPrevious,
+  } from '@/components/ui/carousel'
+  import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+  import Autoplay from 'embla-carousel-autoplay'
+  import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+  } from '@/components/ui/dialog'
+  import { titleDetailsService } from '@/services/titleDetailsService'
 
-  export default {
-    name: 'TitleDetailsTabs',
-    components: {
-      ChaptersComponent,
-      CommentsComponent
+  const props = defineProps({
+    titleId: {
+      type: Number,
+      required: true
     },
-    props: {
-      titleId: {
-        type: [Number, String],
-        required: true
-      },
-      titleData: {
-        type: Object,
-        required: true
-      },
-      initialTab: {
-        type: String,
-        default: 'info'
-      },
-      // FIXED: Add isAuthenticated prop to control user-specific features
-      isAuthenticated: {
-        type: Boolean,
-        default: false
-      }
+    titleData: {
+      type: Object,
+      required: true
     },
-    emits: ['tab-changed'],
-    data() {
-      return {
-        activeTab: this.initialTab,
-        loading: false,
-        descriptionExpanded: false,
-        showAllTags: false,
-        tabs: [
-          { key: 'info', title: 'About Title' },
-          { key: 'chapters', title: 'Chapters' },
-          { key: 'comments', title: 'Comments' },
-          { key: 'reviews', title: 'Reviews' }
-        ],
-        tabData: {
-          info: { loaded: false, data: null, error: null },
-          chapters: { loaded: false, data: [], error: null },
-          comments: { loaded: false, data: [], error: null },
-          reviews: { loaded: false, data: [], error: null }
-        },
-        ratingStats: {
-          average: 0,
-          total: 0,
+    isAuthenticated: {
+      type: Boolean,
+      default: false
+    },
+    initialTab: {
+      type: String,
+      default: 'info'
+    },
+    titleCommentsDisabled: {
+      type: Boolean,
+      default: false
+    }
+  })
+
+  const emit = defineEmits(['tab-changed', 'comments-updated', 'show-rating-modal', 'go-to-login'])
+
+  // Tab state
+  const activeTab = ref(props.initialTab)
+  const loading = ref(false)
+
+  // Rating Dialog State
+  const isRatingDialogOpen = ref(false)
+  const selectedRating = ref(0)
+  const hoverRating = ref(0)
+  const submittingRating = ref(false)
+
+  // Tabs configuration
+  const tabs = ref([
+    { key: 'info', title: 'About Title' },
+    { key: 'chapters', title: 'Chapters' },
+    { key: 'comments', title: 'Comments' },
+    { key: 'art', title: 'Art' },
+    { key: 'related', title: 'Related' }
+  ])
+
+  // Tab data state
+  const tabData = ref({
+    info: { loaded: false, data: null, error: null },
+    chapters: { loaded: false, data: [], error: null },
+    comments: { loaded: false, data: [], error: null },
+    art: { loaded: false, data: [], error: null },
+    related: { loaded: false, data: [], error: null }
+  })
+
+  // UI state
+  const descriptionExpanded = ref(false)
+  const showAllTags = ref(false)
+  const showLeftTranslatorButton = ref(false)
+  const showRightTranslatorButton = ref(true)
+  const translatorsContainer = ref(null)
+
+  // Carousel plugin setup
+  const carouselPlugin = Autoplay({
+    delay: 4000,
+    stopOnInteraction: true,
+    stopOnMouseEnter: true
+  })
+
+  // ============================================================================
+  // RATING STATISTICS - FIXED: 10-grade system with API loading
+  // ============================================================================
+  const loadingRatingStats = ref(false)
+  const ratingStatsData = ref(null)
+
+  const ratingStatsTotalCount = computed(() => {
+    return ratingStatsData.value?.totalRatings || 0
+  })
+
+  const ratingStatsDistribution = computed(() => {
+    if (!ratingStatsData.value?.distribution) return []
+
+    // Return distribution in descending order (10 to 1)
+    return ratingStatsData.value.distribution
+      .sort((a, b) => b.value - a.value)
+  })
+
+  const loadRatingStats = async () => {
+    if (!props.titleId) return
+
+    try {
+      loadingRatingStats.value = true
+      console.log('Loading rating stats for title ID:', props.titleId)
+
+      const result = await titleDetailsService.getRatingStats(props.titleId)
+
+      if (result.success && result.data) {
+        ratingStatsData.value = result.data
+        console.log('Rating stats loaded:', result.data)
+      } else {
+        console.error('Failed to load rating stats:', result.error)
+        ratingStatsData.value = {
+          totalRatings: 0,
+          averageRating: 0,
           distribution: []
-        },
-        bookmarkStats: {
-          totalBookmarks: 0,
-          folderDistribution: []
-        },
-        showLeftTranslatorButton: false,
-        showRightTranslatorButton: false
+        }
       }
-    },
-    computed: {
-      visibleTags() {
-        if (!this.titleData.tags) return []
-        return this.showAllTags ? this.titleData.tags : this.titleData.tags.slice(0, 10)
+    } catch (error) {
+      console.error('Error loading rating stats:', error)
+      ratingStatsData.value = {
+        totalRatings: 0,
+        averageRating: 0,
+        distribution: []
       }
-    },
-    watch: {
-      titleData: {
-        handler() {
-          this.$nextTick(() => {
-            this.checkTranslatorButtons()
-          })
-        },
-        deep: true
-      }
-    },
-    async mounted() {
-      await this.loadTabContent(this.activeTab)
-      this.updateURL()
-
-      // Load statistics data using titleDetailsService - these should work for guests too
-      await this.loadRatingStats()
-      await this.loadBookmarkStats()
-
-      // Listen for bookmark changes to refresh stats (only if authenticated)
-      if (this.isAuthenticated) {
-        document.addEventListener('bookmark-stats-refresh', this.handleBookmarkStatsRefresh)
-        document.addEventListener('rating-stats-refresh', this.handleRatingStatsRefresh)
-      }
-
-      this.$nextTick(() => {
-        this.checkTranslatorButtons()
-      })
-    },
-    beforeUnmount() {
-      // Clean up event listeners
-      document.removeEventListener('bookmark-stats-refresh', this.handleBookmarkStatsRefresh)
-      document.removeEventListener('rating-stats-refresh', this.handleRatingStatsRefresh)
-    },
-    methods: {
-      async switchTab(tabKey) {
-        if (this.activeTab === tabKey) return
-
-        this.activeTab = tabKey
-        this.updateURL()
-        this.$emit('tab-changed', tabKey)
-
-        if (!this.tabData[tabKey].loaded) {
-          await this.loadTabContent(tabKey)
-        }
-      },
-
-      async loadTabContent(tabKey) {
-        this.loading = true
-        this.tabData[tabKey].error = null
-
-        try {
-          switch (tabKey) {
-            case 'info':
-              await this.loadInfoTab()
-              break
-            case 'chapters':
-              await this.loadChaptersTab()
-              break
-            case 'comments':
-              await this.loadCommentsTab()
-              break
-            case 'reviews':
-              await this.loadReviewsTab()
-              break
-          }
-        } catch (error) {
-          console.error(`Error loading ${tabKey} tab:`, error)
-          this.tabData[tabKey].error = `Failed to load ${tabKey}. Please try again.`
-        }
-
-        this.loading = false
-      },
-
-      async loadInfoTab() {
-        // Info tab data comes from props, so just mark as loaded
-        this.tabData.info.loaded = true
-        this.tabData.info.data = this.titleData
-      },
-
-      async loadChaptersTab() {
-        try {
-          console.log('Loading chapters for title ID:', this.titleId)
-          const result = await titleDetailsService.getChapters(this.titleId)
-
-          if (result.success) {
-            this.tabData.chapters.data = result.data || []
-            this.tabData.chapters.loaded = true
-          } else {
-            throw new Error(result.error || 'Failed to load chapters')
-          }
-        } catch (error) {
-          console.error('Error loading chapters:', error)
-          throw new Error(error.message || 'Failed to load chapters')
-        }
-      },
-
-      async loadCommentsTab() {
-        try {
-          console.log('Loading comments for title ID:', this.titleId)
-          const result = await titleDetailsService.getComments(this.titleId, 1)
-
-          if (result.success) {
-            this.tabData.comments.data = result.data || []
-            this.tabData.comments.loaded = true
-          } else {
-            throw new Error(result.error || 'Failed to load comments')
-          }
-        } catch (error) {
-          console.error('Error loading comments:', error)
-          throw new Error(error.message || 'Failed to load comments')
-        }
-      },
-
-      async loadReviewsTab() {
-        // Placeholder for future reviews functionality
-        this.tabData.reviews.loaded = true
-        this.tabData.reviews.data = []
-      },
-
-      // FIXED: Load rating statistics with better error handling for guests
-      async loadRatingStats() {
-        try {
-          console.log('Loading rating stats for title ID:', this.titleId)
-          const result = await titleDetailsService.getRatingStats(this.titleId)
-
-          if (result.success) {
-            this.ratingStats.average = result.data.average || 0
-            this.ratingStats.total = result.data.total || 0
-            this.ratingStats.distribution = result.data.distribution || []
-
-            console.log('Rating stats loaded:', this.ratingStats)
-          } else {
-            console.error('Failed to load rating stats:', result.error)
-            // Keep default values on error - don't throw
-          }
-        } catch (error) {
-          console.error('Error loading rating stats:', error)
-          // Keep default values on error - don't let this break the page for guests
-        }
-      },
-
-      // FIXED: Load bookmark statistics with better error handling for guests
-      async loadBookmarkStats() {
-        try {
-          console.log('Loading bookmark stats for title ID:', this.titleId)
-          const result = await titleDetailsService.getBookmarkStats(this.titleId)
-
-          if (result.success) {
-            this.bookmarkStats.totalBookmarks = result.data.totalBookmarks || 0
-            this.bookmarkStats.folderDistribution = result.data.folderDistribution || []
-
-            console.log('Bookmark stats loaded:', this.bookmarkStats)
-          } else {
-            console.error('Failed to load bookmark stats:', result.error)
-            // Keep default values on error - don't throw
-          }
-        } catch (error) {
-          console.error('Error loading bookmark stats:', error)
-          // Keep default values on error - this should work for guests
-        }
-      },
-
-      // Event handlers for stats refresh - only for authenticated users
-      handleBookmarkStatsRefresh(event) {
-        if (this.isAuthenticated && event.detail && event.detail.titleId == this.titleId) {
-          this.loadBookmarkStats()
-        }
-      },
-
-      handleRatingStatsRefresh(event) {
-        if (event.detail && event.detail.titleId == this.titleId) {
-          this.loadRatingStats()
-        }
-      },
-
-      // Translator scroll methods
-      scrollTranslators(amount) {
-        const container = this.$refs.translatorsContainer
-        if (container) {
-          container.scrollBy({ left: amount, behavior: 'smooth' })
-        }
-      },
-
-      checkTranslatorButtons() {
-        const container = this.$refs.translatorsContainer
-        if (!container) return
-
-        this.showLeftTranslatorButton = container.scrollLeft > 0
-        this.showRightTranslatorButton = container.scrollLeft + container.clientWidth < container.scrollWidth
-      },
-
-      toggleDescription() {
-        this.descriptionExpanded = !this.descriptionExpanded
-      },
-
-      updateURL() {
-        const url = new URL(window.location)
-        url.searchParams.set('section', this.activeTab)
-        window.history.replaceState({}, '', url)
-      },
-
-      onCommentsUpdated(comments) {
-        this.tabData.comments.data = comments
-      }
+    } finally {
+      loadingRatingStats.value = false
     }
   }
+
+  // ============================================================================
+  // BOOKMARK STATISTICS - FIXED: Load from API
+  // ============================================================================
+  const loadingBookmarkStats = ref(false)
+  const bookmarkStatsData = ref(null)
+
+  const bookmarkStatsTotalCount = computed(() => {
+    return bookmarkStatsData.value?.totalBookmarks || 0
+  })
+
+  const bookmarkStatsDistribution = computed(() => {
+    if (!bookmarkStatsData.value?.folderDistribution) return []
+
+    // Calculate percentages and sort by count
+    const total = bookmarkStatsTotalCount.value
+    return bookmarkStatsData.value.folderDistribution
+      .map(folder => ({
+        folderId: folder.folderId,
+        folderName: folder.folderName,
+        count: folder.count,
+        percentage: total > 0 ? (folder.count / total) * 100 : 0
+      }))
+      .sort((a, b) => b.count - a.count)
+  })
+
+  const loadBookmarkStats = async () => {
+    if (!props.titleId) return
+
+    try {
+      loadingBookmarkStats.value = true
+      console.log('Loading bookmark stats for title ID:', props.titleId)
+
+      const result = await titleDetailsService.getBookmarkStats(props.titleId)
+
+      if (result.success && result.data) {
+        bookmarkStatsData.value = result.data
+        console.log('Bookmark stats loaded:', result.data)
+      } else {
+        console.error('Failed to load bookmark stats:', result.error)
+        bookmarkStatsData.value = {
+          totalBookmarks: 0,
+          folderDistribution: []
+        }
+      }
+    } catch (error) {
+      console.error('Error loading bookmark stats:', error)
+      bookmarkStatsData.value = {
+        totalBookmarks: 0,
+        folderDistribution: []
+      }
+    } finally {
+      loadingBookmarkStats.value = false
+    }
+  }
+
+  // Other Computed
+  const visibleTags = computed(() => {
+    if (!props.titleData.tags || !Array.isArray(props.titleData.tags)) return []
+    return showAllTags.value ? props.titleData.tags : props.titleData.tags.slice(0, 10)
+  })
+
+  // Bookmark status helpers
+  const getStatusIcon = (folderName) => {
+    const iconMap = {
+      'Reading': BookOpen,
+      'Completed': CheckCircle2,
+      'On Hold': PauseCircle,
+      'Plan to Read': Clock,
+      'Dropped': XCircle
+    }
+    return iconMap[folderName] || BookmarkIcon
+  }
+
+  const getStatusColor = (folderName) => {
+    const colorMap = {
+      'Reading': 'text-blue-500',
+      'Completed': 'text-green-500',
+      'On Hold': 'text-yellow-500',
+      'Plan to Read': 'text-purple-500',
+      'Dropped': 'text-red-500'
+    }
+    return colorMap[folderName] || 'text-gray-500'
+  }
+
+  const getStatusBgColor = (folderName) => {
+    const bgColorMap = {
+      'Reading': 'bg-blue-500',
+      'Completed': 'bg-green-500',
+      'On Hold': 'bg-yellow-500',
+      'Plan to Read': 'bg-purple-500',
+      'Dropped': 'bg-red-500'
+    }
+    return bgColorMap[folderName] || 'bg-gray-500'
+  }
+
+  // Methods
+  const setRating = (rating) => {
+    selectedRating.value = rating
+  }
+
+  const submitRating = async () => {
+    if (!selectedRating.value || submittingRating.value || !props.isAuthenticated) return
+
+    submittingRating.value = true
+    try {
+      const result = await titleDetailsService.rateTitle(props.titleId, selectedRating.value)
+
+      if (result.success) {
+        // Show success message (you can add toast notification here)
+        console.log('Rating submitted successfully!')
+
+        // Close dialog and reset
+        isRatingDialogOpen.value = false
+        selectedRating.value = 0
+        hoverRating.value = 0
+
+        // Reload rating statistics to show updated data
+        await loadRatingStats()
+      } else {
+        console.error('Failed to submit rating:', result.error)
+        alert(result.error || 'Failed to submit rating')
+      }
+    } catch (err) {
+      console.error('Error submitting rating:', err)
+      alert('Failed to submit rating')
+    } finally {
+      submittingRating.value = false
+    }
+  }
+
+  const getRatingText = (rating) => {
+    const texts = [
+      '', 'Terrible', 'Very Bad', 'Bad', 'Poor', 'Average',
+      'Good', 'Very Good', 'Great', 'Excellent', 'Masterpiece'
+    ]
+    return texts[rating] || ''
+  }
+
+  const switchTab = (tabKey) => {
+    activeTab.value = tabKey
+    emit('tab-changed', tabKey)
+    loadTabContent(tabKey)
+  }
+
+  const loadTabContent = async (tabKey) => {
+    if (tabData.value[tabKey].loaded || loading.value) return
+
+    loading.value = true
+
+    try {
+      if (tabKey === 'info') {
+        // Info is already loaded from titleData prop
+        tabData.value.info.loaded = true
+        tabData.value.info.data = props.titleData
+
+        // Load statistics when info tab loads
+        await Promise.all([
+          loadRatingStats(),
+          loadBookmarkStats()
+        ])
+      } else if (tabKey === 'chapters') {
+        // Load chapters
+        const response = await fetch(`/api/titles/${props.titleId}/chapters`)
+        const result = await response.json()
+        tabData.value.chapters.data = Array.isArray(result) ? result : []
+        tabData.value.chapters.loaded = true
+      } else if (tabKey === 'comments') {
+        // CommentsComponent handles its own data loading via commentsService
+        tabData.value.comments.loaded = true
+        tabData.value.comments.data = []
+      }
+    } catch (error) {
+      console.error(`Error loading ${tabKey} tab:`, error)
+      tabData.value[tabKey].error = 'An error occurred while loading data'
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const toggleDescription = () => {
+    descriptionExpanded.value = !descriptionExpanded.value
+  }
+
+  const scrollTranslators = (direction) => {
+    if (translatorsContainer.value) {
+      translatorsContainer.value.scrollLeft += direction
+      nextTick(() => checkTranslatorButtons())
+    }
+  }
+
+  const checkTranslatorButtons = () => {
+    if (!translatorsContainer.value) return
+
+    const container = translatorsContainer.value
+    showLeftTranslatorButton.value = container.scrollLeft > 0
+    showRightTranslatorButton.value = container.scrollLeft < (container.scrollWidth - container.clientWidth - 10)
+  }
+
+  const onCommentsUpdated = (comments) => {
+    tabData.value.comments.data = comments
+    emit('comments-updated', comments)
+  }
+
+  // Watchers
+  watch(() => props.initialTab, (newTab) => {
+    if (newTab) {
+      activeTab.value = newTab
+      loadTabContent(newTab)
+    }
+  })
+
+  // Reload stats when titleId changes
+  watch(() => props.titleId, async () => {
+    if (activeTab.value === 'info' && tabData.value.info.loaded) {
+      await Promise.all([
+        loadRatingStats(),
+        loadBookmarkStats()
+      ])
+    }
+  })
+
+  // Lifecycle
+  onMounted(() => {
+    loadTabContent(activeTab.value)
+    nextTick(() => {
+      if (translatorsContainer.value) {
+        checkTranslatorButtons()
+      }
+    })
+  })
 </script>
 
 <style scoped>
-  /* Tab content panel styling */
-  .tab-content-panel {
-    min-height: 200px;
-    background-color: var(--foreground, #1a1a1a);
-    border-radius: 0 0 8px 8px;
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 
-  /* Loading and error states */
-  .loading-state, .error-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 60px 20px;
-    text-align: center;
-    color: var(--text-secondary, #a0a0a5);
-    background-color: var(--foreground, #1a1a1a);
-    border-radius: 0 0 8px 8px;
-  }
-
-    .loading-state i, .error-state i {
-      font-size: 2.5rem;
-      margin-bottom: 1.5rem;
-      opacity: 0.7;
-    }
-
-    .loading-state p, .error-state p {
-      font-size: 1.1rem;
-      margin: 0;
-    }
-
-  .error-state {
-    color: var(--red, #f44336);
-  }
-
-    .error-state i {
-      color: var(--red, #f44336);
-    }
-
-    .error-state button {
-      margin-top: 1.5rem;
-      background-color: var(--foreground, #1a1a1a);
-      border: 1px solid var(--border-base, #3a3a3a);
-      color: var(--text-primary, #e0e0e0);
-      padding: 10px 20px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-
-      .error-state button:hover {
-        background-color: var(--background-elevated-2, #2a2a2a);
-        border-color: var(--primary, #9c27b0);
-      }
-
-  /* Coming soon styling */
-  .coming-soon {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 80px 20px;
-    text-align: center;
-    color: var(--text-secondary, #a0a0a5);
-    background-color: var(--foreground, #1a1a1a);
-    border-radius: 0 0 8px 8px;
-  }
-
-    .coming-soon i {
-      font-size: 4rem;
-      margin-bottom: 2rem;
-      color: var(--primary, #9c27b0);
-      opacity: 0.7;
-    }
-
-    .coming-soon h3 {
-      margin-bottom: 1rem;
-      color: var(--text-primary, #e0e0e0);
-      font-size: 1.5rem;
-      font-weight: 600;
-    }
-
-    .coming-soon p {
-      font-size: 1rem;
-      opacity: 0.8;
-      max-width: 400px;
-      line-height: 1.5;
-    }
-
-  /* Description expansion styles */
-  .t6_-5dv {
-    max-height: 4.5em;
-    overflow: hidden;
-    line-height: 1.6;
-    transition: max-height 0.4s ease;
-    color: var(--text-primary, #e0e0e0);
-  }
-
-    .t6_-5dv.expanded {
-      max-height: none;
-    }
-
-  /* Tag styles */
-  .c1_-wkm {
-    cursor: pointer;
-    transition: all 0.3s ease;
-    background-color: rgba(156, 39, 176, 0.1);
-    border-color: var(--primary, #9c27b0);
-  }
-
-    .c1_-wkm:hover {
-      background-color: rgba(156, 39, 176, 0.2);
-      transform: translateY(-1px);
-      box-shadow: 0 2px 8px rgba(156, 39, 176, 0.3);
-    }
-
-  /* Alert styles */
-  .alert {
-    padding: 16px 20px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 20px;
-    font-weight: 500;
-  }
-
-  .alert-warning {
-    background-color: rgba(255, 193, 7, 0.1);
-    border: 1px solid rgba(255, 193, 7, 0.3);
-    color: #ffc107;
-  }
-
-    .alert-warning i {
-      font-size: 1.2rem;
-    }
-
-  /* Horizontal tabs container styling */
-  .tabs-k5y {
-    border-bottom: 1px solid var(--tab-border, #3a3a3a);
-    background-color: var(--tab-background, #1a1a1a);
-    border-radius: 8px 8px 0 0;
-    overflow: hidden;
-    margin-bottom: 0;
-  }
-
-  .menu-7a9 {
-    display: flex;
-    width: 100%;
-    overflow-x: auto;
-    white-space: nowrap;
-    background-color: var(--tab-background, #1a1a1a);
-    padding: 8px;
-    margin: 0;
-    gap: 8px;
-  }
-
-    .menu-7a9::-webkit-scrollbar {
+    .scrollbar-hide::-webkit-scrollbar {
       display: none;
     }
 
-  .item-qx3.fa-ic3 {
-    background-color: transparent !important;
-    box-shadow: none !important;
-  }
-
-  /* Individual tab styling */
-  .item-qx3 {
-    flex-shrink: 0;
-    display: block;
-    cursor: pointer;
-    background-color: var(--tab-background, #1a1a1a);
-    border-radius: 6px;
-    transition: all 0.3s ease;
-    text-decoration: none;
-    color: var(--text-secondary, #a0a0a5);
-    position: relative;
-    overflow: hidden;
-  }
-
-    .item-qx3:hover {
-      background-color: rgba(156, 39, 176, 0.1);
-      color: var(--text-primary, #e0e0e0);
-      text-decoration: none;
-      transform: translateY(-1px);
-      box-shadow: 0 2px 8px rgba(156, 39, 176, 0.2);
+  /* Desktop - absolute positioning to prevent jumping, but allow natural height */
+  @media (min-width: 1024px) {
+    .tab-content-container {
+      position: relative;
+      min-height: 800px;
     }
 
-    .item-qx3.is-chy {
-      color: var(--primary, #9c27b0);
-      background-color: rgba(156, 39, 176, 0.15);
-      box-shadow: 0 2px 8px rgba(156, 39, 176, 0.3);
-    }
-
-  .item-9y5 {
-    padding: 16px 24px;
-    position: relative;
-    display: block;
-    font-weight: 500;
-    font-size: 14px;
-  }
-
-    .item-9y5::after {
-      content: "";
+    .tab-content-panel {
       position: absolute;
-      bottom: 0;
+      top: 0;
       left: 0;
       right: 0;
-      height: 3px;
-      background: var(--primary, #9c27b0);
-      transition: transform 0.3s ease-out;
-      transform: translateY(4px) scale(0);
-      border-radius: 3px 3px 0 0;
-    }
-
-  .nav-link.active .item-9y5::after {
-    transform: translateY(0) scale(1);
-  }
-
-  /* Statistics section styles */
-  .xq_-rz4 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 30px;
-    margin-top: 30px;
-    background-color: var(--foreground, #1a1a1a);
-    padding: 20px;
-    border-radius: 8px;
-    border: 1px solid var(--border-base, #3a3a3a);
-  }
-
-  .empty-stats {
-    text-align: center;
-    color: var(--text-secondary, #a0a0a5);
-    padding: 30px;
-    font-style: italic;
-    background-color: var(--background-elevated-2, #2a2a2a);
-    border-radius: 6px;
-    border: 1px dashed var(--border-base, #3a3a3a);
-  }
-
-  /* Progress bar styles */
-  .progress-g8a {
-    position: relative;
-    height: 8px;
-    border-radius: 8px;
-    background: var(--background-fill-3, rgba(118, 118, 128, .2));
-    color: var(--primary-lighten, #ba68c8);
-    overflow: hidden;
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
-  }
-
-  .progress-dwj {
-    position: absolute;
-    left: 0;
-    border-radius: inherit;
-    background: currentColor;
-    transition: width 0.5s ease;
-    height: 100%;
-    top: 0;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  }
-
-  /* Responsive adjustments */
-  @media (max-width: 768px) {
-    .xq_-rz4 {
-      grid-template-columns: 1fr;
-      gap: 20px;
-      padding: 15px;
-    }
-
-    .item-9y5 {
-      padding: 14px 20px;
-      font-size: 13px;
-    }
-
-    .loading-state, .error-state, .coming-soon {
-      padding: 40px 15px;
+      width: 100%;
+      height: auto;
     }
   }
 
-  @media (max-width: 480px) {
-    .item-9y5 {
-      padding: 12px 16px;
-      font-size: 12px;
+  /* Mobile - natural flow */
+  @media (max-width: 1023px) {
+    .tab-content-container {
+      position: static;
     }
 
-    .xq_-rz4 {
-      padding: 12px;
-      gap: 15px;
+    .tab-content-panel {
+      position: static;
+      overflow: visible;
     }
   }
 </style>
