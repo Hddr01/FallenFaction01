@@ -1,10 +1,9 @@
 ﻿using FallenFaction.Server.Data.Models;
 using Microsoft.EntityFrameworkCore;
 
-
-namespace LibManga.Data
+namespace FallenFaction.Server.Data.SeedData
 {
-public static class SeedData
+    public static class SeedData
     {
         public static void Seed(ModelBuilder builder)
         {
@@ -30,10 +29,12 @@ public static class SeedData
                 new UserTeamPermission { Id = 2, PermissionName = "CanDeleteTitle" },
                 new UserTeamPermission { Id = 3, PermissionName = "CanEditTitle" },
                 new UserTeamPermission { Id = 4, PermissionName = "CanAddMember" },
-                new UserTeamPermission { Id = 5, PermissionName = "CanRemoveMember" }
+                new UserTeamPermission { Id = 5, PermissionName = "CanRemoveMember" },
+                new UserTeamPermission { Id = 6, PermissionName = "CanAddChapter" },
+                new UserTeamPermission { Id = 7, PermissionName = "CanEditChapter" },
+                new UserTeamPermission { Id = 8, PermissionName = "CanDeleteChapter" },
+                new UserTeamPermission { Id = 9, PermissionName = "CanViewAnalytics" }
             );
         }
     }
-
-
 }

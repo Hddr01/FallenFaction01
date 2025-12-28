@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using FallenFaction.Server.Data;
 using FallenFaction.Server.Data.Models;
 using FallenFaction.Server.DTOs.Team;
+using FallenFaction.Server.Data.SeedData;
 
 namespace FallenFaction.Server.Controllers
 {
@@ -85,7 +86,7 @@ namespace FallenFaction.Server.Controllers
             return Ok(teamDto);
         }
 
-        // Controllers/TeamController.cs - Updated CreateTeam method
+        // Controllers/TeamController.cs - Updated CreateTeam method with permission assignment
         [HttpPost]
         public async Task<ActionResult<TeamDto>> CreateTeam(CreateTeamDto createTeamDto)
         {
@@ -105,7 +106,7 @@ namespace FallenFaction.Server.Controllers
             _context.Teams.Add(team);
             await _context.SaveChangesAsync();
 
-            // Add creator as admin member - THIS IS CRUCIAL!
+            // Add creator as admin member
             var userTeamRole = new UserTeamRole
             {
                 AppUserId = currentUser.Id,
@@ -119,6 +120,9 @@ namespace FallenFaction.Server.Controllers
             team.Members.Add(currentUser);
 
             await _context.SaveChangesAsync();
+
+            // IMPORTANT: Assign default permissions to the creator
+            await PermissionSeeder.AssignDefaultPermissionsToRole(_context, userTeamRole);
 
             // Return the created team with the creator as a member
             var teamDto = new TeamDto
@@ -216,7 +220,7 @@ namespace FallenFaction.Server.Controllers
             return NoContent();
         }
 
-        // POST: api/team/{id}/join
+
         [HttpPost("{id}/join")]
         public async Task<IActionResult> JoinTeam(int id)
         {
@@ -245,11 +249,14 @@ namespace FallenFaction.Server.Controllers
             {
                 AppUserId = currentUser.Id,
                 TeamId = id,
-                Role = TeamRole.Member
+                Role = TeamRole.Viewer // FIXED: New members start as Viewers, not Members
             };
 
             _context.UserTeamRoles.Add(userTeamRole);
             await _context.SaveChangesAsync();
+
+            // IMPORTANT: Assign default permissions for the new viewer role
+            await PermissionSeeder.AssignDefaultPermissionsToRole(_context, userTeamRole);
 
             return Ok();
         }
@@ -290,7 +297,7 @@ namespace FallenFaction.Server.Controllers
             return Ok();
         }
 
-        // PUT: api/team/{id}/members/{userId}/role
+        // PUT: api/team/{id}/members/{userId}/role - Updated with permission reassignment
         [HttpPut("{id}/members/{userId}/role")]
         public async Task<IActionResult> UpdateMemberRole(int id, string userId, UpdateMemberRoleDto updateRoleDto)
         {
@@ -316,6 +323,7 @@ namespace FallenFaction.Server.Controllers
             }
 
             var targetUserRole = await _context.UserTeamRoles
+                .Include(utr => utr.UserTeamRolePermissions)
                 .FirstOrDefaultAsync(utr => utr.AppUserId == userId && utr.TeamId == id);
 
             if (targetUserRole == null)
@@ -329,11 +337,107 @@ namespace FallenFaction.Server.Controllers
                 return BadRequest("Cannot change team creator's role.");
             }
 
+            // Remove existing permissions
+            _context.UserTeamRolePermissions.RemoveRange(targetUserRole.UserTeamRolePermissions);
+
+            // Update role
             targetUserRole.Role = updateRoleDto.Role;
+
             await _context.SaveChangesAsync();
+
+            // Assign new permissions based on the new role
+            await PermissionSeeder.AssignDefaultPermissionsToRole(_context, targetUserRole);
 
             return Ok();
         }
+
+
+        // Add this helper method to check user permissions in teams
+        private async Task<bool> HasTeamPermission(string userId, int teamId, string permission)
+        {
+            // Admins have all permissions
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user != null && await _userManager.IsInRoleAsync(user, "Admin"))
+            {
+                return true;
+            }
+
+            // Check specific team permission
+            return await _context.UserTeamRoles
+                .Where(utr => utr.AppUserId == userId && utr.TeamId == teamId)
+                .Where(utr =>
+                    // Team creators have all permissions
+                    utr.Team.CreatorId == userId ||
+                    // Team admins have all permissions
+                    utr.Role == TeamRole.Admin ||
+                    // Members with specific permission
+                    (utr.Role == TeamRole.Member &&
+                     utr.UserTeamRolePermissions.Any(p => p.UserTeamPermission.PermissionName == permission))
+                )
+                .AnyAsync();
+        }
+        // Add this endpoint to get user's team permissions (useful for frontend)
+        [HttpGet("{id}/permissions")]
+        [Authorize]
+        public async Task<ActionResult<object>> GetUserTeamPermissions(int id)
+        {
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null)
+            {
+                return Unauthorized();
+            }
+
+            var team = await _context.Teams.FindAsync(id);
+            if (team == null)
+            {
+                return NotFound();
+            }
+
+            var userRole = await _context.UserTeamRoles
+                .Include(utr => utr.UserTeamRolePermissions)
+                    .ThenInclude(utrp => utrp.UserTeamPermission)
+                .FirstOrDefaultAsync(utr => utr.AppUserId == currentUser.Id && utr.TeamId == id);
+
+            if (userRole == null)
+            {
+                return Ok(new
+                {
+                    teamId = id,
+                    teamName = team.Name,
+                    isMember = false,
+                    role = (string)null,
+                    permissions = new string[0]
+                });
+            }
+
+            var permissions = new List<string>();
+
+            // Team creators and admins have all permissions
+            if (team.CreatorId == currentUser.Id || userRole.Role == TeamRole.Admin)
+            {
+                permissions = await _context.UserTeamPermissions
+                    .Select(p => p.PermissionName)
+                    .ToListAsync();
+            }
+            else
+            {
+                // Get specific permissions for members
+                permissions = userRole.UserTeamRolePermissions
+                    .Select(utrp => utrp.UserTeamPermission.PermissionName)
+                    .ToList();
+            }
+
+            return Ok(new
+            {
+                teamId = id,
+                teamName = team.Name,
+                isMember = true,
+                role = userRole.Role.ToString(),
+                isCreator = team.CreatorId == currentUser.Id,
+                permissions = permissions
+            });
+        }
+
 
         // Replace the GetTopTeams method in your TeamController.cs
         /// <summary>
@@ -389,6 +493,16 @@ namespace FallenFaction.Server.Controllers
                 logger?.LogError(ex, "Error fetching top teams: {Error}", ex.Message);
                 return StatusCode(500, new { message = "Error fetching top teams", error = ex.Message });
             }
+        }
+
+        /// <summary>
+        /// Get user teams (alias for NavBar compatibility)
+        /// GET: api/Teams/UserTeams
+        /// </summary>
+        [HttpGet("~/api/Teams/UserTeams")]
+        public async Task<ActionResult<IEnumerable<TeamListDto>>> GetUserTeamsAlias()
+        {
+            return await GetMyTeams();
         }
 
         // Also update these helper methods to be consistent

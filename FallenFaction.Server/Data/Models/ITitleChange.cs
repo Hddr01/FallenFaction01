@@ -13,5 +13,4 @@ namespace FallenFaction.Server.Data.Models
         string OldValue { get; set; }
         string NewValue { get; set; }
     }
-
 }

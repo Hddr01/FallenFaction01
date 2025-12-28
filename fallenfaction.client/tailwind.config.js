@@ -6,7 +6,6 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Map your CSS variables to Tailwind color names
         'app': {
           'background': 'var(--color-background)',
           'background-soft': 'var(--color-background-soft)',

@@ -120,6 +120,26 @@ class TitleDetailsService {
     }
   }
 
+  async getReadingProgress(titleId) {
+    try {
+      console.log('Fetching reading progress for title ID:', titleId);
+      const response = await this.apiClient.get(`/Bookmarks/GetReadingProgress?titleId=${titleId}`);
+
+      return {
+        success: true,
+        data: response.data,
+        error: null
+      };
+    } catch (error) {
+      console.error('Error fetching reading progress:', error);
+      return {
+        success: false,
+        data: null,
+        error: this.getErrorMessage(error)
+      };
+    }
+  }
+
   // FIXED: Get chapters for a title using correct endpoint
   async getChapters(titleId) {
     try {
@@ -380,6 +400,56 @@ class TitleDetailsService {
     }
   }
 
+  // Get title change log history
+  async getTitleChangeLog(titleId) {
+    try {
+      console.log('Fetching title change log for ID:', titleId);
+      const response = await this.apiClient.get(`/AdminTitle/TitleChangeLog/${titleId}`);
+
+      return {
+        success: true,
+        data: Array.isArray(response.data) ? response.data : [],
+        error: null
+      };
+    } catch (error) {
+      console.error('Error fetching title change log:', error);
+      return {
+        success: false,
+        data: [],
+        error: this.getErrorMessage(error)
+      };
+    }
+  }
+
+  // Get title change statistics
+  async getTitleChangeStats(titleId) {
+    try {
+      console.log('Fetching title change stats for ID:', titleId);
+      const response = await this.apiClient.get(`/AdminTitle/TitleChangeStats/${titleId}`);
+
+      return {
+        success: true,
+        data: response.data || {
+          TotalChanges: 0,
+          ChangesByStatus: [],
+          LastUpdate: null
+        },
+        error: null
+      };
+    } catch (error) {
+      console.error('Error fetching title change stats:', error);
+      return {
+        success: false,
+        data: {
+          TotalChanges: 0,
+          ChangesByStatus: [],
+          LastUpdate: null
+        },
+        error: this.getErrorMessage(error)
+      };
+    }
+  }
+
   // Get all ratings for a title with pagination
   async getRatings(titleId, page = 1, pageSize = 20, sortBy = 'newest') {
     try {
@@ -409,6 +479,140 @@ class TitleDetailsService {
         error: this.getErrorMessage(error)
       };
     }
+  }
+
+  // =============================================================================
+  // BOOKMARK METHODS
+  // =============================================================================
+
+  // Check if user has bookmarked a title
+  async checkBookmark(titleId) {
+    try {
+      console.log('Checking bookmark status for title ID:', titleId);
+      const response = await this.apiClient.get(`/Bookmarks/CheckBookmark?titleId=${titleId}`);
+
+      return {
+        success: true,
+        data: {
+          isBookmarked: response.data?.isBookmarked || false,
+          bookmarkId: response.data?.bookmarkId || null
+        },
+        error: null
+      };
+    } catch (error) {
+      console.error('Error checking bookmark:', error);
+      return {
+        success: false,
+        data: {
+          isBookmarked: false,
+          bookmarkId: null
+        },
+        error: this.getErrorMessage(error)
+      };
+    }
+  }
+
+  // Add bookmark for a title
+  async addBookmark(titleId) {
+    try {
+      console.log('Adding bookmark for title ID:', titleId);
+      const response = await this.apiClient.post('/Bookmarks/AddBookmark', {
+        titleId: parseInt(titleId)
+      });
+
+      return {
+        success: true,
+        data: response.data,
+        error: null
+      };
+    } catch (error) {
+      console.error('Error adding bookmark:', error);
+      return {
+        success: false,
+        data: null,
+        error: this.getErrorMessage(error)
+      };
+    }
+  }
+
+  // Remove bookmark for a title
+  async removeBookmark(titleId) {
+    try {
+      console.log('Removing bookmark for title ID:', titleId);
+      const response = await this.apiClient.delete(`/Bookmarks/RemoveBookmark?titleId=${titleId}`);
+
+      return {
+        success: true,
+        data: response.data,
+        error: null
+      };
+    } catch (error) {
+      console.error('Error removing bookmark:', error);
+      return {
+        success: false,
+        data: null,
+        error: this.getErrorMessage(error)
+      };
+    }
+  }
+
+  // Get user's bookmark for a title (includes reading progress)
+  async getUserBookmark(titleId) {
+    try {
+      console.log('Fetching user bookmark for title ID:', titleId);
+      const response = await this.apiClient.get(`/Bookmarks/GetUserBookmark?titleId=${titleId}`);
+
+      return {
+        success: true,
+        data: response.data,
+        error: null
+      };
+    } catch (error) {
+      console.error('Error fetching user bookmark:', error);
+      return {
+        success: false,
+        data: null,
+        error: this.getErrorMessage(error)
+      };
+    }
+  }
+
+  // Update bookmark status (reading, completed, on-hold, plan-to-read, dropped)
+  async updateBookmarkStatus(titleId, status) {
+    try {
+      console.log('Updating bookmark status for title ID:', titleId, 'Status:', status);
+      const response = await this.apiClient.put('/Bookmarks/UpdateStatus', {
+        titleId: parseInt(titleId),
+        status: status
+      });
+
+      return {
+        success: true,
+        data: response.data,
+        error: null
+      };
+    } catch (error) {
+      console.error('Error updating bookmark status:', error);
+      return {
+        success: false,
+        data: null,
+        error: this.getErrorMessage(error)
+      };
+    }
+  }
+
+  // =============================================================================
+  // ALIAS METHODS FOR COMPATIBILITY
+  // =============================================================================
+
+  // Alias for rateTitle to match component usage
+  async submitRating(titleId, rating) {
+    return this.rateTitle(titleId, rating);
+  }
+
+  // Alias for getTitleChangeLog to match component usage
+  async getChangeHistory(titleId) {
+    return this.getTitleChangeLog(titleId);
   }
 
   // =============================================================================
@@ -515,6 +719,9 @@ class TitleDetailsService {
       };
     }
   }
+
+
+
 
   // Get chapters list for navigation (simplified list for popups)
   async getChaptersList(titleId) {

@@ -86,7 +86,7 @@
         <div class="empty-icon">
           <i class="fas fa-book"></i>
         </div>
-        <div class="empty-text">No chapters available yet.</div>
+        <div class="empty-text">No chapters available yet...</div>
       </div>
     </div>
   </div>

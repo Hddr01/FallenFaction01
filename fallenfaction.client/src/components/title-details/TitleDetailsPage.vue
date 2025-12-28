@@ -1,22 +1,9 @@
-<!-- TitleDetailsPage.vue - Updated to allow guest users to read manga -->
+<!-- TitleDetailsPage.vue - Complete with shadcn-vue buttons -->
 <template>
   <div class="min-h-screen bg-[var(--color-background)]">
-    <!-- Loading State -->
-    <div v-if="loading" class="flex items-center justify-center min-h-screen">
-      <div class="text-center">
-        <div class="inline-flex items-center">
-          <svg class="animate-spin -ml-1 mr-3 h-8 w-8 text-[var(--color-accent)]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <span class="text-[var(--color-text)] text-lg">Loading title details...</span>
-        </div>
-      </div>
-    </div>
-
     <!-- Error State -->
-    <div v-else-if="error" class="flex items-center justify-center min-h-screen px-4">
-      <div class="bg-[var(--color-background-soft)] rounded-lg shadow-md border border-[var(--color-border)] p-6 max-w-md w-full text-center">
+    <div v-if="!loading && error" class="flex items-center justify-center min-h-screen px-4">
+      <div class="bg-[var(--color-background)] rounded-lg shadow-md border border-[var(--color-border)] p-6 max-w-md w-full text-center">
         <div class="text-red-500 mb-4">
           <svg class="h-16 w-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.732 15.5c-.77.833.192 2.5 1.732 2.5z"></path>
@@ -25,20 +12,18 @@
         <h2 class="text-xl font-semibold text-[var(--color-text)] mb-2">{{ getErrorTitle() }}</h2>
         <p class="text-[var(--color-text)] opacity-75 mb-4">{{ error }}</p>
         <div class="flex space-x-3 justify-center">
-          <button @click="retryLoad"
-                  class="px-4 py-2 bg-[var(--color-accent)] text-white rounded-md hover:bg-[var(--color-accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] transition-colors duration-200">
+          <Button size="sm" @click="retryLoad">
             Try Again
-          </button>
-          <router-link to="/"
-                       class="px-4 py-2 bg-[var(--color-background-mute)] text-[var(--color-text)] border border-[var(--color-border)] rounded-md hover:bg-[var(--color-background-soft)] transition-colors duration-200">
+          </Button>
+          <Button size="sm" variant="outline" @click="$router.push('/')">
             Go Home
-          </router-link>
+          </Button>
         </div>
       </div>
     </div>
 
     <!-- Title Details Content -->
-    <div v-else-if="titleData" class="relative">
+    <div v-if="!loading && !error && titleData" class="relative">
       <!-- Background Image -->
       <div v-if="titleData.backgroundImagePath"
            class="absolute inset-0 h-[60vh] bg-cover bg-center bg-no-repeat"
@@ -51,7 +36,7 @@
         <!-- Mobile Layout -->
         <div class="lg:hidden">
           <!-- Cover Image Section -->
-          <div class="flex justify-center pt-8 pb-6 px-4">
+          <div class="flex justify-center pt-8">
             <div class="relative">
               <div class="w-48 h-72 rounded-xl overflow-hidden shadow-2xl border border-[var(--color-border)]">
                 <img :src="getImageUrl(titleData.coverImagePath)"
@@ -68,349 +53,533 @@
 
               <!-- Action Dropdown - Only show for authenticated users -->
               <div v-if="isAuthenticated" class="absolute top-3 left-3">
-                <div class="relative" ref="actionDropdownRef">
-                  <button @click="showActionDropdown = !showActionDropdown"
-                          class="w-8 h-8 bg-black/80 text-white rounded-full flex items-center justify-center backdrop-blur-sm hover:bg-black/90 focus:outline-none transition-colors duration-200">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01"></path>
-                    </svg>
-                  </button>
-
-                  <!-- Dropdown Menu -->
-                  <div v-if="showActionDropdown"
-                       class="absolute top-10 left-0 bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-lg shadow-lg min-w-48 py-2 z-20">
-                    <a :href="`/${titleData.originalTitle}/AddChapter`"
-                       class="flex items-center px-4 py-2 text-[var(--color-text)] hover:bg-[var(--color-background-mute)] transition-colors duration-150">
+                <DropdownMenu>
+                  <DropdownMenuTrigger as-child>
+                    <Button size="icon" variant="outline" class="w-8 h-8 bg-black/80 text-white border-none backdrop-blur-sm hover:bg-black/90">
+                      <MoreHorizontalIcon class="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" class="w-48">
+                    <DropdownMenuItem as-child>
+                      <a :href="`/${titleData.originalTitle}/AddChapter`" class="flex items-center cursor-pointer">
+                        <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                        Add Chapter
+                      </a>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem as-child>
+                      <a :href="`/Title/Edit/${titleData.id}`" class="flex items-center cursor-pointer">
+                        <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                        </svg>
+                        Edit
+                      </a>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem @click="viewChangeHistory">
                       <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                       </svg>
-                      Add Chapter
-                    </a>
-                    <a :href="`/Title/Edit/${titleData.id}`"
-                       class="flex items-center px-4 py-2 text-[var(--color-text)] hover:bg-[var(--color-background-mute)] transition-colors duration-150">
-                      <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                      </svg>
-                      Edit
-                    </a>
-                    <a href="#"
-                       class="flex items-center px-4 py-2 text-[var(--color-text)] hover:bg-[var(--color-background-mute)] transition-colors duration-150">
+                      Change History
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem variant="destructive">
                       <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.732 15.5c-.77.833.192 2.5 1.732 2.5z"></path>
                       </svg>
                       Report
-                    </a>
-                  </div>
-                </div>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </div>
 
           <!-- Title Header -->
-          <div class="text-center px-4 pb-6">
-            <h1 class="text-2xl font-bold text-[var(--color-text)] mb-2 leading-tight">{{ titleData.englishTitle }}</h1>
+          <div class="text-center">
+            <!-- English Title with Rating Button -->
+            <div class="flex items-center justify-center gap-2">
+              <h1 class="text-2xl font-bold text-[var(--color-text)] leading-tight">{{ titleData.englishTitle }}</h1>
+
+              <!-- Rating Button -->
+              <button v-if="isAuthenticated"
+                      @click="isRatingDialogOpen = true"
+                      class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-yellow-400/10 hover:bg-yellow-400/20 transition-colors"
+                      title="Rate this title">
+                <svg class="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                </svg>
+              </button>
+              <button v-else
+                      @click="goToLogin"
+                      class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-yellow-400/10 hover:bg-yellow-400/20 transition-colors"
+                      title="Sign in to rate">
+                <svg class="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                </svg>
+              </button>
+              <div class="flex flex-col">
+                <span class="text-2xl font-bold text-[var(--color-text)]">
+                  {{ titleData.averageRating?.toFixed(1) || '0.0' }}
+                </span>
+                <span class="text-xs text-[var(--color-text)] opacity-75">
+                  ({{ titleData.ratingCount || 0 }})
+                </span>
+              </div>
+            </div>
+            <!-- Original Title-->
             <h2 v-if="titleData.originalTitle !== titleData.englishTitle"
-                class="text-lg text-[var(--color-text)] opacity-75 font-medium">
+                class="text-lg text-[var(--color-text)] opacity-75 font-medium mb-3">
               {{ titleData.originalTitle }}
             </h2>
           </div>
 
-          <!-- Rating Section -->
-          <div class="mx-4 mb-6 bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-xl p-4">
-            <div class="flex items-center justify-center space-x-4">
-              <div class="flex items-center space-x-2">
-                <svg class="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                </svg>
-                <span class="text-2xl font-bold text-[var(--color-text)]">{{ titleData.averageRating?.toFixed(1) || '0.0' }}</span>
-                <span class="text-sm text-[var(--color-text)] opacity-75">({{ titleData.ratingCount || 0 }})</span>
-              </div>
-              <button @click="isAuthenticated ? (showRatingModal = true) : goToLogin()"
-                      class="px-4 py-2 bg-[var(--color-background-mute)] border border-[var(--color-accent)] text-[var(--color-accent)] rounded-lg hover:bg-[var(--color-accent)] hover:text-white focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] transition-all duration-200">
-                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
-                </svg>
-                {{ isAuthenticated ? 'Rate' : 'Sign in to Rate' }}
-              </button>
-            </div>
-          </div>
-
           <!-- Action Buttons -->
-          <div class="px-4 mb-6 space-y-3">
-            <!-- FIXED: Start Reading Button - Now available for guests -->
-            <router-link v-if="canStartReading"
-                         :to="getFirstChapterUrl()"
-                         class="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 px-4 rounded-xl font-semibold text-center transition-all duration-200 hover:from-orange-600 hover:to-orange-700 hover:shadow-lg transform hover:-translate-y-0.5 flex items-center justify-center space-x-2">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-              </svg>
-              <span>Start Reading</span>
-            </router-link>
+          <div class="">
+            <!-- Start Reading Button -->
+            <Button v-if="canStartReading"
+                    size="sm"
+                    class="w-full bg-black hover:bg-gray-900 text-white reading-action-button"
+                    @click="$router.push(getFirstChapterUrl())">
+              <BookOpenIcon class="w-4 h-4 mr-2" />
+              Start Reading
+            </Button>
 
-            <!-- Continue Reading Button (only for authenticated users with bookmarks) -->
-            <router-link v-if="canContinueReading"
-                         :to="getContinueReadingUrl()"
-                         class="w-full bg-green-600 text-white py-3 px-4 rounded-xl font-semibold text-center transition-all duration-200 hover:bg-green-700 hover:shadow-lg transform hover:-translate-y-0.5 flex items-center justify-center space-x-2">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
-              </svg>
-              <span>Continue (Ch. {{ userBookmark.lastReadChapter }})</span>
-            </router-link>
 
-            <!-- Bookmark Component - Only for authenticated users -->
-            <div v-if="isAuthenticated">
-              <BookmarkDropdown :title-id="titleData.id"
-                                @bookmark-changed="onBookmarkChanged"
-                                @bookmark-loaded="onBookmarkLoaded" />
-            </div>
-            <div v-else class="w-full">
-              <button @click="goToLogin"
-                      class="w-full bg-[var(--color-background-mute)] border border-[var(--color-border)] text-[var(--color-text)] py-3 px-4 rounded-xl font-medium text-center transition-all duration-200 hover:bg-[var(--color-background-soft)] hover:border-[var(--color-accent)] flex items-center justify-center space-x-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
-                </svg>
-                <span>Sign in to bookmark</span>
-              </button>
-            </div>
+            <!-- Continue Reading Button -->
+            <Button v-if="canContinueReading"
+                    size="sm"
+                    class="w-full bg-black hover:bg-gray-900 text-white reading-action-button"
+                    @click="$router.push(getContinueReadingUrl())">
+              <PlayIcon class="w-4 h-4 mr-2" />
+              Continue (Ch. {{ userBookmark?.lastReadChapter || readingProgress?.lastReadChapter }})
+            </Button>
+
+            <!-- Bookmark ButtonGroup -->
+            <ButtonGroup v-if="isAuthenticated" class="w-full bookmark-action-buttons">
+              <Button size="sm"
+                      variant="outline"
+                      :class="[bookmarkButtonClass, 'border-0']"
+                      class="flex-1"
+                      @click="toggleBookmark">
+                <BookmarkIcon v-if="!userBookmark" class="w-4 h-4 mr-2" />
+                <BookmarkCheckIcon v-else class="w-4 h-4 mr-2" />
+                {{ bookmarkStatusText }}
+              </Button>
+
+              <Drawer>
+                <DrawerTrigger as-child>
+                  <Button size="sm"
+                          variant="outline"
+                          :class="[bookmarkButtonClass, 'border-0']"
+                          class="px-2">
+                    <MoreHorizontalIcon class="w-4 h-4" />
+                  </Button>
+                </DrawerTrigger>
+
+                <DrawerContent class="bg-black">
+                  <div class="mx-auto w-full max-w-sm ">
+                    <DrawerHeader>
+                      <DrawerTitle class="text-[var(--color-white)] text-center">Bookmark Status</DrawerTitle>
+                      <DrawerDescription class="text-center text-muted-foreground">
+                        Change your reading status for this title.
+                      </DrawerDescription>
+                    </DrawerHeader>
+
+                    <div class="text-center p-4 pb-0 space-y-2">
+                      <Button variant="destructive"
+                              class="w-full justify-center bg-[#141414] hover:text-white"
+                              @click="changeBookmarkStatus('reading')">
+                        Reading
+                      </Button>
+
+                      <Button variant="destructive"
+                              class="w-full justify-center bg-[#141414] hover:text-white"
+                              @click="changeBookmarkStatus('completed')">
+                        Completed
+                      </Button>
+
+                      <Button variant="destructive"
+                              class="w-full justify-center bg-[#141414] hover:text-white"
+                              @click="changeBookmarkStatus('on-hold')">
+                        On Hold
+                      </Button>
+
+                      <Button variant="destructive"
+                              class="w-full justify-center bg-[#141414] hover:text-white"
+                              @click="changeBookmarkStatus('plan-to-read')">
+                        Plan to Read
+                      </Button>
+
+                      <Button variant="destructive"
+                              class="w-full justify-center bg-[#141414] hover:text-white"
+                              @click="changeBookmarkStatus('dropped')">
+                        Dropped
+                      </Button>
+
+
+                    </div>
+
+                    <DrawerFooter>
+                      <DrawerClose as-child>
+                        <Button variant="destructive"
+                                class=" w-full justify-center bg-[#e6e6e6] text-black hover:bg-gray-100 hover:text-black"
+                                @click="removeBookmark">
+                          Remove Bookmark
+                        </Button>
+                        <Button variant="destructive" class=" w-full justify-center bg-[#e6e6e6] text-black hover:bg-gray-100 hover:text-black">
+                          Cancel
+                        </Button>
+                      </DrawerClose>
+                    </DrawerFooter>
+                  </div>
+                </DrawerContent>
+              </Drawer>
+            </ButtonGroup>
+            <Button v-else size="sm" variant="outline" class="w-full bg-black hover:bg-gray-900 text-white border-0" @click="goToLogin">
+              <BookmarkIcon class="w-4 h-4 mr-2" />
+              Sign in to bookmark
+            </Button>
           </div>
 
           <!-- Sidebar Info Cards -->
-          <div class="px-4 space-y-4 mb-6">
-            <div class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-xl p-4">
-              <div class="grid grid-cols-2 gap-4">
-                <div class="text-center">
-                  <div class="text-xs text-[var(--color-text)] opacity-60 uppercase tracking-wide mb-1">Type</div>
-                  <div class="font-medium text-[var(--color-text)]">{{ getMangaType(titleData.type) }}</div>
-                </div>
-                <div class="text-center">
-                  <div class="text-xs text-[var(--color-text)] opacity-60 uppercase tracking-wide mb-1">Release</div>
-                  <div class="font-medium text-[var(--color-text)]">{{ titleData.releaseDate || 'Unknown' }}</div>
-                </div>
-                <div class="text-center">
-                  <div class="text-xs text-[var(--color-text)] opacity-60 uppercase tracking-wide mb-1">Chapters</div>
-                  <div class="font-medium text-[var(--color-text)]">{{ titleData.chapterCount || 0 }}</div>
-                </div>
-                <div class="text-center">
-                  <div class="text-xs text-[var(--color-text)] opacity-60 uppercase tracking-wide mb-1">Status</div>
-                  <div class="font-medium text-[var(--color-text)]">{{ titleData.statusTitle || 'Unknown' }}</div>
-                </div>
+          <!--<div class="px-4 space-y-4 mb-6">
+                  <div class="bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl p-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div class="text-center">
+                <div class="text-xs text-[var(--color-text)] opacity-60 uppercase tracking-wide mb-1">Type</div>
+                <div class="font-medium text-[var(--color-text)]">{{ getMangaType(titleData.type) }}</div>
+              </div>
+              <div class="text-center">
+                <div class="text-xs text-[var(--color-text)] opacity-60 uppercase tracking-wide mb-1">Release</div>
+                <div class="font-medium text-[var(--color-text)]">{{ titleData.releaseDate || 'Unknown' }}</div>
+              </div>
+              <div class="text-center">
+                <div class="text-xs text-[var(--color-text)] opacity-60 uppercase tracking-wide mb-1">Chapters</div>
+                <div class="font-medium text-[var(--color-text)]">{{ titleData.chapterCount || 0 }}</div>
+              </div>
+              <div class="text-center">
+                <div class="text-xs text-[var(--color-text)] opacity-60 uppercase tracking-wide mb-1">Status</div>
+                <div class="font-medium text-[var(--color-text)]">{{ titleData.statusTitle || 'Unknown' }}</div>
               </div>
             </div>
-
-            <!-- Quick Stats -->
-            <div class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-xl p-4">
-              <div class="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <div class="text-lg font-bold text-[var(--color-text)]">{{ formatNumber(titleData.viewCount) || 0 }}</div>
-                  <div class="text-xs text-[var(--color-text)] opacity-60">Views</div>
-                </div>
-                <div>
-                  <div class="text-lg font-bold text-[var(--color-text)]">{{ titleData.bookmarkCount || 0 }}</div>
-                  <div class="text-xs text-[var(--color-text)] opacity-60">Bookmarks</div>
-                </div>
-                <div>
-                  <div class="text-lg font-bold text-[var(--color-text)]">{{ titleData.ratingCount || 0 }}</div>
-                  <div class="text-xs text-[var(--color-text)] opacity-60">Ratings</div>
-                </div>
+          </div>
+                   Quick Stats
+                  <div class="bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl p-4">
+            <div class="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <div class="text-lg font-bold text-[var(--color-text)]">{{ formatNumber(titleData.viewCount) || 0 }}</div>
+                <div class="text-xs text-[var(--color-text)] opacity-60">Views</div>
               </div>
+              <div>
+                <div class="text-lg font-bold text-[var(--color-text)]">{{ titleData.bookmarkCount || 0 }}</div>
+                <div class="text-xs text-[var(--color-text)] opacity-60">Bookmarks</div>
+              </div>
+              <div>
+                <div class="text-lg font-bold text-[var(--color-text)]">{{ titleData.ratingCount || 0 }}</div>
+                <div class="text-xs text-[var(--color-text)] opacity-60">Ratings</div>
+              </div>
+            </div>
+          </div>
+                </div>-->
+          <div class="">
+            <div class="bg-[var(--color-background)] overflow-hidden">
+              <TitleDetailsTabs :title-id="titleData.id"
+                                :title-data="titleData"
+                                :initial-tab="initialTab"
+                                :is-authenticated="isAuthenticated"
+                                @tab-changed="onTabChanged" />
             </div>
           </div>
         </div>
 
         <!-- Desktop Layout -->
         <div class="hidden lg:block">
-          <div class="max-w-6xl mx-auto px-4 py-8">
-            <div class="grid grid-cols-12 gap-8">
-              <!-- Cover Image Column -->
-              <div class="col-span-3">
-                <div class="sticky top-8">
-                  <div class="relative">
-                    <div class="w-full h-96 rounded-xl overflow-hidden shadow-2xl border border-[var(--color-border)]">
-                      <img :src="getImageUrl(titleData.coverImagePath)"
-                           :alt="titleData.originalTitle"
-                           class="w-full h-full object-cover bg-[var(--color-background-mute)]"
-                           @error="onCoverImageError"
-                           @load="onCoverImageLoad" />
-                    </div>
+          <div class="flex justify-center items-start min-h-screen py-8">
+            <div class="w-full max-w-7xl px-4">
+              <!-- New Grid Layout: 5 columns, 10 rows -->
+              <div class="grid grid-cols-5 grid-rows-10 gap-4">
 
-                    <!-- Type Badge -->
-                    <div class="absolute top-4 right-4 bg-black/80 text-white px-3 py-1 rounded-lg text-sm font-medium backdrop-blur-sm">
-                      {{ getMangaType(titleData.type) }}
-                    </div>
+                <!-- Block 9: Quick Actions / Stats (Top Left) -->
+                <div class="row-span-1 col-start-1 row-start-1">
+                </div>
 
-                    <!-- Action Dropdown - Only for authenticated users -->
-                    <div v-if="isAuthenticated" class="absolute top-4 left-4">
-                      <div class="relative" ref="actionDropdownRef">
-                        <button @click="showActionDropdown = !showActionDropdown"
-                                class="w-10 h-10 bg-black/80 text-white rounded-full flex items-center justify-center backdrop-blur-sm hover:bg-black/90 focus:outline-none transition-colors duration-200">
-                          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01"></path>
-                          </svg>
-                        </button>
+                <!-- Block 1: Cover Image & Action Buttons -->
+                <div class="row-span-4 col-start-1 row-start-2">
+                  <div class="sticky top-8 space-y-3">
+                    <div class="relative">
+                      <div class="w-full rounded-xl overflow-hidden shadow-2xl border border-[var(--color-border)]">
+                        <img :src="getImageUrl(titleData.coverImagePath)"
+                             :alt="titleData.originalTitle"
+                             class="w-full h-full object-cover bg-[var(--color-background-mute)]"
+                             @error="onCoverImageError"
+                             @load="onCoverImageLoad" />
+                      </div>
 
-                        <!-- Dropdown Menu -->
-                        <div v-if="showActionDropdown"
-                             class="absolute top-12 left-0 bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-lg shadow-lg min-w-48 py-2 z-20">
-                          <a :href="`/${titleData.originalTitle}/AddChapter`"
-                             class="flex items-center px-4 py-2 text-[var(--color-text)] hover:bg-[var(--color-background-mute)] transition-colors duration-150">
-                            <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                            </svg>
-                            Add Chapter
-                          </a>
-                          <a :href="`/Title/Edit/${titleData.id}`"
-                             class="flex items-center px-4 py-2 text-[var(--color-text)] hover:bg-[var(--color-background-mute)] transition-colors duration-150">
-                            <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                            </svg>
-                            Edit
-                          </a>
-                          <a href="#"
-                             class="flex items-center px-4 py-2 text-[var(--color-text)] hover:bg-[var(--color-background-mute)] transition-colors duration-150">
-                            <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.732 15.5c-.77.833.192 2.5 1.732 2.5z"></path>
-                            </svg>
-                            Report
-                          </a>
-                        </div>
+                      <!-- Type Badge -->
+                      <div class="absolute top-4 right-4 bg-black/80 text-white px-3 py-1 rounded-lg text-sm font-medium backdrop-blur-sm">
+                        {{ getMangaType(titleData.type) }}
+                      </div>
+
+                      <!-- Action Dropdown -->
+                      <div v-if="isAuthenticated" class="absolute top-4 left-4">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger as-child>
+                            <Button size="icon" variant="outline" class="w-10 h-10 bg-black/80 text-white border-none backdrop-blur-sm hover:bg-black/90">
+                              <MoreHorizontalIcon class="w-5 h-5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" class="w-48">
+                            <DropdownMenuItem as-child>
+                              <a :href="`/${titleData.originalTitle}/AddChapter`" class="flex items-center cursor-pointer">
+                                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                </svg>
+                                Add Chapter
+                              </a>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem as-child>
+                              <a :href="`/Title/Edit/${titleData.id}`" class="flex items-center cursor-pointer">
+                                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                </svg>
+                                Edit
+                              </a>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem @click="viewChangeHistory">
+                              <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                              </svg>
+                              Change History
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem variant="destructive">
+                              <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.732 15.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                              </svg>
+                              Report
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
+
+                    <!-- Start Reading Button -->
+                    <Button v-if="canStartReading"
+                            size="sm"
+                            class="w-full bg-black hover:bg-gray-900 text-white border-0"
+                            @click="$router.push(getFirstChapterUrl())">
+                      <BookOpenIcon class="w-4 h-4 mr-2" />
+                      Start Reading
+                    </Button>
+
+                    <!-- Continue Reading Button -->
+                    <Button v-if="canContinueReading"
+                            size="sm"
+                            class="w-full bg-black hover:bg-gray-900 text-white border-0"
+                            @click="$router.push(getContinueReadingUrl())">
+                      <PlayIcon class="w-4 h-4 mr-2" />
+                      Continue (Ch. {{ userBookmark?.lastReadChapter || readingProgress?.lastReadChapter }})
+                    </Button>
+
+                    <!-- Bookmark ButtonGroup -->
+                    <ButtonGroup v-if="isAuthenticated" class="w-full">
+                      <Button size="sm"
+                              variant="outline"
+                              :class="[bookmarkButtonClass, 'border-0']"
+                              class="flex-1"
+                              @click="toggleBookmark">
+                        <BookmarkIcon v-if="!userBookmark" class="w-4 h-4 mr-2" />
+                        <BookmarkCheckIcon v-else class="w-4 h-4 mr-2" />
+                        {{ bookmarkStatusText }}
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger as-child>
+                          <Button size="sm" variant="outline" :class="[bookmarkButtonClass, 'border-0']" class="px-2">
+                            <MoreHorizontalIcon class="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" class="w-52">
+                          <DropdownMenuItem @click="changeBookmarkStatus('reading')">
+                            Reading
+                          </DropdownMenuItem>
+                          <DropdownMenuItem @click="changeBookmarkStatus('completed')">
+                            Completed
+                          </DropdownMenuItem>
+                          <DropdownMenuItem @click="changeBookmarkStatus('on-hold')">
+                            On Hold
+                          </DropdownMenuItem>
+                          <DropdownMenuItem @click="changeBookmarkStatus('plan-to-read')">
+                            Plan to Read
+                          </DropdownMenuItem>
+                          <DropdownMenuItem @click="changeBookmarkStatus('dropped')">
+                            Dropped
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem variant="destructive" @click="removeBookmark">
+                            Remove Bookmark
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </ButtonGroup>
+                    <Button v-else size="sm" variant="outline" class="w-full bg-black hover:bg-gray-900 text-white border-0" @click="goToLogin">
+                      <BookmarkIcon class="w-4 h-4 mr-2" />
+                      Sign in to bookmark
+                    </Button>
                   </div>
+                </div>
 
-                  <!-- Action Buttons -->
-                  <div class="mt-6 space-y-3">
-                    <!-- FIXED: Start Reading Button - Now available for guests -->
-                    <router-link v-if="canStartReading"
-                                 :to="getFirstChapterUrl()"
-                                 class="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 px-4 rounded-xl font-semibold text-center transition-all duration-200 hover:from-orange-600 hover:to-orange-700 hover:shadow-lg transform hover:-translate-y-0.5 flex items-center justify-center space-x-2">
-                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-                      </svg>
-                      <span>Start Reading</span>
-                    </router-link>
+                <!-- Block 10: Reading Buttons -->
+                <div class="row-span-2 row-start-9 space-y-3">
 
-                    <!-- Continue Reading Button (only for authenticated users with bookmarks) -->
-                    <router-link v-if="canContinueReading"
-                                 :to="getContinueReadingUrl()"
-                                 class="w-full bg-green-600 text-white py-3 px-4 rounded-xl font-semibold text-center transition-all duration-200 hover:bg-green-700 hover:shadow-lg transform hover:-translate-y-0.5 flex items-center justify-center space-x-2">
-                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
-                      </svg>
-                      <span>Continue (Ch. {{ userBookmark.lastReadChapter }})</span>
-                    </router-link>
+                </div>
 
-                    <!-- Bookmark Component - Only for authenticated users -->
-                    <div v-if="isAuthenticated">
-                      <BookmarkDropdown :title-id="titleData.id"
-                                        @bookmark-changed="onBookmarkChanged"
-                                        @bookmark-loaded="onBookmarkLoaded" />
+                <!-- Block 2: Title Header & Description -->
+                <div class="col-span-3 row-span-1 col-start-2 row-start-1">
+                </div>
+
+                <!-- Block 4: Rating Section with nested grid -->
+                <div class="col-span-3 col-start-2 row-start-2 flex items-end">
+                  <!-- Nested grid: 2 columns -->
+                  <div class="grid grid-cols-7 gap-6 w-full">
+                    <!-- Left side: Titles (3 columns) -->
+                    <div class="col-span-3">
+                      <h1 class="text-4xl font-bold text-[var(--color-text)] mb-2 leading-tight">
+                        {{ titleData.englishTitle }}
+                      </h1>
+                      <h2 v-if="titleData.originalTitle !== titleData.englishTitle"
+                          class="text-2xl text-[var(--color-text)] opacity-75 font-medium">
+                        {{ titleData.originalTitle }}
+                      </h2>
                     </div>
-                    <div v-else class="w-full">
-                      <button @click="goToLogin"
-                              class="w-full bg-[var(--color-background-mute)] border border-[var(--color-border)] text-[var(--color-text)] py-3 px-4 rounded-xl font-medium text-center transition-all duration-200 hover:bg-[var(--color-background-soft)] hover:border-[var(--color-accent)] flex items-center justify-center space-x-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
-                        </svg>
-                        <span>Sign in to bookmark</span>
+
+                    <!-- Right side: Rating and Button (1 column) -->
+                    <div class="col-span-1 col-start-7 flex-col justify-end space-y-1 space-x-1">
+                      <!-- Rating display -->
+                      <Dialog v-if="isAuthenticated" v-model:open="isRatingDialogOpen">
+                        <DialogTrigger as-child>
+                          <button class="flex items-center justify-end cursor-pointer hover:opacity-80 transition-opacity">
+                            <div class="flex items-center space-x-2">
+                              <svg class="w-6 h-6 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                              </svg>
+                              <div class="flex flex-col">
+                                <span class="text-2xl font-bold text-[var(--color-text)]">
+                                  {{ titleData.averageRating?.toFixed(1) || '0.0' }}
+                                </span>
+                                <span class="text-xs text-[var(--color-text)] opacity-75">
+                                  ({{ titleData.ratingCount || 0 }})
+                                </span>
+                              </div>
+                            </div>
+                          </button>
+                        </DialogTrigger>
+
+                        <DialogContent class="sm:max-w-md bg-black">
+                          <DialogHeader>
+                            <DialogTitle class="text-[var(--color-white)] text-center">Rate this title</DialogTitle>
+                            <DialogDescription class="text-center text-muted-foreground">
+                              Share your rating with the community
+                            </DialogDescription>
+                          </DialogHeader>
+
+                          <div class="p-4 space-y-6">
+                            <!-- Star Rating -->
+                            <div class="flex justify-center space-x-2">
+                              <button v-for="star in 10"
+                                      :key="star"
+                                      type="button"
+                                      @click="setRating(star)"
+                                      @mouseover="hoverRating = star"
+                                      @mouseleave="hoverRating = 0"
+                                      class="w-8 h-8 transition-all duration-200 transform hover:scale-110"
+                                      :class="{
+                                      'text-yellow-400' : star <= (hoverRating || selectedRating),
+                    'text-gray-600': star > (hoverRating || selectedRating)
+                  }">
+            <svg class="w-full h-full" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+            </svg>
+          </button>
+                            </div>
+
+                            <!-- Rating Text -->
+                            <p class="text-white font-medium text-center min-h-6">
+                              {{ getRatingText(hoverRating || selectedRating) }}
+                            </p>
+                          </div>
+
+                          <DialogFooter class="sm:justify-center gap-2">
+                            <Button type="button"
+                                    variant="destructive"
+                                    class="bg-[#141414] hover:text-white"
+                                    @click="isRatingDialogOpen = false">
+                              Cancel
+                            </Button>
+                            <Button type="button"
+                                    @click="submitRating"
+                                    :disabled="!selectedRating || submittingRating"
+                                    class="justify-center bg-[#e6e6e6] text-black hover:bg-gray-100 hover:text-black">
+                              <span v-if="submittingRating" class="inline-flex items-center">
+                                <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Submitting...
+                              </span>
+                              <span v-else>Submit Rating</span>
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+
+                      <!-- Non-authenticated state -->
+                      <button v-else
+                              @click="goToLogin()"
+                              class="flex items-center justify-end cursor-pointer hover:opacity-80 transition-opacity">
+                        <div class="flex items-center space-x-2">
+                          <svg class="w-6 h-6 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                          </svg>
+                          <div class="flex flex-col">
+                            <span class="text-2xl font-bold text-[var(--color-text)]">
+                              {{ titleData.averageRating?.toFixed(1) || '0.0' }}
+                            </span>
+                            <span class="text-xs text-[var(--color-text)] opacity-75">
+                              ({{ titleData.ratingCount || 0 }})
+                            </span>
+                          </div>
+                        </div>
                       </button>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <!-- Main Content Column -->
-              <div class="col-span-6">
-                <!-- Title Header -->
-                <div class="mb-8 text-center lg:text-left">
-                  <h1 class="text-4xl font-bold text-[var(--color-text)] mb-3 leading-tight">{{ titleData.englishTitle }}</h1>
-                  <h2 v-if="titleData.originalTitle !== titleData.englishTitle"
-                      class="text-2xl text-[var(--color-text)] opacity-75 font-medium">
-                    {{ titleData.originalTitle }}
-                  </h2>
-                </div>
-
-                <!-- Quick Stats -->
-                <div class="grid grid-cols-4 gap-4 mb-8">
-                  <div class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-xl p-4 text-center">
-                    <div class="flex items-center justify-center mb-2">
-                      <svg class="w-5 h-5 text-yellow-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                      </svg>
-                      <span class="text-lg font-bold text-[var(--color-text)]">{{ titleData.averageRating?.toFixed(1) || 'N/A' }}</span>
-                    </div>
-                    <div class="text-xs text-[var(--color-text)] opacity-60">{{ titleData.ratingCount || 0 }} ratings</div>
-                  </div>
-                  <div class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-xl p-4 text-center">
-                    <div class="flex items-center justify-center mb-2">
-                      <svg class="w-5 h-5 text-blue-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-                      </svg>
-                      <span class="text-lg font-bold text-[var(--color-text)]">{{ titleData.chapterCount || 0 }}</span>
-                    </div>
-                    <div class="text-xs text-[var(--color-text)] opacity-60">chapters</div>
-                  </div>
-                  <div class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-xl p-4 text-center">
-                    <div class="flex items-center justify-center mb-2">
-                      <svg class="w-5 h-5 text-green-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
-                      </svg>
-                      <span class="text-lg font-bold text-[var(--color-text)]">{{ titleData.bookmarkCount || 0 }}</span>
-                    </div>
-                    <div class="text-xs text-[var(--color-text)] opacity-60">bookmarks</div>
-                  </div>
-                  <div class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-xl p-4 text-center">
-                    <div class="flex items-center justify-center mb-2">
-                      <svg class="w-5 h-5 text-purple-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                      </svg>
-                      <span class="text-lg font-bold text-[var(--color-text)]">{{ formatNumber(titleData.viewCount) || 0 }}</span>
-                    </div>
-                    <div class="text-xs text-[var(--color-text)] opacity-60">views</div>
-                  </div>
-                </div>
-
-                <!-- Rating Section -->
-                <div class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-xl p-6 mb-8">
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-4">
-                      <div class="flex items-center space-x-2">
-                        <svg class="w-6 h-6 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                        </svg>
-                        <span class="text-3xl font-bold text-[var(--color-text)]">{{ titleData.averageRating?.toFixed(1) || '0.0' }}</span>
-                        <span class="text-[var(--color-text)] opacity-75">({{ titleData.ratingCount || 0 }})</span>
-                      </div>
-                    </div>
-                    <button @click="isAuthenticated ? (showRatingModal = true) : goToLogin()"
-                            class="px-6 py-3 bg-[var(--color-background-mute)] border border-[var(--color-accent)] text-[var(--color-accent)] rounded-lg hover:bg-[var(--color-accent)] hover:text-white focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] transition-all duration-200">
-                      <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
-                      </svg>
-                      {{ isAuthenticated ? 'Rate' : 'Sign in to Rate' }}
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Tabs Content -->
-                <div class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-xl overflow-hidden">
+                <!-- Block 5: Main Tabs Content -->
+                <div class="col-span-3 row-span-6 col-start-2 row-start-3 bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl overflow-hidden self-start">
                   <TitleDetailsTabs :title-id="titleData.id"
                                     :title-data="titleData"
                                     :initial-tab="initialTab"
                                     :is-authenticated="isAuthenticated"
                                     @tab-changed="onTabChanged" />
                 </div>
-              </div>
 
-              <!-- Sidebar Column -->
-              <div class="col-span-3">
-                <div class="sticky top-8">
-                  <div class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-xl p-4 space-y-4">
-                    <!-- Info Items -->
-                    <div class="pb-3 border-b border-[var(--color-border)] last:border-b-0 last:pb-0"
-                         v-for="(info, index) in sidebarInfo" :key="index">
-                      <div class="text-xs text-[var(--color-text)] opacity-60 uppercase tracking-wide mb-1">{{ info.label }}</div>
-                      <div class="font-medium text-[var(--color-text)]">{{ info.value }}</div>
+                <!-- Block 3: Stats Overview (Top Right) -->
+                <div class="row-span-1 col-start-5 row-start-1">
+                </div>
+
+                <!-- Block 8: Information Sidebar (aligned with cover image) -->
+                <div class="col-start-5 row-start-2 row-span-4">
+                  <div class="sticky top-8">
+                    <div class="bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl p-4">
+                      <div class="text-sm font-semibold text-[var(--color-text)] mb-4">Information</div>
+                      <div class="space-y-3">
+                        <div class="pb-3 border-b border-[var(--color-border)] last:border-b-0 last:pb-0"
+                             v-for="(info, index) in sidebarInfo" :key="index">
+                          <div class="text-xs text-[var(--color-text)] opacity-60 uppercase tracking-wide mb-1">{{ info.label }}</div>
+                          <div class="font-medium text-[var(--color-text)] text-sm">{{ info.value }}</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -421,66 +590,6 @@
       </div>
     </div>
 
-    <!-- Rating Modal - Only show for authenticated users -->
-    <div v-if="showRatingModal && isAuthenticated"
-         class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-         @click="closeRatingModal">
-      <div class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-xl max-w-md w-full shadow-2xl"
-           @click.stop>
-        <div class="p-6 border-b border-[var(--color-border)]">
-          <div class="flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-[var(--color-text)]">Rate {{ titleData.originalTitle }}</h3>
-            <button @click="closeRatingModal"
-                    class="w-8 h-8 text-[var(--color-text)] opacity-60 hover:opacity-100 rounded-lg hover:bg-[var(--color-background-mute)] flex items-center justify-center transition-all duration-200">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-              </svg>
-            </button>
-          </div>
-        </div>
-        <div class="p-6">
-          <div class="text-center">
-            <div class="flex justify-center space-x-2 mb-4">
-              <button v-for="star in 10"
-                      :key="star"
-                      @click="setRating(star)"
-                      @mouseover="hoverRating = star"
-                      @mouseleave="hoverRating = 0"
-                      class="w-8 h-8 transition-all duration-200 transform hover:scale-110"
-                      :class="{
-                      'text-yellow-400' : star <= (hoverRating || selectedRating),
-                        'text-gray-300': star > (hoverRating || selectedRating)
-                      }">
-                <svg class="w-full h-full" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                </svg>
-              </button>
-            </div>
-            <p class="text-[var(--color-text)] font-medium mb-6 min-h-6">
-              {{ getRatingText(hoverRating || selectedRating) }}
-            </p>
-          </div>
-        </div>
-        <div class="p-6 border-t border-[var(--color-border)] flex space-x-3">
-          <button @click="submitRating"
-                  :disabled="!selectedRating || submittingRating"
-                  class="flex-1 px-4 py-2 bg-[var(--color-accent)] text-white rounded-lg hover:bg-[var(--color-accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200">
-            <span v-if="submittingRating" class="inline-flex items-center">
-              <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Submitting...
-            </span>
-            <span v-else>Submit Rating</span>
-          </button>
-          <button @click="closeRatingModal"
-                  class="px-4 py-2 bg-[var(--color-background-mute)] text-[var(--color-text)] border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-background-soft)] transition-colors duration-200">
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -490,6 +599,40 @@
   import { titleDetailsService } from '../../services/titleDetailsService'
   import TitleDetailsTabs from './TitleDetailsTabs.vue'
   import BookmarkDropdown from './BookmarkDropdown.vue'
+  import TitleChangeHistory from './TitleChangeHistory.vue'
+  import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+  import { Spinner } from '@/components/ui/spinner'
+  import { Button } from '@/components/ui/button'
+  import { ButtonGroup } from '@/components/ui/button-group'
+  import {
+    Drawer,
+    DrawerClose,
+    DrawerContent,
+    DrawerDescription,
+    DrawerFooter,
+    DrawerHeader,
+    DrawerTitle,
+    DrawerTrigger,
+  } from '@/components/ui/drawer'
+  import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+  } from '@/components/ui/dialog'
+  import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuTrigger,
+    DropdownMenuItem,
+    DropdownMenuSeparator
+  } from '@/components/ui/dropdown-menu'
+  import { Star, StarIcon, BookmarkIcon, BookmarkCheckIcon, MoreHorizontalIcon, BookOpenIcon, PlayIcon } from 'lucide-vue-next'
+
 
   // Props
   const props = defineProps({
@@ -509,34 +652,96 @@
   const error = ref(null)
   const initialTab = ref('info')
   const userBookmark = ref(null)
+  const bookmarkStatus = ref(null) // Current bookmark status: 'reading', 'completed', etc.
   const isAuthenticated = ref(false)
   const chaptersData = ref([])
   const loadingChapters = ref(false)
 
   // Rating modal
-  const showRatingModal = ref(false)
   const selectedRating = ref(0)
   const hoverRating = ref(0)
   const submittingRating = ref(false)
+  const isRatingDialogOpen = ref(false)
 
-  // Action dropdown
-  const showActionDropdown = ref(false)
-  const actionDropdownRef = ref(null)
-
-  // FIXED: Computed properties - Allow reading for everyone, bookmarks only for authenticated users
+  // Computed properties
   const canStartReading = computed(() => {
-    // Allow all users (guests and authenticated) to start reading if chapters are available
     return titleData.value?.chapterCount > 0 && chaptersData.value.length > 0 && !loadingChapters.value
   })
 
   const canContinueReading = computed(() => {
-    // Only authenticated users with bookmarks can continue reading
-    return isAuthenticated.value &&
-      userBookmark.value &&
-      userBookmark.value.lastReadChapter > 0 &&
-      chaptersData.value.length > 0 &&
-      !loadingChapters.value
+    if (!isAuthenticated.value) return false
+    if (!chaptersData.value || chaptersData.value.length === 0) return false
+
+    // Check reading progress - either from bookmark OR from separate progress
+    let lastChapter = 0
+
+    // Check bookmark progress first
+    if (userBookmark.value?.lastReadChapter > 0) {
+      lastChapter = userBookmark.value.lastReadChapter
+    }
+    // Then check separate progress (for unbookmarked titles)
+    else if (readingProgress.value?.lastReadChapter > 0) {
+      lastChapter = readingProgress.value.lastReadChapter
+    }
+
+    return lastChapter > 0
   })
+
+  const readingProgress = ref(null)
+  const bookmarkStats = ref(null)
+
+  const loadReadingProgress = async () => {
+    if (!titleData.value?.id || !isAuthenticated.value) return
+
+    try {
+      const result = await titleDetailsService.getReadingProgress(titleData.value.id)
+
+      if (result.success && result.data) {
+        readingProgress.value = result.data
+        console.log('Reading progress loaded:', readingProgress.value)
+      }
+    } catch (err) {
+      console.error('Error loading reading progress:', err)
+    }
+  }
+
+  // Rating Statistics Computed Properties
+  const totalReviews = computed(() => {
+    if (!titleData.value?.reviews) return 0
+    return titleData.value.reviews.length
+  })
+
+
+
+  const loadUserRating = async () => {
+    if (!titleData.value?.id || !isAuthenticated.value) return
+
+    try {
+      const result = await titleDetailsService.getUserRating(titleData.value.id)
+
+      if (result.success && result.data && result.data.hasRated) {
+        selectedRating.value = result.data.value
+        console.log('User rating loaded:', result.data.value)
+      }
+    } catch (err) {
+      console.error('Error loading user rating:', err)
+    }
+  }
+
+  const loadBookmarkStats = async () => {
+    if (!titleData.value?.id) return
+
+    try {
+      const result = await titleDetailsService.getBookmarkStats(titleData.value.id)
+
+      if (result.success && result.data) {
+        bookmarkStats.value = result.data
+        console.log('Bookmark stats loaded:', result.data)
+      }
+    } catch (err) {
+      console.error('Error loading bookmark stats:', err)
+    }
+  }
 
   const sidebarInfo = computed(() => {
     if (!titleData.value) return []
@@ -549,7 +754,6 @@
       { label: 'Translation', value: titleData.value.statusTranslation || 'Unknown' }
     ]
 
-    // Add authors if available
     if (titleData.value.authors && titleData.value.authors.length > 0) {
       info.push({
         label: 'Author',
@@ -557,7 +761,6 @@
       })
     }
 
-    // Add artists if available
     if (titleData.value.artists && titleData.value.artists.length > 0) {
       info.push({
         label: 'Artist',
@@ -568,50 +771,338 @@
     return info
   })
 
+  const bookmarkStatusText = computed(() => {
+    if (!userBookmark.value || !bookmarkStatus.value) return 'Bookmark'
+
+    const statusMap = {
+      'reading': 'Reading',
+      'completed': 'Completed',
+      'on-hold': 'On Hold',
+      'plan-to-read': 'Plan to Read',
+      'dropped': 'Dropped'
+    }
+
+    return statusMap[bookmarkStatus.value] || 'Bookmarked'
+  })
+
+  const bookmarkButtonClass = computed(() => {
+    if (!userBookmark.value || !bookmarkStatus.value) {
+      return 'bg-[var(--color-background)] hover:bg-[var(--color-background)]'
+    }
+
+    const statusColors = {
+      'reading': 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600',
+      'completed': 'bg-green-600 hover:bg-green-700 text-white border-green-600',
+      'on-hold': 'bg-yellow-600 hover:bg-yellow-700 text-white border-yellow-600',
+      'plan-to-read': 'bg-purple-600 hover:bg-purple-700 text-white border-purple-600',
+      'dropped': 'bg-red-600 hover:bg-red-700 text-white border-red-600'
+    }
+
+    return statusColors[bookmarkStatus.value] || 'bg-[var(--color-background)] hover:bg-[var(--color-background)]'
+  })
+
+
+  // ==================== BOOKMARK PERSISTENCE HELPERS ====================
+
+  /**
+   * Get bookmark cache key for current title
+   */
+  const getBookmarkCacheKey = () => {
+    return `bookmark_${titleData.value?.id || props.titleName}`
+  }
+
+  /**
+   * Save bookmark status to localStorage
+   */
+  const saveBookmarkToCache = (bookmark, status) => {
+    try {
+      const cacheKey = getBookmarkCacheKey()
+      const cacheData = {
+        bookmark,
+        status,
+        timestamp: Date.now()
+      }
+      localStorage.setItem(cacheKey, JSON.stringify(cacheData))
+      console.log('Bookmark cached:', cacheData)
+    } catch (err) {
+      console.error('Error caching bookmark:', err)
+    }
+  }
+
+  /**
+   * Load bookmark status from localStorage
+   */
+  const loadBookmarkFromCache = () => {
+    try {
+      const cacheKey = getBookmarkCacheKey()
+      const cached = localStorage.getItem(cacheKey)
+
+      if (cached) {
+        const cacheData = JSON.parse(cached)
+        // Cache is valid for 24 hours
+        const cacheAge = Date.now() - cacheData.timestamp
+        const maxAge = 24 * 60 * 60 * 1000 // 24 hours
+
+        if (cacheAge < maxAge) {
+          console.log('Loading bookmark from cache:', cacheData)
+          return cacheData
+        } else {
+          console.log('Cache expired, removing...')
+          localStorage.removeItem(cacheKey)
+        }
+      }
+    } catch (err) {
+      console.error('Error loading bookmark from cache:', err)
+    }
+    return null
+  }
+
+  /**
+   * Clear bookmark cache
+   */
+  const clearBookmarkCache = () => {
+    try {
+      const cacheKey = getBookmarkCacheKey()
+      localStorage.removeItem(cacheKey)
+      console.log('Bookmark cache cleared')
+    } catch (err) {
+      console.error('Error clearing bookmark cache:', err)
+    }
+  }
+
+
+
   // Methods
+  // MODIFY loadTitleData to also load reading progress:
   const loadTitleData = async () => {
-    loading.value = true
-    error.value = null
+    if (!props.titleName) {
+      error.value = 'No title name provided'
+      return
+    }
 
     try {
-      console.log('Loading title data for:', props.titleName)
+      loading.value = true
+      error.value = null
 
       const result = await titleDetailsService.getTitleDetails(props.titleName)
 
-      if (result.success && result.data) {
-        titleData.value = result.data
-        await loadChaptersData()
-        // Update page title
-        document.title = `${titleData.value.originalTitle} - FallenFaction`
-
-        // Only load user-specific data if authenticated
-        if (isAuthenticated.value) {
-          await loadUserBookmark()
-        }
-
-        console.log('Title data loaded successfully:', titleData.value)
-      } else {
-        error.value = result.error || 'Title not found'
-        console.error('Failed to load title data:', result.error)
+      if (!result.success || !result.data) {
+        error.value = result.error || 'Failed to load title details'
+        return
       }
+
+      titleData.value = result.data
+      console.log('Title data loaded:', titleData.value)
+
+      // Load chapters for reading buttons
+      await loadChaptersData()
+
+      // Load user-specific data if authenticated
+      if (isAuthenticated.value) {
+        await loadUserBookmark()
+        await loadReadingProgress() // <-- ADD THIS LINE
+        await loadUserRating()
+      }
+
+      // Load bookmark stats
+      await loadBookmarkStats()
+
     } catch (err) {
-      error.value = 'Failed to load title details'
+      error.value = 'An unexpected error occurred'
       console.error('Error loading title data:', err)
     } finally {
       loading.value = false
     }
   }
 
-  // FIXED: Only load bookmark data for authenticated users
   const loadUserBookmark = async () => {
     if (!isAuthenticated.value || !titleData.value) return
 
     try {
       console.log('Loading user bookmark for title:', titleData.value.id)
-      // Implementation depends on your bookmark API - only call if user is authenticated
+
+      // First, try to load from cache to show immediately
+      const cached = loadBookmarkFromCache()
+      if (cached) {
+        userBookmark.value = cached.bookmark
+        bookmarkStatus.value = cached.status
+        console.log('Bookmark loaded from cache (will verify with API)')
+      }
+
+      // Then fetch from API to ensure it's up-to-date
+      const result = await titleDetailsService.getUserBookmark(titleData.value.id)
+
+      if (result.success && result.data) {
+        // ✅ FIX: The API returns {success: true, data: {bookmark}}
+        // So we need to extract the actual bookmark from result.data.data
+        const bookmarkData = result.data.data || result.data
+        const status = bookmarkData.status
+
+        console.log('Extracted bookmark data:', bookmarkData)
+        console.log('Extracted status:', status)
+
+        if (bookmarkData && status) {
+          userBookmark.value = bookmarkData
+          bookmarkStatus.value = status
+
+          // Save to cache
+          saveBookmarkToCache(bookmarkData, status)
+
+          console.log('Bookmark loaded from API with status:', status)
+        } else {
+          // No valid bookmark found - clear state and cache
+          userBookmark.value = null
+          bookmarkStatus.value = null
+          clearBookmarkCache()
+          console.log('No valid bookmark data found')
+        }
+      } else {
+        // No bookmark found - clear state and cache
+        userBookmark.value = null
+        bookmarkStatus.value = null
+        clearBookmarkCache()
+        console.log('No bookmark found for this title')
+      }
     } catch (err) {
       console.error('Error loading user bookmark:', err)
-      // Don't let bookmark errors affect the main page load
+
+      // If API fails but we have cache, keep using cache
+      if (!userBookmark.value) {
+        const cached = loadBookmarkFromCache()
+        if (cached) {
+          userBookmark.value = cached.bookmark
+          bookmarkStatus.value = cached.status
+          console.log('Using cached bookmark due to API error')
+        }
+      }
+    }
+  }
+
+  const toggleBookmark = async () => {
+    if (!isAuthenticated.value) {
+      goToLogin()
+      return
+    }
+
+    try {
+      if (userBookmark.value) {
+        // Remove bookmark
+        const result = await titleDetailsService.removeBookmark(titleData.value.id)
+        if (result.success) {
+          userBookmark.value = null
+          bookmarkStatus.value = null
+          clearBookmarkCache() // ← NEW: Clear cache
+          showToast('Bookmark removed', 'success')
+
+          if (titleData.value) {
+            titleData.value.bookmarkCount = Math.max((titleData.value.bookmarkCount || 1) - 1, 0)
+          }
+        } else {
+          showToast(result.error || 'Failed to remove bookmark', 'error')
+        }
+      } else {
+        // Add bookmark with default status 'reading'
+        const result = await titleDetailsService.addBookmark(titleData.value.id)
+        if (result.success) {
+          // ✅ FIX: Extract the actual bookmark data from nested response
+          const newBookmark = result.data?.data || result.data || { status: 'reading', titleId: titleData.value.id }
+          const status = newBookmark.status || 'reading'
+
+          console.log('New bookmark created:', newBookmark)
+          console.log('Bookmark status:', status)
+
+          userBookmark.value = newBookmark
+          bookmarkStatus.value = status
+
+          // ← NEW: Save to cache
+          saveBookmarkToCache(newBookmark, status)
+
+          showToast('Added to Reading list', 'success')
+
+          if (titleData.value) {
+            titleData.value.bookmarkCount = (titleData.value.bookmarkCount || 0) + 1
+          }
+        } else {
+          showToast(result.error || 'Failed to add bookmark', 'error')
+        }
+      }
+    } catch (err) {
+      console.error('Error toggling bookmark:', err)
+      showToast('Failed to update bookmark', 'error')
+    }
+  }
+
+  const changeBookmarkStatus = async (status) => {
+    if (!isAuthenticated.value) {
+      goToLogin()
+      return
+    }
+
+    try {
+      // If no bookmark exists, create one first
+      if (!userBookmark.value) {
+        const addResult = await titleDetailsService.addBookmark(titleData.value.id)
+        if (!addResult.success) {
+          showToast('Failed to create bookmark', 'error')
+          return
+        }
+        // ✅ FIX: Extract the actual bookmark data from nested response
+        const bookmarkData = addResult.data?.data || addResult.data || { titleId: titleData.value.id }
+        console.log('Created initial bookmark:', bookmarkData)
+        userBookmark.value = bookmarkData
+      }
+
+      // Update the status
+      const result = await titleDetailsService.updateBookmarkStatus(titleData.value.id, status)
+
+      if (result.success) {
+        bookmarkStatus.value = status
+        userBookmark.value = { ...userBookmark.value, status }
+
+        // ← NEW: Save to cache
+        saveBookmarkToCache(userBookmark.value, status)
+
+        const statusMap = {
+          'reading': 'Reading',
+          'completed': 'Completed',
+          'on-hold': 'On Hold',
+          'plan-to-read': 'Plan to Read',
+          'dropped': 'Dropped'
+        }
+
+        showToast(`Changed to ${statusMap[status]}`, 'success')
+      } else {
+        showToast(result.error || 'Failed to update status', 'error')
+      }
+    } catch (err) {
+      console.error('Error changing bookmark status:', err)
+      showToast('Failed to update status', 'error')
+    }
+  }
+
+  const removeBookmark = async () => {
+    if (!isAuthenticated.value) {
+      goToLogin()
+      return
+    }
+
+    try {
+      const result = await titleDetailsService.removeBookmark(titleData.value.id)
+      if (result.success) {
+        userBookmark.value = null
+        bookmarkStatus.value = null
+        clearBookmarkCache() // ← NEW: Clear cache
+        showToast('Bookmark removed', 'success')
+
+        if (titleData.value) {
+          titleData.value.bookmarkCount = Math.max((titleData.value.bookmarkCount || 1) - 1, 0)
+        }
+      } else {
+        showToast(result.error || 'Failed to remove bookmark', 'error')
+      }
+    } catch (err) {
+      console.error('Error removing bookmark:', err)
+      showToast('Failed to remove bookmark', 'error')
     }
   }
 
@@ -619,7 +1110,6 @@
     await loadTitleData()
   }
 
-  // FIXED: Check auth status without throwing errors
   const checkAuthStatus = () => {
     try {
       const token = localStorage.getItem('authToken')
@@ -653,6 +1143,19 @@
     userBookmark.value = bookmarkData.isBookmarked ? bookmarkData.currentBookmark : null
   }
 
+  const viewChangeHistory = () => {
+    // Navigate to change history route
+    router.push({
+      name: 'TitleChangeHistory',
+      params: {
+        titleId: titleData.value.id
+      },
+      query: {
+        titleName: titleData.value.originalTitle
+      }
+    })
+  }
+
   // Rating methods
   const setRating = (rating) => {
     selectedRating.value = rating
@@ -667,7 +1170,11 @@
 
       if (result.success) {
         showToast('Rating submitted successfully!', 'success')
-        closeRatingModal()
+
+        // Close dialog and reset
+        isRatingDialogOpen.value = false
+        selectedRating.value = 0
+        hoverRating.value = 0
 
         if (result.data) {
           titleData.value.averageRating = result.data.averageRating
@@ -682,12 +1189,6 @@
     } finally {
       submittingRating.value = false
     }
-  }
-
-  const closeRatingModal = () => {
-    showRatingModal.value = false
-    selectedRating.value = 0
-    hoverRating.value = 0
   }
 
   const getRatingText = (rating) => {
@@ -739,11 +1240,9 @@
     }
   }
 
-  // FIXED: Chapter URL generation for all users (guests and authenticated)
   const getFirstChapterUrl = () => {
     if (!titleData.value || !chaptersData.value.length) return '#'
 
-    // Sort chapters to get the first one (lowest volume, then lowest chapter number)
     const sortedChapters = [...chaptersData.value].sort((a, b) => {
       const volumeCompare = a.volumeNumber - b.volumeNumber
       if (volumeCompare !== 0) return volumeCompare
@@ -754,22 +1253,29 @@
     if (!firstChapter) return '#'
 
     const chapterName = firstChapter.name || firstChapter.chapterNumber.toString()
-    // Generate URL that works for both guests and authenticated users
     return `/${encodeURIComponent(titleData.value.originalTitle)}/chapter/${encodeURIComponent(chapterName)}/v${firstChapter.volumeNumber}/t${firstChapter.teamId || firstChapter.team?.id || 0}?viewMode=single`
   }
 
   const getContinueReadingUrl = () => {
-    if (!userBookmark.value || !chaptersData.value.length) return '#'
+    if (!chaptersData.value || chaptersData.value.length === 0) return '#'
 
-    // Find the chapter to continue from based on bookmark
+    // Get last read chapter from either bookmark or progress
+    let lastReadChapter = 0
+    if (userBookmark.value?.lastReadChapter > 0) {
+      lastReadChapter = userBookmark.value.lastReadChapter
+    } else if (readingProgress.value?.lastReadChapter > 0) {
+      lastReadChapter = readingProgress.value.lastReadChapter
+    }
+
+    if (lastReadChapter === 0) return '#'
+
     const continueChapter = chaptersData.value.find(chapter =>
-      chapter.chapterNumber === userBookmark.value.lastReadChapter
+      chapter.chapterNumber === lastReadChapter
     )
 
     if (!continueChapter) {
-      // Fallback: find closest chapter
       const sortedChapters = [...chaptersData.value]
-        .filter(c => c.chapterNumber <= userBookmark.value.lastReadChapter)
+        .filter(c => c.chapterNumber <= lastReadChapter)
         .sort((a, b) => b.chapterNumber - a.chapterNumber)
 
       if (sortedChapters.length > 0) {
@@ -808,14 +1314,6 @@
     console.log('Cover image loaded successfully')
   }
 
-  // Handle click outside for dropdown
-  const handleClickOutside = (event) => {
-    if (showActionDropdown.value && actionDropdownRef.value && !actionDropdownRef.value.contains(event.target)) {
-      showActionDropdown.value = false
-    }
-  }
-
-  // Toast notification function
   const showToast = (message, type = 'info') => {
     let toastContainer = document.getElementById('toast-container')
     if (!toastContainer) {
@@ -832,12 +1330,10 @@
 
     toastContainer.appendChild(toast)
 
-    // Trigger animation
     nextTick(() => {
       toast.classList.remove('translate-x-full', 'opacity-0')
     })
 
-    // Remove after 3 seconds
     setTimeout(() => {
       toast.classList.add('translate-x-full', 'opacity-0')
       setTimeout(() => {
@@ -853,21 +1349,9 @@
 
   // Lifecycle hooks
   onMounted(async () => {
-    // Get initial tab from URL query
     initialTab.value = route.query.section || 'info'
-
-    // Check authentication status FIRST before loading anything else
     checkAuthStatus()
-
-    // Load title data (this should work for both authenticated and guest users)
     await loadTitleData()
-
-    // Add click outside listener
-    document.addEventListener('click', handleClickOutside)
-  })
-
-  onUnmounted(() => {
-    document.removeEventListener('click', handleClickOutside)
   })
 
   // Watch for route changes
@@ -884,3 +1368,14 @@
     }
   })
 </script>
+<style scoped>
+  @media (max-width: 1024px) {
+    :deep(.reading-action-button) {
+      border-radius: 0 !important;
+    }
+
+    :deep(.bookmark-action-buttons button) {
+      border-radius: 0 !important;
+    }
+  }
+</style>

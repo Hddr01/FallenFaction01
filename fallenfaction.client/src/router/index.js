@@ -38,6 +38,7 @@ import AdminArtistManagement from '../components/admin/AdminArtistManagement.vue
 import AdminUserManagement from '../components/admin/AdminUserManagement.vue';
 import AdminTeamManagement from '../components/admin/AdminTeamManagement.vue';
 import AdminCommentsManagement from '../components/admin/AdminCommentsManagement.vue';
+import AdminTitleChanges from '../components/admin/AdminTitleChanges.vue';
 
 // Content Management Components
 import ContentManagement from '../components/content/ContentManagement.vue';
@@ -45,6 +46,8 @@ import TitlesManagement from '../components/content/TitlesManagement.vue';
 import ChaptersManagement from '../components/content/ChaptersManagement.vue';
 import TeamsManagement from '../components/content/TeamsManagement.vue';
 import ModerationManagement from '../components/content/ModerationManagement.vue';
+import TitleChangeHistory from '../components/title-details/TitleChangeHistory.vue'
+
 
 import AddChapter from '../components/title-details/AddChapter.vue'
 import ChapterReader from '../components/title-details/ChapterReader.vue';
@@ -100,6 +103,19 @@ const routes = [
       title: 'Profile'
     }
   },
+{
+  path: '/title/:titleId/change-history',
+  name: 'TitleChangeHistory',
+  component: TitleChangeHistory,
+  props: route => ({
+    titleId: parseInt(route.params.titleId)
+    // Remove titleName from props - it will be loaded from the API
+  }),
+  meta: {
+    requiresAuth: true,
+    title: 'Change History'
+  }
+},
 
   // === CONTENT MANAGEMENT ROUTES ===
   // Main content management dashboard
@@ -357,6 +373,18 @@ const routes = [
       title: 'Admin - Artist Management'
     }
   },
+  {
+    path: '/Title/Edit/:id',
+    name: 'Edit Title',
+    component: () => import('../components/title-details/EditTitle.vue'),
+    props: route => ({
+      id: parseInt(route.params.id)
+    }),
+    meta: {
+      requiresAuth: true,
+      title: 'Edit Title'
+    }
+  },
   // Admin title management
   {
     path: '/admin/titles/add',
@@ -366,6 +394,16 @@ const routes = [
       requiresAuth: true,
       requiresAdmin: true,
       title: 'Admin - New Titles Management'
+    }
+  },
+  {
+    path: '/admin/title-changes',
+    name: 'Admin Title Changes',
+    component: AdminTitleChanges,
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Admin - Title Changes Review'
     }
   },
   {

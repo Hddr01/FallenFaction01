@@ -153,7 +153,7 @@ namespace FallenFaction.Server.Controllers.Api
         /// POST: api/AdminTitle/RejectTitle
         /// </summary>
         [HttpPost("RejectTitle")]
-        public async Task<ActionResult<object>> RejectTitle([FromBody] RejectTitleRequest request)
+        public async Task<ActionResult<object>> RejectTitle([FromBody] AdminRejectTitleRequest request)
         {
             try
             {
@@ -355,10 +355,18 @@ namespace FallenFaction.Server.Controllers.Api
         /// GET: api/AdminTitle/GetTitleDetails/{id}
         /// </summary>
         [HttpGet("GetTitleDetails/{id}")]
+        [AllowAnonymous] // Override controller-level [Authorize(Roles = "Admin")]
+        [Authorize] // But still require authentication
         public async Task<ActionResult<object>> GetTitleDetails(int id)
         {
             try
             {
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
+                {
+                    return Unauthorized(new { message = "User not found" });
+                }
+
                 var title = await _context.Titles
                     .Include(t => t.Categories)
                     .Include(t => t.Tags)
@@ -374,6 +382,14 @@ namespace FallenFaction.Server.Controllers.Api
                     return NotFound(new { message = "Title not found" });
                 }
 
+                // AUTHORIZATION CHECK: Verify user can edit this title
+                var canEdit = await CanUserEditTitle(currentUser.Id, title);
+                if (!canEdit)
+                {
+                    return Forbid("You don't have permission to edit this title");
+                }
+
+                // Rest of the method remains the same...
                 var result = new
                 {
                     id = title.Id,
@@ -409,10 +425,280 @@ namespace FallenFaction.Server.Controllers.Api
                 return StatusCode(500, new { message = "Error fetching title details", error = ex.Message });
             }
         }
-        // Add this method to your AdminTitleController.cs
+
 
         /// <summary>
-        /// Update an existing title
+        /// Get change statistics for a title
+        /// GET: api/AdminTitle/TitleChangeStats/{titleId}
+        /// </summary>
+        [HttpGet("TitleChangeStats/{titleId}")]
+        [AllowAnonymous]
+        [Authorize] // Require authentication
+        public async Task<ActionResult<object>> GetTitleChangeStats(int titleId)
+        {
+            try
+            {
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
+                {
+                    return Unauthorized(new { message = "User not found" });
+                }
+
+                // Check if user has full access
+                var hasFullAccess = await CanUserViewAllChanges(currentUser.Id, titleId);
+
+                var query = _context.TitleChangeLogs.Where(tc => tc.TitleId == titleId);
+
+                // Filter for regular users
+                if (!hasFullAccess)
+                {
+                    query = query.Where(tc =>
+                        tc.Status == ChangeLogStatus.Approved ||
+                        tc.Status == ChangeLogStatus.AutoApproved
+                    );
+                }
+
+                var totalChanges = await query.CountAsync();
+
+                var changesByStatus = await query
+                    .GroupBy(tc => tc.Status)
+                    .Select(g => new
+                    {
+                        Status = g.Key.ToString(),
+                        Count = g.Count()
+                    })
+                    .ToListAsync();
+
+                var lastUpdate = await query
+                    .OrderByDescending(tc => tc.CreatedAt)
+                    .Select(tc => tc.CreatedAt)
+                    .FirstOrDefaultAsync();
+
+                var stats = new
+                {
+                    TotalChanges = totalChanges,
+                    ChangesByStatus = changesByStatus,
+                    LastUpdate = lastUpdate,
+                    HasFullAccess = hasFullAccess // Let frontend know what level of access user has
+                };
+
+                _logger.LogInformation(
+                    "Retrieved stats for title {TitleId}: {TotalChanges} changes (FullAccess: {HasFullAccess})",
+                    titleId,
+                    totalChanges,
+                    hasFullAccess
+                );
+
+                return Ok(stats);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting title change stats for title {TitleId}", titleId);
+                return StatusCode(500, new { message = "Error retrieving change statistics", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Get complete change log history for a title
+        /// Public users see approved changes only, team members see everything
+        /// GET: api/AdminTitle/TitleChangeLog/{titleId}
+        /// </summary>
+        [HttpGet("TitleChangeLog/{titleId}")]
+        [AllowAnonymous]
+        [Authorize]
+        public async Task<ActionResult<IEnumerable<object>>> GetTitleChangeLog(int titleId)
+        {
+            try
+            {
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
+                {
+                    return Unauthorized(new { message = "User not found" });
+                }
+
+                // Check if user has special permissions
+                var hasFullAccess = await CanUserViewAllChanges(currentUser.Id, titleId);
+
+                // Explicitly type as IQueryable<TitleChangeLog>
+                IQueryable<TitleChangeLog> query = _context.TitleChangeLogs
+                    .Where(tc => tc.TitleId == titleId)
+                    .Include(tc => tc.Title)
+                    .Include(tc => tc.UpdatedByUser)
+                    .Include(tc => tc.ReviewedByUser);
+
+                // Filter by status if user doesn't have full access
+                if (!hasFullAccess)
+                {
+                    query = query.Where(tc =>
+                        tc.Status == ChangeLogStatus.Approved ||
+                        tc.Status == ChangeLogStatus.AutoApproved
+                    );
+                }
+
+                var changeLogs = await query
+                    .OrderByDescending(tc => tc.CreatedAt)
+                    .ToListAsync();
+
+                _logger.LogInformation(
+                    "Loaded {Count} change logs for title {TitleId} (FullAccess: {HasFullAccess})",
+                    changeLogs.Count,
+                    titleId,
+                    hasFullAccess
+                );
+
+                // Get all user IDs that might be missing
+                var allUserIds = changeLogs
+                    .SelectMany(cl => new[] { cl.UpdatedByUserId, cl.ReviewedByUserId })
+                    .Where(id => !string.IsNullOrEmpty(id))
+                    .Distinct()
+                    .ToList();
+
+                // Load users separately as fallback
+                var users = await _context.Users
+                    .Where(u => allUserIds.Contains(u.Id))
+                    .Select(u => new { u.Id, u.UserName })
+                    .ToDictionaryAsync(u => u.Id, u => u.UserName);
+
+                _logger.LogInformation("Loaded {Count} users for change logs", users.Count);
+
+                // Map to response objects
+                var result = changeLogs.Select(tc => new
+                {
+                    Id = tc.Id,
+                    TitleId = tc.TitleId,
+                    ChangeType = tc.ChangeType ?? "Unknown Change",
+                    OldValue = !string.IsNullOrWhiteSpace(tc.OldValue) ? tc.OldValue : "No previous value",
+                    NewValue = !string.IsNullOrWhiteSpace(tc.NewValue) ? tc.NewValue : "No new value",
+                    Status = tc.Status.ToString(),
+                    CreatedAt = tc.CreatedAt,
+                    ReviewedAt = tc.ReviewedAt,
+                    AdminComment = tc.AdminComment ?? "",
+                    RejectionReason = tc.RejectionReason ?? "",
+                    UpdatedByUser = new
+                    {
+                        Id = tc.UpdatedByUserId ?? "unknown",
+                        UserName = tc.UpdatedByUser?.UserName ??
+                                  (users.TryGetValue(tc.UpdatedByUserId ?? "", out var updatedUserName) ? updatedUserName : null) ??
+                                  "Unknown User"
+                    },
+                    ReviewedByUser = !string.IsNullOrEmpty(tc.ReviewedByUserId) ? new
+                    {
+                        Id = tc.ReviewedByUserId,
+                        UserName = tc.ReviewedByUser?.UserName ??
+                                  (users.TryGetValue(tc.ReviewedByUserId, out var reviewedUserName) ? reviewedUserName : null) ??
+                                  "Unknown Reviewer"
+                    } : null
+                }).ToList();
+
+                _logger.LogInformation("Returning {Count} change log entries for title {TitleId}", result.Count, titleId);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting title change log for title {TitleId}", titleId);
+                return StatusCode(500, new { message = "Error retrieving change log", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Check if user can view all changes (including pending/rejected)
+        /// Admins and team members with edit permissions can see everything
+        /// </summary>
+        private async Task<bool> CanUserViewAllChanges(string userId, int titleId)
+        {
+            // Admins can view all change logs
+            var user = await _userManager.FindByIdAsync(userId);
+            var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
+            if (isAdmin)
+            {
+                return true;
+            }
+
+            // Check if user created the title
+            var title = await _context.Titles
+                .Include(t => t.Teams)
+                .FirstOrDefaultAsync(t => t.Id == titleId);
+
+            if (title == null)
+            {
+                return false;
+            }
+
+            if (title.CreatedByUserId == userId)
+            {
+                return true;
+            }
+
+            // Check if user has permissions in any of the title's teams
+            var userTeamIds = await _context.UserTeamRoles
+                .Where(utr => utr.AppUserId == userId)
+                .Where(utr =>
+                    // Team creators have all permissions
+                    utr.Team.CreatorId == userId ||
+                    // Team admins have all permissions
+                    utr.Role == TeamRole.Admin ||
+                    // Members with edit permissions can view all changes
+                    (utr.Role == TeamRole.Member &&
+                     utr.UserTeamRolePermissions.Any(p => p.UserTeamPermission.PermissionName == "CanEditTitle"))
+                )
+                .Select(utr => utr.TeamId)
+                .ToListAsync();
+
+            var titleTeamIds = title.Teams.Select(t => t.Id).ToList();
+            return userTeamIds.Intersect(titleTeamIds).Any();
+        }
+
+        /// <summary>
+        /// Helper method to check if user can view title change log
+        /// </summary>
+        private async Task<bool> CanUserViewTitleChangeLog(string userId, int titleId)
+        {
+            // Admins can view all change logs
+            var user = await _userManager.FindByIdAsync(userId);
+            var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
+            if (isAdmin)
+            {
+                return true;
+            }
+
+            // Check if user created the title
+            var title = await _context.Titles
+                .Include(t => t.Teams)
+                .FirstOrDefaultAsync(t => t.Id == titleId);
+
+            if (title == null)
+            {
+                return false;
+            }
+
+            if (title.CreatedByUserId == userId)
+            {
+                return true;
+            }
+
+            // Check if user has permissions in any of the title's teams
+            var userTeamIds = await _context.UserTeamRoles
+                .Where(utr => utr.AppUserId == userId)
+                .Where(utr =>
+                    // Team creators have all permissions
+                    utr.Team.CreatorId == userId ||
+                    // Team admins have all permissions
+                    utr.Role == TeamRole.Admin ||
+                    // Members with edit permissions can view change logs
+                    (utr.Role == TeamRole.Member &&
+                     utr.UserTeamRolePermissions.Any(p => p.UserTeamPermission.PermissionName == "CanEditTitle"))
+                )
+                .Select(utr => utr.TeamId)
+                .ToListAsync();
+
+            var titleTeamIds = title.Teams.Select(t => t.Id).ToList();
+            return userTeamIds.Intersect(titleTeamIds).Any();
+        }
+
+
+        /// <summary>
+        /// Update an existing title - UPDATED with authorization checks
         /// POST: api/AdminTitle/UpdateTitle
         /// </summary>
         [HttpPost("UpdateTitle")]
@@ -436,6 +722,36 @@ namespace FallenFaction.Server.Controllers.Api
                 if (existingTitle == null)
                 {
                     return NotFound(new { message = "Title not found" });
+                }
+
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
+                {
+                    return Unauthorized(new { message = "User not found" });
+                }
+
+                // AUTHORIZATION CHECK: Verify user can edit this title
+                var canEdit = await CanUserEditTitle(currentUser.Id, existingTitle);
+                if (!canEdit)
+                {
+                    return Forbid("You don't have permission to edit this title");
+                }
+
+                // If teams are being changed, verify user has permission for new teams
+                if (request.Teams?.Any() == true)
+                {
+                    var authorizedTeamIds = await GetAuthorizedTeamIds(currentUser.Id, "EditTitles");
+                    var unauthorizedTeams = request.Teams.Except(authorizedTeamIds).ToList();
+
+                    if (unauthorizedTeams.Any())
+                    {
+                        var unauthorizedTeamNames = await _context.Teams
+                            .Where(t => unauthorizedTeams.Contains(t.Id))
+                            .Select(t => t.Name)
+                            .ToListAsync();
+
+                        return Forbid($"You don't have permission to assign this title to the following teams: {string.Join(", ", unauthorizedTeamNames)}");
+                    }
                 }
 
                 // Handle image uploads
@@ -577,9 +893,13 @@ namespace FallenFaction.Server.Controllers.Api
                     existingTitle.Publishers.Clear();
                 }
 
+                // Handle teams with authorization check
                 if (request.Teams?.Any() == true)
                 {
-                    var teams = await _context.Set<Team>().Where(t => request.Teams.Contains(t.Id)).ToListAsync();
+                    var authorizedTeamIds = await GetAuthorizedTeamIds(currentUser.Id, "EditTitles");
+                    var validTeamIds = request.Teams.Intersect(authorizedTeamIds).ToList();
+
+                    var teams = await _context.Set<Team>().Where(t => validTeamIds.Contains(t.Id)).ToListAsync();
                     existingTitle.Teams.Clear();
                     foreach (var team in teams)
                     {
@@ -611,8 +931,522 @@ namespace FallenFaction.Server.Controllers.Api
                 return StatusCode(500, new { message = "Error updating title", error = ex.Message });
             }
         }
+        /// <summary>
+        /// Check if user can edit specific title
+        /// </summary>
+        private async Task<bool> CanUserEditTitle(string userId, Title title)
+        {
+            // Admins can edit all titles
+            var user = await _userManager.FindByIdAsync(userId);
+            var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
+            if (isAdmin)
+            {
+                return true;
+            }
 
-        // Add this request model class at the bottom of your AdminTitleController.cs file
+            // Check if user created the title
+            if (title.CreatedByUserId == userId)
+            {
+                return true;
+            }
+
+            // Check if user has edit permissions in any of the title's teams
+            var userTeamIds = await _context.UserTeamRoles
+                .Where(utr => utr.AppUserId == userId)
+                .Where(utr =>
+                    // Team creators have all permissions
+                    utr.Team.CreatorId == userId ||
+                    // Team admins have all permissions
+                    utr.Role == TeamRole.Admin ||
+                    // Members with specific permission - UPDATED permission name
+                    (utr.Role == TeamRole.Member &&
+                     utr.UserTeamRolePermissions.Any(p => p.UserTeamPermission.PermissionName == "CanEditTitle"))
+                )
+                .Select(utr => utr.TeamId)
+                .ToListAsync();
+
+            var titleTeamIds = title.Teams.Select(t => t.Id).ToList();
+            return userTeamIds.Intersect(titleTeamIds).Any();
+        }
+
+        /// <summary>
+        /// Get teams user can perform specific action on
+        /// </summary>
+        private async Task<List<int>> GetAuthorizedTeamIds(string userId, string permission)
+        {
+            // Admins can work with all teams
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user != null)
+            {
+                var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
+                if (isAdmin)
+                {
+                    return await _context.Teams.Select(t => t.Id).ToListAsync();
+                }
+            }
+
+            // Get teams where user has specific permission
+            var authorizedTeamIds = await _context.UserTeamRoles
+                .Where(utr => utr.AppUserId == userId)
+                .Where(utr =>
+                    // Team creators (owners) have all permissions
+                    utr.Team.CreatorId == userId ||
+                    // Team admins have all permissions
+                    utr.Role == TeamRole.Admin ||
+                    // Members with specific permission - UPDATED permission names
+                    (utr.Role == TeamRole.Member &&
+                     utr.UserTeamRolePermissions.Any(p => p.UserTeamPermission.PermissionName == permission))
+                )
+                .Select(utr => utr.TeamId)
+                .Distinct()
+                .ToListAsync();
+
+            return authorizedTeamIds;
+        }
+
+
+        // Add this method to AdminTitleController.cs
+
+        /// <summary>
+        /// Get all pending titles for admin review
+        /// GET: api/AdminTitle/PendingTitles
+        /// </summary>
+        [HttpGet("PendingTitles")]
+        public async Task<ActionResult<IEnumerable<object>>> GetPendingTitles()
+        {
+            try
+            {
+                var pendingTitles = await _context.PendingTitles
+                    .Include(t => t.Categories)
+                    .Include(t => t.Tags)
+                    .Include(t => t.Formats)
+                    .Include(t => t.Authors)
+                    .Include(t => t.Artists)
+                    .Include(t => t.Publishers)
+                    .Include(t => t.Teams)
+                    .Select(t => new
+                    {
+                        id = t.Id,
+                        originalTitle = t.OriginalTitle,
+                        englishTitle = t.EnglishTitle,
+                        alternativeNames = t.AlternativeNames,
+                        releaseDate = t.ReleaseDate,
+                        description = t.Description,
+                        statusTitle = t.StatusTitle,
+                        statusTranslation = t.StatusTranslation,
+                        type = t.Type,
+                        ageRestriction = t.AgeRestriction,
+                        externalLinks = t.ExternalLinksSerialized,
+                        coverImagePath = t.CoverImagePath,
+                        backgroundImagePath = t.BackgroundImagePath,
+                        createdAt = t.CreatedAt,
+                        createdByUserId = t.CreatedByUserId,
+                        categories = t.Categories.Select(c => new { id = c.Id, name = c.Name }),
+                        tags = t.Tags.Select(tag => new { id = tag.Id, name = tag.Name }),
+                        formats = t.Formats.Select(f => new { id = f.Id, name = f.Name }),
+                        authors = t.Authors.Select(a => new { id = a.Id, name = a.Name }),
+                        artists = t.Artists.Select(a => new { id = a.Id, name = a.Name }),
+                        publishers = t.Publishers.Select(p => new { id = p.Id, name = p.Name }),
+                        teams = t.Teams.Select(team => new { id = team.Id, name = team.Name })
+                    })
+                    .OrderByDescending(t => t.createdAt)
+                    .ToListAsync();
+
+                return Ok(pendingTitles);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching pending titles");
+                return StatusCode(500, new { message = "Error fetching pending titles", error = ex.Message });
+            }
+        }
+
+
+        /// <summary>
+        /// Get pending title changes for review
+        /// GET: api/AdminTitle/PendingChanges
+        /// </summary>
+        [HttpGet("PendingChanges")]
+        public async Task<ActionResult<IEnumerable<object>>> GetPendingChanges()
+        {
+            try
+            {
+                var pendingChanges = await _context.TitleChangeLogs
+                    .Where(tc => tc.Status == ChangeLogStatus.Pending)
+                    .Include(tc => tc.Title)
+                    .Include(tc => tc.UpdatedByUser)
+                    .OrderByDescending(tc => tc.CreatedAt)
+                    .GroupBy(tc => tc.TitleId)
+                    .Select(g => new
+                    {
+                        TitleId = g.Key,
+                        TitleName = g.First().Title.OriginalTitle,
+                        TitleEnglishName = g.First().Title.EnglishTitle,
+                        ChangeCount = g.Count(),
+                        SubmittedBy = g.First().UpdatedByUser.UserName,
+                        SubmittedAt = g.First().CreatedAt,
+                        Changes = g.Select(tc => new
+                        {
+                            tc.Id,
+                            tc.ChangeType,
+                            tc.OldValue,
+                            tc.NewValue
+                        }).ToList()
+                    })
+                    .ToListAsync();
+
+                return Ok(pendingChanges);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching pending changes");
+                return StatusCode(500, new { message = "Error fetching pending changes", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Get pending changes for a specific title
+        /// GET: api/AdminTitle/PendingChanges/{titleId}
+        /// </summary>
+        [HttpGet("PendingChanges/{titleId}")]
+        public async Task<ActionResult<object>> GetPendingChangesForTitle(int titleId)
+        {
+            try
+            {
+                var changes = await _context.TitleChangeLogs
+                    .Where(tc => tc.TitleId == titleId && tc.Status == ChangeLogStatus.Pending)
+                    .Include(tc => tc.Title)
+                    .Include(tc => tc.UpdatedByUser)
+                    .OrderBy(tc => tc.CreatedAt)
+                    .Select(tc => new
+                    {
+                        tc.Id,
+                        tc.ChangeType,
+                        tc.OldValue,
+                        tc.NewValue,
+                        tc.CreatedAt,
+                        UpdatedBy = tc.UpdatedByUser.UserName
+                    })
+                    .ToListAsync();
+
+                if (!changes.Any())
+                {
+                    return NotFound(new { message = "No pending changes found for this title" });
+                }
+
+                var title = await _context.Titles.FindAsync(titleId);
+
+                return Ok(new
+                {
+                    TitleId = titleId,
+                    TitleName = title?.OriginalTitle,
+                    Changes = changes
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching pending changes for title {TitleId}", titleId);
+                return StatusCode(500, new { message = "Error fetching pending changes", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Approve all pending changes for a title
+        /// POST: api/AdminTitle/ApproveChanges/{titleId}
+        /// </summary>
+        [HttpPost("ApproveChanges/{titleId}")]
+        public async Task<ActionResult> ApproveAllChanges(int titleId, [FromBody] ApproveChangesRequest request)
+        {
+            try
+            {
+                var adminUser = await _userManager.GetUserAsync(User);
+                if (adminUser == null)
+                {
+                    return Unauthorized();
+                }
+
+                var pendingChanges = await _context.TitleChangeLogs
+                    .Where(tc => tc.TitleId == titleId && tc.Status == ChangeLogStatus.Pending)
+                    .Include(tc => tc.Title)
+                        .ThenInclude(t => t.Categories)
+                    .Include(tc => tc.Title)
+                        .ThenInclude(t => t.Tags)
+                    .Include(tc => tc.Title)
+                        .ThenInclude(t => t.Formats)
+                    .Include(tc => tc.Title)
+                        .ThenInclude(t => t.Authors)
+                    .Include(tc => tc.Title)
+                        .ThenInclude(t => t.Artists)
+                    .Include(tc => tc.Title)
+                        .ThenInclude(t => t.Publishers)
+                    .Include(tc => tc.Title)
+                        .ThenInclude(t => t.Teams)
+                    .ToListAsync();
+
+                if (!pendingChanges.Any())
+                {
+                    return NotFound(new { message = "No pending changes found for this title" });
+                }
+
+                var title = pendingChanges.First().Title;
+                var appliedChanges = new List<string>();
+
+                using var transaction = await _context.Database.BeginTransactionAsync();
+
+                try
+                {
+                    foreach (var change in pendingChanges)
+                    {
+                        // Apply the change based on type
+                        switch (change.ChangeType)
+                        {
+                            case "Original Title":
+                                title.OriginalTitle = change.NewValue;
+                                break;
+                            case "English Title":
+                                title.EnglishTitle = change.NewValue;
+                                break;
+                            case "Description":
+                                title.Description = change.NewValue;
+                                break;
+                            case "Alternative Names":
+                                title.AlternativeNames = change.NewValue;
+                                break;
+                            case "Release Date":
+                                title.ReleaseDate = change.NewValue;
+                                break;
+                            case "Status":
+                                title.StatusTitle = change.NewValue;
+                                break;
+                            case "Translation Status":
+                                title.StatusTranslation = change.NewValue;
+                                break;
+                            case "Type":
+                                if (Enum.TryParse<MangaType>(change.NewValue, out var mangaType))
+                                {
+                                    title.Type = mangaType;
+                                }
+                                break;
+                            case "Age Restriction":
+                                if (int.TryParse(change.NewValue, out var ageRestriction))
+                                {
+                                    title.AgeRestriction = ageRestriction;
+                                }
+                                break;
+                            case "Cover Image":
+                                title.CoverImagePath = change.NewValue;
+                                break;
+                            case "Background Image":
+                                title.BackgroundImagePath = change.NewValue;
+                                break;
+                            case "Authors":
+                                var authorIds = change.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                    .Select(int.Parse).ToList();
+                                var authors = await _context.Set<Author>().Where(a => authorIds.Contains(a.Id)).ToListAsync();
+                                title.Authors.Clear();
+                                foreach (var author in authors)
+                                {
+                                    title.Authors.Add(author);
+                                }
+                                break;
+                            case "Artists":
+                                var artistIds = change.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                    .Select(int.Parse).ToList();
+                                var artists = await _context.Set<Artist>().Where(a => artistIds.Contains(a.Id)).ToListAsync();
+                                title.Artists.Clear();
+                                foreach (var artist in artists)
+                                {
+                                    title.Artists.Add(artist);
+                                }
+                                break;
+                            case "Publishers":
+                                var publisherIds = change.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                    .Select(int.Parse).ToList();
+                                var publishers = await _context.Set<Publisher>().Where(p => publisherIds.Contains(p.Id)).ToListAsync();
+                                title.Publishers.Clear();
+                                foreach (var publisher in publishers)
+                                {
+                                    title.Publishers.Add(publisher);
+                                }
+                                break;
+                            case "Teams":
+                                var teamIds = change.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                    .Select(int.Parse).ToList();
+                                var teams = await _context.Set<Team>().Where(t => teamIds.Contains(t.Id)).ToListAsync();
+                                title.Teams.Clear();
+                                foreach (var team in teams)
+                                {
+                                    title.Teams.Add(team);
+                                }
+                                break;
+                            case "Categories":
+                                var categoryIds = change.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                    .Select(int.Parse).ToList();
+                                var categories = await _context.Set<Category>().Where(c => categoryIds.Contains(c.Id)).ToListAsync();
+                                title.Categories.Clear();
+                                foreach (var category in categories)
+                                {
+                                    title.Categories.Add(category);
+                                }
+                                break;
+                            case "Tags":
+                                var tagIds = change.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                    .Select(int.Parse).ToList();
+                                var tags = await _context.Set<Tag>().Where(t => tagIds.Contains(t.Id)).ToListAsync();
+                                title.Tags.Clear();
+                                foreach (var tag in tags)
+                                {
+                                    title.Tags.Add(tag);
+                                }
+                                break;
+                            case "Formats":
+                                var formatIds = change.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                    .Select(int.Parse).ToList();
+                                var formats = await _context.Set<Format>().Where(f => formatIds.Contains(f.Id)).ToListAsync();
+                                title.Formats.Clear();
+                                foreach (var format in formats)
+                                {
+                                    title.Formats.Add(format);
+                                }
+                                break;
+                            case "External Links":
+                                title.ExternalLinksSerialized = change.NewValue;
+                                break;
+                        }
+
+                        // Update change log status
+                        change.Status = ChangeLogStatus.Approved;
+                        change.ReviewedByUserId = adminUser.Id;
+                        change.ReviewedAt = DateTime.UtcNow;
+                        change.AdminComment = request?.AdminComment ?? "";
+
+                        // Create approved change record
+                        var approvedChange = new ApprovedTitleChange
+                        {
+                            TitleId = titleId,
+                            UpdatedByUserId = change.UpdatedByUserId,
+                            ReviewedByUserId = adminUser.Id,
+                            CreatedAt = change.CreatedAt,
+                            ApprovedAt = DateTime.UtcNow,
+                            ChangeType = change.ChangeType,
+                            OldValue = change.OldValue,
+                            NewValue = change.NewValue,
+                            AdminComment = request?.AdminComment ?? "",
+                            IsAutoApproved = false
+                        };
+
+                        _context.ApprovedTitleChanges.Add(approvedChange);
+                        appliedChanges.Add(change.ChangeType);
+                    }
+
+                    _context.Titles.Update(title);
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    _logger.LogInformation("Approved {ChangeCount} changes for title {TitleId} by admin {AdminId}",
+                        appliedChanges.Count, titleId, adminUser.Id);
+
+                    return Ok(new
+                    {
+                        message = $"Successfully approved {appliedChanges.Count} changes",
+                        appliedChanges = appliedChanges,
+                        titleId = titleId
+                    });
+                }
+                catch (Exception)
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error approving changes for title {TitleId}", titleId);
+                return StatusCode(500, new { message = "Error approving changes", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Reject all pending changes for a title
+        /// POST: api/AdminTitle/RejectChanges/{titleId}
+        /// </summary>
+        [HttpPost("RejectChanges/{titleId}")]
+        public async Task<ActionResult> RejectAllChanges(int titleId, [FromBody] RejectChangesRequest request)
+        {
+            try
+            {
+                var adminUser = await _userManager.GetUserAsync(User);
+                if (adminUser == null)
+                {
+                    return Unauthorized();
+                }
+
+                var pendingChanges = await _context.TitleChangeLogs
+                    .Where(tc => tc.TitleId == titleId && tc.Status == ChangeLogStatus.Pending)
+                    .ToListAsync();
+
+                if (!pendingChanges.Any())
+                {
+                    return NotFound(new { message = "No pending changes found for this title" });
+                }
+
+                foreach (var change in pendingChanges)
+                {
+                    change.Status = ChangeLogStatus.Rejected;
+                    change.ReviewedByUserId = adminUser.Id;
+                    change.ReviewedAt = DateTime.UtcNow;
+                    change.RejectionReason = request.RejectionReason ?? "Changes not approved";
+                    change.AdminComment = request.AdminComment ?? "";
+
+                    // Create rejected change record
+                    var rejectedChange = new RejectedTitleChange
+                    {
+                        TitleId = titleId,
+                        UpdatedByUserId = change.UpdatedByUserId,
+                        ReviewedByUserId = adminUser.Id,
+                        CreatedAt = change.CreatedAt,
+                        RejectedAt = DateTime.UtcNow,
+                        ChangeType = change.ChangeType,
+                        OldValue = change.OldValue,
+                        NewValue = change.NewValue,
+                        AdminComment = request.AdminComment ?? "",
+                        RejectionReason = request.RejectionReason ?? "Changes not approved"
+                    };
+
+                    _context.RejectedTitleChanges.Add(rejectedChange);
+                }
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Rejected {ChangeCount} changes for title {TitleId} by admin {AdminId}",
+                    pendingChanges.Count, titleId, adminUser.Id);
+
+                return Ok(new
+                {
+                    message = $"Successfully rejected {pendingChanges.Count} changes",
+                    rejectedCount = pendingChanges.Count,
+                    titleId = titleId
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error rejecting changes for title {TitleId}", titleId);
+                return StatusCode(500, new { message = "Error rejecting changes", error = ex.Message });
+            }
+        }
+
+        // Request models
+        public class ApproveChangesRequest
+        {
+            public string? AdminComment { get; set; }
+        }
+
+        public class RejectChangesRequest
+        {
+            public string RejectionReason { get; set; } = "Changes not approved";
+            public string? AdminComment { get; set; }
+        }
+
         public class UpdateTitleRequest
         {
             public int Id { get; set; }
@@ -759,27 +1593,42 @@ namespace FallenFaction.Server.Controllers.Api
             {
                 var userId = _userManager.GetUserId(User);
 
-                // Only create change log if the tables exist in your database
+                // Validate user exists
+                if (string.IsNullOrEmpty(userId))
+                {
+                    _logger.LogWarning("Cannot create change log entry - user not authenticated");
+                    return;
+                }
+
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null)
+                {
+                    _logger.LogWarning("Cannot create change log entry - user {UserId} not found", userId);
+                    return;
+                }
+
                 if (_context.Model.FindEntityType(typeof(TitleChangeLog)) != null)
                 {
                     var changeLog = new TitleChangeLog
                     {
                         TitleId = titleId,
                         ChangeType = changeType,
-                        OldValue = oldValue,
-                        NewValue = newValue,
+                        OldValue = oldValue ?? "",  // Ensure not null
+                        NewValue = newValue ?? "",  // Ensure not null
                         CreatedAt = DateTime.UtcNow,
                         UpdatedByUserId = userId,
                         ReviewedByUserId = userId,
                         ReviewedAt = DateTime.UtcNow,
-                        AdminComment = adminComment,
+                        AdminComment = adminComment ?? "",
                         RejectionReason = string.Empty,
                         Status = ChangeLogStatus.Approved
                     };
 
                     _context.TitleChangeLogs.Add(changeLog);
+                    await _context.SaveChangesAsync(); // Save immediately to ensure it's persisted
                 }
 
+                // Also save to ApprovedTitleChange table
                 if (_context.Model.FindEntityType(typeof(ApprovedTitleChange)) != null)
                 {
                     var approvedChange = new ApprovedTitleChange
@@ -790,24 +1639,25 @@ namespace FallenFaction.Server.Controllers.Api
                         CreatedAt = DateTime.UtcNow,
                         ApprovedAt = DateTime.UtcNow,
                         ChangeType = changeType,
-                        OldValue = oldValue,
-                        NewValue = newValue,
-                        AdminComment = adminComment,
+                        OldValue = oldValue ?? "",
+                        NewValue = newValue ?? "",
+                        AdminComment = adminComment ?? "",
                         IsAutoApproved = true
                     };
 
                     _context.ApprovedTitleChanges.Add(approvedChange);
+                    await _context.SaveChangesAsync();
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Could not create change log entry - tables may not exist");
+                _logger.LogError(ex, "Error creating change log entry for title {TitleId}", titleId);
                 // Don't throw - this is optional functionality
             }
         }
 
         // Request DTOs
-        public class RejectTitleRequest
+        public class AdminRejectTitleRequest
         {
             public int Id { get; set; }
             public string Reason { get; set; } = string.Empty;
@@ -823,7 +1673,4 @@ namespace FallenFaction.Server.Controllers.Api
             public int Id { get; set; }
         }
     }
-
-    // Note: TitleApiController already exists in your project at FallenFaction.Server.Controllers.TitleApiController
-    // This AdminTitleController handles admin-specific operations only
 }

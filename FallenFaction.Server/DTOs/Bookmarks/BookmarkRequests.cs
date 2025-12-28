@@ -49,4 +49,15 @@ namespace FallenFaction.Server.DTOs.Bookmarks
         [Required]
         public int ChapterNumber { get; set; }
     }
+
+    // NEW: Add this class for updating bookmark status
+    public class UpdateBookmarkStatusRequest
+    {
+        [Required]
+        public int TitleId { get; set; }
+
+        [Required]
+        [StringLength(50)]
+        public string Status { get; set; } = string.Empty; // "reading", "completed", "on-hold", "plan-to-read", "dropped"
+    }
 }

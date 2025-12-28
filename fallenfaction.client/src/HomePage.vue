@@ -1,229 +1,244 @@
 <template>
-  <div class="home-page">
-    <!-- Carousel Section -->
-    <section class="content-section carousel-section">
-      <div class="carousel-container"
-           @mouseenter="showArrows = true"
-           @mouseleave="showArrows = false">
-        <!-- Left Arrow -->
-        <div class="carousel-arrow carousel-arrow-left"
-             :class="{ 'show': showArrows }"
-             @click="scrollCarousel(-1)">
-          <svg viewBox="0 0 320 512">
-            <path fill="currentColor" d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l192 192c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L77.3 256 246.6 86.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-192 192z"></path>
-          </svg>
-        </div>
-
-        <!-- Right Arrow -->
-        <div class="carousel-arrow carousel-arrow-right"
-             :class="{ 'show': showArrows }"
-             @click="scrollCarousel(1)">
-          <svg viewBox="0 0 320 512">
-            <path fill="currentColor" d="M310.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-192 192c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L242.7 256 73.4 86.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l192 192z"></path>
-          </svg>
-        </div>
-
-        <!-- Scrollable Container -->
-        <div class="carousel-scroll-container"
-             ref="carouselContainer"
-             @touchstart="handleTouchStart"
-             @touchmove="handleTouchMove"
-             @touchend="handleTouchEnd">
-          <div v-for="manga in topTitles" :key="'carousel-' + manga.id" class="manga-carousel-card">
-            <router-link :to="getTitleUrl(manga.originalTitle)" class="manga-link">
-              <div class="manga-cover">
-                <img :src="getImageUrl(manga.coverImagePath)"
-                     :alt="manga.originalTitle"
-                     @load="onImageLoad(manga.originalTitle, manga.coverImagePath)"
-                     @error="onImageError(manga.originalTitle, manga.coverImagePath)" />
-                <div v-if="manga.latestChapter" class="chapter-badge">
-                  Chapter {{ manga.latestChapter }}
-                </div>
-              </div>
-            </router-link>
-            <router-link :to="getTitleUrl(manga.originalTitle)" class="manga-caption">
-              <div class="manga-title">{{ manga.originalTitle }}</div>
-              <div class="manga-type">{{ getMangaType(manga.type) }}</div>
-            </router-link>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Weekly Featured Section -->
-    <h2 class="section-title">Weekly Featured</h2>
-    <section class="content-section">
-      <div v-if="loading.featured" class="loading-container">
-        <div class="loading-spinner"></div>
-        <span>Loading featured titles...</span>
-      </div>
-      <div v-else-if="error.featured" class="error-container">
-        <p>{{ error.featured }}</p>
-        <button @click="fetchFeaturedManga" class="retry-button">Try Again</button>
-      </div>
-      <div v-else class="manga-grid">
-        <div v-for="manga in featuredManga" :key="'featured-' + manga.id" class="manga-card">
+  <!-- Carousel Section -->
+  <section class="carousel-section">
+    <Carousel v-if="topTitles && topTitles.length > 0"
+              :opts="{
+            align: 'start',
+            loop: true,
+            dragFree: true,
+            containScroll: false,
+            watchDrag: true,
+            skipSnaps: true,
+            friction: 0.3,
+            dragThreshold: 15,
+          }"
+              class="w-full">
+      <CarouselContent class="-ml-4">
+        <CarouselItem v-for="manga in topTitles"
+                      :key="'carousel-' + manga.id"
+                      class="pl-4 basis-1/4 md:basis-1/4 lg:basis-1/5 xl:basis-1/11">
           <router-link :to="getTitleUrl(manga.originalTitle)" class="manga-link">
-            <div class="manga-cover">
+            <div class="manga-cover-container">
               <img :src="getImageUrl(manga.coverImagePath)"
                    :alt="manga.originalTitle"
+                   class="manga-cover-img"
                    @load="onImageLoad(manga.originalTitle, manga.coverImagePath)"
                    @error="onImageError(manga.originalTitle, manga.coverImagePath)" />
               <div v-if="manga.latestChapter" class="chapter-badge">
-                {{ manga.latestChapter }}
+                Chapter {{ manga.latestChapter }}
               </div>
             </div>
-            <div class="manga-info-below">
-              <h3 class="manga-title">{{ manga.originalTitle }}</h3>
-              <div class="manga-type">{{ getMangaType(manga.type) }}</div>
+            <div class="carousel-manga-info">
+              <div class="carousel-manga-title">{{ manga.originalTitle }}</div>
+              <div class="carousel-manga-type">{{ getMangaType(manga.type) }}</div>
             </div>
           </router-link>
-        </div>
-      </div>
-    </section>
+        </CarouselItem>
+      </CarouselContent>
+    </Carousel>
+    <div v-else class="loading-container">
+      <Spinner class="size-10 text-primary" />
+    </div>
+  </section>
+  <div class="home-page">
 
-    <!-- Top Users and Top Teams Row -->
-    <div class="dual-section-container">
-      <div class="dual-section-row">
-        <!-- Top Users Section -->
-        <div class="section-wrapper">
-          <h2 class="section-title">Top Users</h2>
-          <section class="content-section users-section">
-            <div v-if="loading.users" class="loading-container-small">
-              <div class="loading-spinner-small"></div>
-              <span>Loading users...</span>
-            </div>
-            <div v-else-if="error.users" class="error-container-small">
-              <p>{{ error.users }}</p>
-              <button @click="fetchTopUsers" class="retry-button-small">Retry</button>
-            </div>
-            <div v-else class="users-grid">
-              <div v-for="user in topUsers" :key="user.id" class="user-card">
-                <div class="user-avatar">
-                  <img :src="getImageUrl(user.avatar)"
-                       :alt="user.name"
-                       @load="onImageLoad(user.name, user.avatar)"
-                       @error="onImageError(user.name, user.avatar)" />
-                </div>
-                <div class="user-info">
-                  <div class="user-name">{{ user.name }}</div>
-                  <div class="user-level">lvl {{ user.level }}</div>
-                </div>
-                <div class="user-score">{{ user.score }}</div>
-              </div>
-            </div>
-          </section>
-        </div>
+    <Card class="main-container">
+      <CardContent class="pt-6">
 
-        <!-- Top Teams Section -->
-        <div class="section-wrapper">
-          <h2 class="section-title">Top Teams</h2>
-          <section class="content-section teams-section">
-            <div v-if="loading.teams" class="loading-container-small">
-              <div class="loading-spinner-small"></div>
-              <span>Loading teams...</span>
-            </div>
-            <div v-else-if="error.teams" class="error-container-small">
-              <p>{{ error.teams }}</p>
-              <button @click="fetchTopTeams" class="retry-button-small">Retry</button>
-            </div>
-            <div v-else class="teams-grid">
-              <div v-for="team in topTeams" :key="team.id" class="team-card">
-                <div class="team-rank">#{{ team.id }}</div>
-                <div class="team-avatar">
-                  <img :src="getImageUrl(team.avatar)"
-                       :alt="team.name"
-                       @load="onImageLoad(team.name, team.avatar)"
-                       @error="onImageError(team.name, team.avatar)" />
-                </div>
-                <div class="team-info">
-                  <div class="team-name">{{ team.name }}</div>
-                  <div class="team-level">lvl {{ team.level }}</div>
-                </div>
-                <div class="team-progress-container">
-                  <div class="team-progress">
-                    <div class="progress-bar" :style="{ width: team.progress + '%' }"></div>
+
+        <!-- Weekly Featured Section -->
+        <section class="content-section">
+          <h2 class="section-title">Weekly Featured</h2>
+          <div v-if="loading.featured" class="loading-container">
+            <Spinner class="size-10 text-primary" />
+          </div>
+          <div v-else-if="error.featured" class="error-container">
+            <p>{{ error.featured }}</p>
+            <button @click="fetchFeaturedManga" class="retry-button">Try Again</button>
+          </div>
+          <div v-else class="manga-grid">
+            <div v-for="manga in featuredManga" :key="'featured-' + manga.id" class="manga-card">
+              <router-link :to="getTitleUrl(manga.originalTitle)" class="manga-link">
+                <div class="manga-cover">
+                  <img :src="getImageUrl(manga.coverImagePath)"
+                       :alt="manga.originalTitle"
+                       @load="onImageLoad(manga.originalTitle, manga.coverImagePath)"
+                       @error="onImageError(manga.originalTitle, manga.coverImagePath)" />
+                  <div v-if="manga.latestChapter" class="chapter-badge">
+                    {{ manga.latestChapter }}
                   </div>
                 </div>
-                <div class="team-score">{{ team.score }}</div>
-              </div>
-            </div>
-          </section>
-        </div>
-      </div>
-    </div>
-
-    <!-- Top Titles Section -->
-    <h2 class="section-title">Top Titles</h2>
-    <section class="content-section">
-      <div v-if="loading.topTitles" class="loading-container">
-        <div class="loading-spinner"></div>
-        <span>Loading top titles...</span>
-      </div>
-      <div v-else-if="error.topTitles" class="error-container">
-        <p>{{ error.topTitles }}</p>
-        <button @click="fetchTopTitles" class="retry-button">Try Again</button>
-      </div>
-      <div v-else class="manga-grid large-grid">
-        <div v-for="manga in topTitles" :key="'top-' + manga.id" class="manga-card">
-          <router-link :to="getTitleUrl(manga.originalTitle)" class="manga-link">
-            <div class="manga-cover">
-              <img :src="getImageUrl(manga.coverImagePath)"
-                   :alt="manga.originalTitle"
-                   @load="onImageLoad(manga.originalTitle, manga.coverImagePath)"
-                   @error="onImageError(manga.originalTitle, manga.coverImagePath)" />
-              <div v-if="manga.latestChapter" class="chapter-badge">
-                {{ manga.latestChapter }}
-              </div>
-            </div>
-            <div class="manga-info-below">
-              <h3 class="manga-title">{{ manga.originalTitle }}</h3>
-              <div class="manga-type">{{ getMangaType(manga.type) }}</div>
-            </div>
-          </router-link>
-        </div>
-      </div>
-    </section>
-
-    <!-- Last Updates Section -->
-    <h2 class="section-title">Last Updates</h2>
-    <section class="content-section">
-      <div v-if="loading.updates" class="loading-container">
-        <div class="loading-spinner"></div>
-        <span>Loading recent updates...</span>
-      </div>
-      <div v-else-if="error.updates" class="error-container">
-        <p>{{ error.updates }}</p>
-        <button @click="fetchLastUpdates" class="retry-button">Try Again</button>
-      </div>
-      <div v-else class="updates-list">
-        <div v-for="update in lastUpdates" :key="update.id" class="update-card">
-          <div class="update-cover">
-            <img :src="getImageUrl(update.coverImagePath)"
-                 :alt="update.originalTitle"
-                 @load="onImageLoad(update.originalTitle, update.coverImagePath)"
-                 @error="onImageError(update.originalTitle, update.coverImagePath)" />
-          </div>
-          <div class="update-info">
-            <h4 class="update-title">{{ update.originalTitle }}</h4>
-            <p class="update-description">{{ update.description }}</p>
-            <div class="update-meta">
-              <span class="update-team">{{ update.teamName }}</span>
+                <div class="manga-info-below">
+                  <h3 class="manga-title">{{ manga.originalTitle }}</h3>
+                  <div class="manga-type">{{ getMangaType(manga.type) }}</div>
+                </div>
+              </router-link>
             </div>
           </div>
-          <div class="update-time">{{ update.timeAgo }}</div>
+        </section>
+
+        <!-- Top Users and Top Teams Row -->
+        <div class="dual-section-container">
+          <div class="dual-section-row">
+            <!-- Top Users Section -->
+            <div class="section-wrapper">
+              <h2 class="section-title">Top Users</h2>
+              <section class="sub-section users-section">
+                <div v-if="loading.users" class="loading-container-small">
+                  <Spinner class="size-6 text-primary" />
+                </div>
+                <div v-else-if="error.users" class="error-container-small">
+                  <p>{{ error.users }}</p>
+                  <button @click="fetchTopUsers" class="retry-button-small">Retry</button>
+                </div>
+                <div v-else class="users-grid">
+                  <div v-for="user in topUsers" :key="user.id" class="user-card">
+                    <div class="user-avatar">
+                      <img :src="getImageUrl(user.avatar)"
+                           :alt="user.name"
+                           @load="onImageLoad(user.name, user.avatar)"
+                           @error="onImageError(user.name, user.avatar)" />
+                    </div>
+                    <div class="user-info">
+                      <div class="user-name">{{ user.name }}</div>
+                      <div class="user-level">lvl {{ user.level }}</div>
+                    </div>
+                    <div class="user-score">{{ user.score }}</div>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <!-- Top Teams Section -->
+            <div class="section-wrapper">
+              <h2 class="section-title">Top Teams</h2>
+              <section class="sub-section teams-section">
+                <div v-if="loading.teams" class="loading-container-small">
+                  <Spinner class="size-6 text-primary" />
+                </div>
+                <div v-else-if="error.teams" class="error-container-small">
+                  <p>{{ error.teams }}</p>
+                  <button @click="fetchTopTeams" class="retry-button-small">Retry</button>
+                </div>
+                <div v-else-if="topTeams && topTeams.length > 0" class="teams-grid">
+                  <div v-for="team in topTeams" :key="team.id" class="team-card">
+                    <div class="team-rank">#{{ team.id }}</div>
+                    <div class="team-avatar">
+                      <img :src="getImageUrl(team.avatar)"
+                           :alt="team.name"
+                           @load="onImageLoad(team.name, team.avatar)"
+                           @error="onImageError(team.name, team.avatar)" />
+                    </div>
+                    <div class="team-info">
+                      <div class="team-name">{{ team.name }}</div>
+                      <div class="team-level">lvl {{ team.level }}</div>
+                    </div>
+                    <div class="team-progress-container">
+                      <div class="team-progress">
+                        <div class="progress-bar" :style="{ width: team.progress + '%' }"></div>
+                      </div>
+                    </div>
+                    <div class="team-score">{{ team.score }}</div>
+                  </div>
+                </div>
+                <div v-else class="empty-state">
+                  <p>No teams yet</p>
+                </div>
+              </section>
+            </div>
+          </div>
         </div>
-      </div>
-    </section>
+
+        <!-- Top Titles Section -->
+        <section class="content-section">
+          <h2 class="section-title">Top Titles</h2>
+          <div v-if="loading.topTitles" class="loading-container">
+            <Spinner class="size-10 text-primary" />
+          </div>
+          <div v-else-if="error.topTitles" class="error-container">
+            <p>{{ error.topTitles }}</p>
+            <button @click="fetchTopTitles" class="retry-button">Try Again</button>
+          </div>
+          <div v-else class="manga-grid large-grid">
+            <div v-for="manga in topTitles" :key="'top-' + manga.id" class="manga-card">
+              <router-link :to="getTitleUrl(manga.originalTitle)" class="manga-link">
+                <div class="manga-cover">
+                  <img :src="getImageUrl(manga.coverImagePath)"
+                       :alt="manga.originalTitle"
+                       @load="onImageLoad(manga.originalTitle, manga.coverImagePath)"
+                       @error="onImageError(manga.originalTitle, manga.coverImagePath)" />
+                  <div v-if="manga.latestChapter" class="chapter-badge">
+                    {{ manga.latestChapter }}
+                  </div>
+                </div>
+                <div class="manga-info-below">
+                  <h3 class="manga-title">{{ manga.originalTitle }}</h3>
+                  <div class="manga-type">{{ getMangaType(manga.type) }}</div>
+                </div>
+              </router-link>
+            </div>
+          </div>
+        </section>
+
+        <!-- Last Updates Section -->
+        <section class="content-section">
+          <h2 class="section-title">Last Updates</h2>
+          <div v-if="loading.updates" class="loading-container">
+            <Spinner class="size-10 text-primary" />
+          </div>
+          <div v-else-if="error.updates" class="error-container">
+            <p>{{ error.updates }}</p>
+            <button @click="fetchLastUpdates" class="retry-button">Try Again</button>
+          </div>
+          <div v-else class="updates-list">
+            <div v-for="update in lastUpdates" :key="update.id" class="update-card">
+              <div class="update-cover">
+                <img :src="getImageUrl(update.coverImagePath)"
+                     :alt="update.originalTitle"
+                     @load="onImageLoad(update.originalTitle, update.coverImagePath)"
+                     @error="onImageError(update.originalTitle, update.coverImagePath)" />
+              </div>
+              <div class="update-info">
+                <h4 class="update-title">{{ update.originalTitle }}</h4>
+                <p class="update-description">{{ update.description }}</p>
+                <div class="update-meta">
+                  <span class="update-team">{{ update.teamName }}</span>
+                </div>
+              </div>
+              <div class="update-time">{{ update.timeAgo }}</div>
+            </div>
+          </div>
+        </section>
+      </CardContent>
+    </Card>
   </div>
 </template>
 
 <script>
-  import { ref, reactive, computed, onMounted, nextTick, onUnmounted } from 'vue';
+  import { ref, reactive, onMounted } from 'vue';
   import { homepageService } from './services/homepageService';
+  import {
+    Carousel,
+    CarouselContent,
+    CarouselItem,
+    CarouselNext,
+    CarouselPrevious,
+  } from '@/components/ui/carousel';
+  import { Card, CardContent } from '@/components/ui/card';
+  import { Spinner } from '@/components/ui/spinner';
 
   export default {
     name: 'HomePage',
+    components: {
+      Carousel,
+      CarouselContent,
+      CarouselItem,
+      CarouselNext,
+      CarouselPrevious,
+      Card,
+      CardContent,
+      Spinner,
+    },
     setup() {
       // Reactive data
       const featuredManga = ref([]);
@@ -250,111 +265,52 @@
         updates: ''
       });
 
-      // Carousel state
-      const showArrows = ref(false);
-      const carouselContainer = ref(null);
-      const isScrolling = ref(false);
-      const isManualScrolling = ref(false);
-      const scrollTimeout = ref(null);
-      const screenWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1200);
-
-      // Carousel configuration
-      const carouselConfig = {
-        itemsPerSlide: 7,
-        tabletItemsPerSlide: 4,
-        mobileItemsPerSlide: 4,
-        autoplayInterval: 5000,
-        enableLoop: true,
-        enableAutoplay: false
+      // Helper functions
+      const getMangaType = (type) => {
+        const types = {
+          0: 'Manga',
+          1: 'Manhwa',
+          2: 'Manhua',
+          3: 'Comic',
+          4: 'Novel'
+        };
+        return types[type] || 'Unknown';
       };
 
-      // Computed properties
-      const currentItemsPerSlide = computed(() => {
-        if (screenWidth.value <= 480) {
-          return 2;
-        } else if (screenWidth.value <= 768) {
-          return carouselConfig.mobileItemsPerSlide;
-        } else if (screenWidth.value <= 1200) {
-          return carouselConfig.tabletItemsPerSlide;
-        } else {
-          return carouselConfig.itemsPerSlide;
+      const getImageUrl = (path) => {
+        if (!path) return '/img/default-cover.jpg';
+        if (path.startsWith('http://') || path.startsWith('https://')) {
+          return path;
         }
-      });
-
-      // Image URL helper methods
-      const getImageBaseUrl = () => {
-        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://localhost:7217/api';
-        return apiBaseUrl.replace('/api', ''); // Remove /api to get base server URL
+        return path.startsWith('/') ? path : `/${path}`;
       };
 
-
-      const getImageUrl = (imagePath) => {
-        if (!imagePath) {
-          console.log('No image path provided, using fallback');
-          return `${getImageBaseUrl()}/img/default-avatar.png`;
-        }
-
-        // Check if the path is already a full URL
-        if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-          console.log('🖼️ Using full URL as-is:', imagePath);
-          return imagePath;
-        }
-
-        // Check if it's a relative path that starts with /
-        const baseUrl = getImageBaseUrl();
-        const fullUrl = imagePath.startsWith('/')
-          ? `${baseUrl}${imagePath}`
-          : `${baseUrl}/${imagePath}`;
-
-        console.log('🖼️ Constructed image URL:', fullUrl);
-        return fullUrl;
+      const getTitleUrl = (titleName) => {
+        return `/${encodeURIComponent(titleName)}`;
       };
 
-      // Debug image loading events
       const onImageLoad = (title, path) => {
-        console.log('✅ Image loaded successfully:', title);
+        console.log(`Image loaded successfully: ${title}`);
       };
 
       const onImageError = (title, path) => {
-        console.error('❌ Image failed to load:', title);
-        console.error('Failed path:', path);
-        console.error('Full URL that failed:', getImageUrl(path));
+        console.error(`Failed to load image for: ${title}`, path);
       };
 
-      // API methods
+      // Data fetching functions
       const fetchFeaturedManga = async () => {
         loading.featured = true;
         error.featured = '';
         try {
-          console.log('🚀 Fetching featured manga...');
-          const result = await homepageService.getFeaturedManga();
-
-          if (result.success) {
-            featuredManga.value = result.data;
-
-            // Enhanced debugging
-            console.log('=== FEATURED MANGA DEBUG ===');
-            console.log('✅ API Base URL:', import.meta.env.VITE_API_BASE_URL);
-            console.log('✅ Image Base URL:', getImageBaseUrl());
-            console.log('✅ Items received:', result.data.length);
-
-            if (result.data.length > 0) {
-              const firstManga = result.data[0];
-              console.log('📖 First manga:', firstManga.originalTitle || firstManga.englishTitle);
-              console.log('🖼️ Cover path:', firstManga.coverImagePath);
-              console.log('🌐 Full image URL:', getImageUrl(firstManga.coverImagePath));
-
-              // Image accessibility will be verified by the img onLoad/onError events
-            }
-
-            console.log('============================');
+          const response = await homepageService.getFeaturedManga();
+          if (response.success) {
+            featuredManga.value = response.data || [];
           } else {
-            error.featured = result.error;
-            console.error('❌ API error:', result.error);
+            error.featured = response.error || 'Failed to load featured manga';
           }
         } catch (err) {
-          error.featured = 'Failed to load featured manga';
-          console.error('❌ Fetch error:', err);
+          console.error('Error fetching featured manga:', err);
+          error.featured = 'Failed to load featured manga. Please try again.';
         } finally {
           loading.featured = false;
         }
@@ -364,33 +320,17 @@
         loading.users = true;
         error.users = '';
         try {
-          const result = await homepageService.getTopUsers();
-          if (result.success) {
-            topUsers.value = result.data;
+          const response = await homepageService.getTopUsers();
+          if (response.success) {
+            topUsers.value = response.data || [];
           } else {
-            error.users = result.error;
+            error.users = response.error || 'Failed to load top users';
           }
         } catch (err) {
-          error.users = 'Failed to load top users';
+          console.error('Error fetching top users:', err);
+          error.users = 'Failed to load top users.';
         } finally {
           loading.users = false;
-        }
-      };
-
-      const fetchLastUpdates = async () => {
-        loading.updates = true;
-        error.updates = '';
-        try {
-          const result = await homepageService.getRecentUpdates();
-          if (result.success) {
-            lastUpdates.value = result.data;
-          } else {
-            error.updates = result.error;
-          }
-        } catch (err) {
-          error.updates = 'Failed to load recent updates';
-        } finally {
-          loading.updates = false;
         }
       };
 
@@ -398,14 +338,16 @@
         loading.teams = true;
         error.teams = '';
         try {
-          const result = await homepageService.getTopTeams();
-          if (result.success) {
-            topTeams.value = result.data;
+          const response = await homepageService.getTopTeams();
+          if (response.success) {
+            topTeams.value = response.data || [];
           } else {
-            error.teams = result.error;
+            error.teams = response.error || 'Failed to load top teams';
           }
         } catch (err) {
-          error.teams = 'Failed to load top teams';
+          console.error('Error fetching top teams:', err);
+          error.teams = 'Failed to load top teams.';
+          topTeams.value = [];
         } finally {
           loading.teams = false;
         }
@@ -415,185 +357,50 @@
         loading.topTitles = true;
         error.topTitles = '';
         try {
-          const result = await homepageService.getPopularTitles();
-          if (result.success) {
-            topTitles.value = result.data;
+          const response = await homepageService.getPopularTitles();
+          if (response.success) {
+            topTitles.value = response.data || [];
           } else {
-            error.topTitles = result.error;
+            error.topTitles = response.error || 'Failed to load top titles';
           }
         } catch (err) {
-          error.topTitles = 'Failed to load top titles';
+          console.error('Error fetching top titles:', err);
+          error.topTitles = 'Failed to load top titles.';
         } finally {
           loading.topTitles = false;
         }
       };
 
-      // Carousel methods
-      const handleResize = () => {
-        if (typeof window !== 'undefined') {
-          screenWidth.value = window.innerWidth;
-        }
-      };
-
-      const scrollCarousel = (direction) => {
-        const container = carouselContainer.value;
-        if (!container) return;
-
-        isManualScrolling.value = true;
-        if (scrollTimeout.value) {
-          clearTimeout(scrollTimeout.value);
-        }
-
-        const cardWidth = 151;
-        const scrollAmount = cardWidth * 3;
-
-        if (direction === -1) {
-          const currentScroll = container.scrollLeft;
-          if (currentScroll <= scrollAmount) {
-            container.scrollTo({ left: 0, behavior: 'smooth' });
+      const fetchLastUpdates = async () => {
+        loading.updates = true;
+        error.updates = '';
+        try {
+          const response = await homepageService.getRecentUpdates();
+          if (response.success) {
+            lastUpdates.value = response.data || [];
           } else {
-            container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+            error.updates = response.error || 'Failed to load recent updates';
           }
-        } else {
-          const maxScroll = container.scrollWidth - container.clientWidth;
-          const currentScroll = container.scrollLeft;
-          if (currentScroll + scrollAmount >= maxScroll) {
-            container.scrollTo({ left: maxScroll, behavior: 'smooth' });
-          } else {
-            container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-          }
-        }
-
-        setTimeout(() => {
-          isManualScrolling.value = false;
-        }, 500);
-      };
-
-      const handleTouchStart = () => {
-        isScrolling.value = true;
-        isManualScrolling.value = false;
-        if (scrollTimeout.value) {
-          clearTimeout(scrollTimeout.value);
+        } catch (err) {
+          console.error('Error fetching last updates:', err);
+          error.updates = 'Failed to load recent updates.';
+        } finally {
+          loading.updates = false;
         }
       };
 
-      const handleTouchMove = () => {
-        isScrolling.value = true;
-        if (scrollTimeout.value) {
-          clearTimeout(scrollTimeout.value);
-        }
-      };
-
-      const handleTouchEnd = () => {
-        scrollTimeout.value = setTimeout(() => {
-          isScrolling.value = false;
-          if (!isManualScrolling.value) {
-            snapToNearestCard();
-          }
-        }, 150);
-      };
-
-      const handleScroll = () => {
-        if (isManualScrolling.value) return;
-
-        if (scrollTimeout.value) {
-          clearTimeout(scrollTimeout.value);
-        }
-
-        scrollTimeout.value = setTimeout(() => {
-          if (!isScrolling.value && !isManualScrolling.value) {
-            snapToNearestCard();
-          }
-        }, 150);
-      };
-
-      const snapToNearestCard = () => {
-        const container = carouselContainer.value;
-        if (!container) return;
-
-        const cardWidth = screenWidth.value <= 480 ? 132 : 151;
-        const scrollLeft = container.scrollLeft;
-        const containerWidth = container.clientWidth;
-        const maxScroll = container.scrollWidth - containerWidth;
-
-        if (scrollLeft <= 5) {
-          container.scrollTo({ left: 0, behavior: 'smooth' });
-          return;
-        }
-
-        if (scrollLeft >= maxScroll - 5) {
-          container.scrollTo({ left: maxScroll, behavior: 'smooth' });
-          return;
-        }
-
-        const visibleCardIndex = Math.round(scrollLeft / cardWidth);
-        const targetScrollLeft = visibleCardIndex * cardWidth;
-
-        if (Math.abs(scrollLeft - targetScrollLeft) > 10) {
-          container.scrollTo({
-            left: Math.max(0, Math.min(targetScrollLeft, maxScroll)),
-            behavior: 'smooth'
-          });
-        }
-      };
-
-      // Helper methods
-      const getMangaType = (type) => {
-        const types = {
-          0: 'Manga',
-          1: 'Manhwa',
-          2: 'Manhua',
-          3: 'Comic',
-          4: 'Novel'
-        };
-        return types[type] || 'Manga';
-      };
-
-      const getTitleUrl = (originalTitle) => {
-        return `/${encodeURIComponent(originalTitle)}`;
-      };
-
-      // Lifecycle hooks
+      // Initialize on mount
       onMounted(async () => {
-        // Add resize listener
-        if (typeof window !== 'undefined') {
-          window.addEventListener('resize', handleResize);
-        }
-
-        // Add scroll listener
-        await nextTick();
-        const container = carouselContainer.value;
-        if (container) {
-          container.addEventListener('scroll', handleScroll, { passive: true });
-        }
-
-        // Fetch all data
         await Promise.all([
           fetchFeaturedManga(),
           fetchTopUsers(),
-          fetchLastUpdates(),
           fetchTopTeams(),
-          fetchTopTitles()
+          fetchTopTitles(),
+          fetchLastUpdates()
         ]);
       });
 
-      onUnmounted(() => {
-        if (typeof window !== 'undefined') {
-          window.removeEventListener('resize', handleResize);
-        }
-
-        const container = carouselContainer.value;
-        if (container) {
-          container.removeEventListener('scroll', handleScroll);
-        }
-
-        if (scrollTimeout.value) {
-          clearTimeout(scrollTimeout.value);
-        }
-      });
-
       return {
-        // Data
         featuredManga,
         topUsers,
         lastUpdates,
@@ -601,29 +408,16 @@
         topTitles,
         loading,
         error,
-
-        // Carousel
-        showArrows,
-        carouselContainer,
-        currentItemsPerSlide,
-
-        // Methods
+        getMangaType,
+        getImageUrl,
+        getTitleUrl,
+        onImageLoad,
+        onImageError,
         fetchFeaturedManga,
         fetchTopUsers,
-        fetchLastUpdates,
         fetchTopTeams,
         fetchTopTitles,
-        scrollCarousel,
-        handleTouchStart,
-        handleTouchMove,
-        handleTouchEnd,
-        getMangaType,
-        getTitleUrl,
-
-        // Image methods
-        getImageUrl,
-        onImageLoad,
-        onImageError
+        fetchLastUpdates
       };
     }
   };
@@ -631,278 +425,178 @@
 
 <style scoped>
   .home-page {
+    width: 100%;
+    max-width: 100vw;
+    padding: 2rem 1rem 0 1rem;
     background-color: var(--color-background);
-    color: var(--color-text);
-    padding: 2rem 0 0 0;
-    min-height: 100vh;
-    outline: none;
-    border: none;
+    overflow-x: hidden;
   }
 
-  /* Loading and Error States */
-  .loading-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 3rem;
-    color: var(--color-text);
+  /* Main container card */
+  .main-container {
+    border-color: transparent;
   }
 
-  .loading-container-small {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-    color: var(--color-text);
+  /* Content sections inside the main card */
+  .content-section {
+    margin-bottom: 2rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid hsl(240 3.7% 15.9%);
   }
 
-  .loading-spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid var(--color-border);
-    border-top: 4px solid var(--color-text);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-bottom: 1rem;
-  }
-
-  .loading-spinner-small {
-    width: 24px;
-    height: 24px;
-    border: 3px solid var(--color-border);
-    border-top: 3px solid var(--color-text);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-bottom: 0.5rem;
-  }
-
-  @keyframes spin {
-    0% {
-      transform: rotate(0deg);
+    .content-section:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
     }
 
-    100% {
-      transform: rotate(360deg);
-    }
+  /* Sub-sections for users/teams */
+  .sub-section {
+    background-color: hsl(0 0% 15%);
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid hsl(240 3.7% 15.9%);
   }
 
-  .error-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 3rem;
-    color: var(--color-text);
-    text-align: center;
+  .section-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0 0 1rem 0;
+    color: var(--color-heading);
   }
 
-  .error-container-small {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-    color: var(--color-text);
-    text-align: center;
-  }
-
-  .retry-button,
-  .retry-button-small {
-    margin-top: 1rem;
-    padding: 0.5rem 1rem;
-    background-color: var(--color-accent, #8865fc);
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-  }
-
-    .retry-button:hover,
-    .retry-button-small:hover {
-      background-color: var(--color-accent-hover, #7c59d9);
-    }
-
-  /* Carousel Styling */
   .carousel-section {
-    margin-bottom: 0;
+    margin-bottom: 2rem;
+    padding: 2rem 0 2rem 0; 
+    overflow: visible;
   }
 
-  .carousel-container {
+  .manga-cover-container {
     position: relative;
-    background-color: var(--color-background-soft);
-    user-select: none;
-    min-height: 273px;
+    width: 100%;
+    aspect-ratio: 3/4;
+    overflow: hidden;
+    border-radius: 8px;
   }
 
-  .carousel-scroll-container {
-    display: flex;
-    gap: 16px;
-    padding: 12px 16px;
-    overflow-x: scroll;
-    overflow-y: hidden;
-    scroll-behavior: smooth;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-    -webkit-overflow-scrolling: touch;
-    will-change: scroll-position;
-    touch-action: pan-x;
-    overscroll-behavior-x: contain;
-    scroll-snap-type: x proximity;
+  .manga-cover-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
   }
 
-    .carousel-scroll-container::-webkit-scrollbar {
-      display: none;
-    }
+  .manga-link:hover .manga-cover-img {
+    transform: scale(1.05);
+  }
 
-  .carousel-arrow {
-    position: absolute;
-    top: 50%;
-    margin-top: -21px;
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    background: var(--color-background-soft);
-    box-shadow: rgba(0, 0, 0, 0.12) 0 1px 3px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    z-index: 10;
-    opacity: 0;
-    transition: all 0.3s ease;
+  .carousel-manga-info {
+    margin-top: 0.5rem;
+  }
+
+  .carousel-manga-title {
+    font-size: 0.85rem;
+    font-weight: 500;
     color: var(--color-text);
+    margin-bottom: 0.25rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
-    .carousel-arrow.show {
-      opacity: 1;
-    }
-
-    .carousel-arrow:hover {
-      box-shadow: rgba(0, 0, 0, 0.16) 0 3px 8px;
-    }
-
-  .carousel-arrow-left {
-    left: 15px;
+  .carousel-manga-type {
+    font-size: 0.75rem;
+    color: #999;
+    text-transform: uppercase;
   }
-
-    .carousel-arrow-left:hover {
-      transform: translateX(-3px);
-    }
-
-  .carousel-arrow-right {
-    right: 15px;
-  }
-
-    .carousel-arrow-right:hover {
-      transform: translateX(3px);
-    }
-
-  .carousel-arrow svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  .manga-carousel-card {
-    min-width: 135px;
-    width: 135px;
-    flex-shrink: 0;
-    display: block;
-    scroll-snap-align: center;
-    transition: transform 0.2s ease;
-    background: transparent !important;
-  }
-
-    .manga-carousel-card:hover {
-      background: transparent !important;
-      box-shadow: none !important;
-    }
-
-    .manga-carousel-card .manga-cover {
-      position: relative;
-      padding-top: 140%;
-      max-width: 100%;
-      border-radius: 6px;
-      overflow: hidden;
-      box-shadow: rgba(0, 0, 0, 0.12) 0 1px 3px;
-      background-color: var(--color-background-mute);
-    }
-
-      .manga-carousel-card .manga-cover:hover {
-        background: transparent !important;
-        box-shadow: rgba(0, 0, 0, 0.12) 0 1px 3px !important;
-      }
-
-      .manga-carousel-card .manga-cover img {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        border-radius: inherit;
-        opacity: 0;
-        transition: opacity 0.15s ease-in;
-      }
-
-        .manga-carousel-card .manga-cover img[src] {
-          opacity: 1;
-        }
-
-        .manga-carousel-card .manga-cover img:hover {
-          background: transparent !important;
-          box-shadow: none !important;
-        }
 
   .chapter-badge {
     position: absolute;
-    bottom: 6px;
-    left: 6px;
-    z-index: 3;
-    background: rgba(0, 0, 0, 0.7);
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
     color: white;
-    padding: 3px 6px;
+    padding: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-align: center;
+  }
+
+  /* Loading States */
+  .loading-container, .error-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    gap: 1rem;
+  }
+
+  .loading-container-small, .error-container-small {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    gap: 0.5rem;
+  }
+
+  .retry-button {
+    padding: 0.5rem 1rem;
+    background-color: hsl(142.1 70.6% 45.3%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+  }
+
+    .retry-button:hover {
+      background-color: hsl(142.1 76.2% 36.3%);
+    }
+
+  .retry-button-small {
+    padding: 0.4rem 0.8rem;
+    background-color: hsl(142.1 70.6% 45.3%);
+    color: white;
+    border: none;
     border-radius: 4px;
-    font-size: 12px;
-    white-space: nowrap;
-    width: auto;
-    display: inline-block;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background-color 0.2s;
   }
 
-  .manga-caption {
-    display: block;
-    padding-top: 6px;
-    max-height: 60px;
-    overflow: hidden;
-    color: var(--color-text);
-    text-decoration: none;
+    .retry-button-small:hover {
+      background-color: hsl(142.1 76.2% 36.3%);
+    }
+
+  .empty-state {
+    padding: 2rem;
+    text-align: center;
+    color: #999;
   }
 
-    .manga-caption:hover {
-      text-decoration: none;
-    }
+  /* Manga Grid */
+  .manga-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 135px);
+    gap: 1.5rem;
+    justify-content: center;
+  }
 
-    .manga-caption .manga-title {
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      word-break: break-word;
-      hyphens: auto;
-      line-height: 18px;
-      font-weight: 600;
-      font-size: 0.9rem;
-      margin: 0 0 2px 0;
-      color: var(--color-text);
-    }
+  .large-grid {
+    gap: 2rem;
+  }
 
-    .manga-caption .manga-type {
-      font-size: 13px;
-      color: #999;
-      display: flex;
-      gap: 10px;
+  .manga-card {
+    width: 135px;
+    transition: transform 0.2s;
+  }
+
+    .manga-card:hover {
+      transform: translateY(-4px);
     }
 
   .manga-link {
@@ -911,73 +605,58 @@
     display: block;
   }
 
-    .manga-link:hover {
-      text-decoration: none !important;
-      color: inherit !important;
-      background: transparent !important;
-      box-shadow: none !important;
+  .manga-cover {
+    position: relative;
+    width: 135px;
+    height: 189px;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+    .manga-cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.3s ease;
     }
 
-    .manga-link:focus {
-      outline: none !important;
-      box-shadow: none !important;
-      background: transparent !important;
-    }
+  .manga-link:hover .manga-cover img {
+    transform: scale(1.05);
+  }
 
   .manga-info-below {
-    padding-top: 6px;
-    max-height: 60px;
-    overflow: hidden;
+    margin-top: 0.5rem;
+  }
+
+  .manga-title {
+    font-size: 0.85rem;
+    font-weight: 500;
     color: var(--color-text);
-  }
-
-    .manga-info-below .manga-title {
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      word-break: break-word;
-      hyphens: auto;
-      line-height: 18px;
-      font-weight: 600;
-      font-size: 0.9rem;
-      margin: 0 0 2px 0;
-      color: var(--color-text);
-    }
-
-    .manga-info-below .manga-type {
-      font-size: 13px;
-      color: #999;
-      display: flex;
-      gap: 10px;
-    }
-
-  /* Section Styling */
-  .content-section {
-    background-color: var(--color-background-soft);
-    border-radius: 12px;
-    margin-bottom: 2rem;
+    margin-bottom: 0.25rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    border: 1px solid var(--color-border);
   }
 
-  .section-title {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: var(--color-heading);
-    margin: 0 0 1rem 0;
+  .manga-type {
+    font-size: 0.75rem;
+    color: #999;
+    text-transform: uppercase;
   }
 
-  /* Dual Section Container and Row */
+  /* Dual Section Container */
   .dual-section-container {
+    width: 100%;
     margin-bottom: 2rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid hsl(240 3.7% 15.9%);
   }
 
   .dual-section-row {
     display: grid;
-    grid-template-columns: 1fr 2fr;
-    gap: 1rem;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
   }
 
   .section-wrapper {
@@ -985,103 +664,29 @@
     flex-direction: column;
   }
 
-    .section-wrapper .section-title {
-      margin-bottom: 1rem;
-    }
-
-    .section-wrapper .content-section {
-      margin-bottom: 0;
-      flex: 1;
-    }
-
-  /* Manga Grid */
-  .manga-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, 135px);
-    gap: 1.5rem;
-    padding: 2rem;
-    justify-content: center;
-  }
-
-  .large-grid {
-    grid-template-columns: repeat(auto-fill, 135px);
-    gap: 2rem;
-  }
-
-  .manga-card {
-    background: transparent;
-    border-radius: 12px;
-    overflow: visible;
-    transition: transform 0.3s ease;
-    width: 135px;
-  }
-
-    /* Hover effect - only transform, no shadows or backgrounds */
-    .manga-card:hover {
-      transform: translateY(-8px);
-      background: transparent !important;
-      box-shadow: none !important;
-    }
-
-    .manga-card .manga-cover {
-      position: relative;
-      padding-top: 140%;
-      width: 135px;
-      overflow: hidden;
-      border-radius: 6px;
-      box-shadow: none;
-      background-color: var(--color-background-mute);
-    }
-
-      .manga-card .manga-cover img {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        border-radius: inherit;
-        opacity: 0;
-        transition: opacity 0.15s ease-in, transform 0.3s ease;
-      }
-
-        .manga-card .manga-cover img[src] {
-          opacity: 1;
-        }
-
-    /* Image hover effect - only transform, no shadows */
-    .manga-card:hover .manga-cover {
-      box-shadow: none !important;
-      background: transparent !important;
-    }
-
-      .manga-card:hover .manga-cover img {
-        transform: scale(1.05);
-      }
-
-  /* Users Section */
-  .users-section {
+  /* Users & Teams Sections */
+  .users-section, .teams-section {
     max-height: 600px;
   }
 
-  .users-grid {
-    padding: 1rem;
+  .users-grid, .teams-grid {
     max-height: 500px;
     overflow-y: auto;
   }
 
+  /* User Card */
   .user-card {
     display: flex;
     align-items: center;
     padding: 0.75rem;
-    margin-bottom: 0.5rem;
-    background-color: var(--color-background-mute);
+    margin-bottom: 0.75rem;
+    background-color: hsl(0 0% 9%);
     border-radius: 8px;
     transition: background-color 0.2s;
   }
 
     .user-card:hover {
-      background-color: var(--color-background);
+      background-color: hsl(0 0% 12%);
     }
 
   .user-avatar {
@@ -1089,7 +694,7 @@
     height: 40px;
     border-radius: 50%;
     overflow: hidden;
-    margin-right: 1rem;
+    margin-right: 0.75rem;
     flex-shrink: 0;
   }
 
@@ -1101,13 +706,13 @@
 
   .user-info {
     flex: 1;
+    margin-right: 0.5rem;
   }
 
   .user-name {
     font-size: 0.9rem;
     font-weight: 500;
     color: var(--color-text);
-    margin-bottom: 0.1rem;
   }
 
   .user-level {
@@ -1121,29 +726,19 @@
     font-weight: 500;
   }
 
-  /* Teams Section */
-  .teams-section {
-    max-height: 600px;
-  }
-
-  .teams-grid {
-    padding: 1rem;
-    max-height: 500px;
-    overflow-y: auto;
-  }
-
+  /* Team Card */
   .team-card {
     display: flex;
     align-items: center;
     padding: 1rem;
     margin-bottom: 1rem;
-    background-color: var(--color-background-mute);
+    background-color: hsl(0 0% 9%);
     border-radius: 10px;
     transition: background-color 0.2s;
   }
 
     .team-card:hover {
-      background-color: var(--color-background);
+      background-color: hsl(0 0% 12%);
     }
 
   .team-rank {
@@ -1177,7 +772,6 @@
     font-size: 1rem;
     font-weight: 500;
     color: var(--color-text);
-    margin-bottom: 0.1rem;
   }
 
   .team-level {
@@ -1199,7 +793,7 @@
 
   .progress-bar {
     height: 100%;
-    background: linear-gradient(90deg, #8865fc, #a78bfa);
+    background: linear-gradient(90deg, hsl(142.1 70.6% 45.3%), hsl(142.1 76.2% 36.3%));
     border-radius: 4px;
     transition: width 0.3s ease;
   }
@@ -1214,22 +808,20 @@
 
   /* Updates Section */
   .updates-list {
-    padding: 2rem;
-    max-height: none;
-    overflow-y: visible;
+    padding: 0;
   }
 
   .update-card {
     display: flex;
     padding: 1rem;
     margin-bottom: 1rem;
-    background-color: var(--color-background-mute);
+    background-color: hsl(0 0% 15%);
     border-radius: 10px;
     transition: background-color 0.2s;
   }
 
     .update-card:hover {
-      background-color: var(--color-background);
+      background-color: hsl(0 0% 18%);
     }
 
   .update-cover {
@@ -1277,7 +869,7 @@
 
   .update-team {
     font-size: 0.8rem;
-    color: #8865fc;
+    color: hsl(142.1 70.6% 45.3%);
     font-weight: 500;
   }
 
@@ -1298,12 +890,10 @@
     }
 
     .manga-grid {
-      grid-template-columns: repeat(auto-fill, 135px);
       gap: 1rem;
     }
 
     .large-grid {
-      grid-template-columns: repeat(auto-fill, 135px);
       gap: 1.5rem;
     }
   }
@@ -1314,14 +904,8 @@
     }
 
     .manga-grid, .large-grid {
-      grid-template-columns: repeat(auto-fill, 135px);
       gap: 1rem;
-      padding: 1rem;
       justify-content: space-around;
-    }
-
-    .users-grid, .updates-list, .teams-grid {
-      padding: 1rem;
     }
 
     .dual-section-row {
@@ -1331,14 +915,6 @@
     .update-cover {
       width: 120px;
       height: 168px;
-    }
-
-    .carousel-arrow-left {
-      left: 10px;
-    }
-
-    .carousel-arrow-right {
-      right: 10px;
     }
   }
 
@@ -1352,22 +928,14 @@
       width: 120px;
     }
 
-      .manga-card .manga-cover {
-        width: 120px;
-        padding-top: 140%;
-      }
+    .manga-cover {
+      width: 120px;
+      height: 168px;
+    }
 
     .update-cover {
       width: 110px;
       height: 154px;
-    }
-
-    .carousel-arrow-left {
-      left: 5px;
-    }
-
-    .carousel-arrow-right {
-      right: 5px;
     }
   }
 </style>

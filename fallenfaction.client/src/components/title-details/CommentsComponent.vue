@@ -1,6 +1,6 @@
 <!-- Enhanced Comments Component with Improved Error Handling -->
 <template>
-  <div class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-xl overflow-hidden">
+  <div class="border border-[var(--color-border)] rounded-xl overflow-hidden">
     <!-- Comments Header -->
     <div class="p-6 border-b border-[var(--color-border)]">
       <div class="flex items-center justify-between mb-4">

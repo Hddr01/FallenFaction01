@@ -14,7 +14,7 @@ const api = axios.create({
 // Request interceptor to add auth token (same as authApi.js)
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken');
+    const token = sessionStorage.getItem('authToken') || localStorage.getItem('authToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -34,6 +34,8 @@ api.interceptors.response.use(
       // Token expired or invalid
       localStorage.removeItem('authToken');
       localStorage.removeItem('authUser');
+      sessionStorage.removeItem('authToken');
+      sessionStorage.removeItem('authUser');
 
       // Only redirect if we're not already on the login page
       if (!window.location.pathname.includes('/account/login')) {
@@ -127,10 +129,8 @@ const titleApi = {
       }
 
       // Make the request with FormData
-      // Note: Don't set Content-Type header for FormData - axios will set it automatically with boundary
       const response = await api.post('/TitleApi/create', submitData, {
         headers: {
-          // Remove Content-Type to let axios set it automatically for FormData
           'Content-Type': undefined
         }
       });
@@ -152,6 +152,88 @@ const titleApi = {
         success: false,
         error: errorMessage,
         message: errorMessage
+      };
+    }
+  },
+
+  // Edit title (submit changes for approval)
+  async editTitle(titleId, updateData) {
+    try {
+      // Create FormData for file uploads
+      const formData = new FormData();
+
+      // Add ID
+      formData.append('id', titleId);
+
+      // Add files if present (only if they're File objects)
+      if (updateData.coverImage instanceof File) {
+        formData.append('coverImage', updateData.coverImage);
+      }
+      if (updateData.backgroundImage instanceof File) {
+        formData.append('backgroundImage', updateData.backgroundImage);
+      }
+
+      // Add simple text fields
+      formData.append('englishTitle', updateData.englishTitle || '');
+      formData.append('originalTitle', updateData.originalTitle || '');
+      formData.append('alternativeNames', updateData.alternativeNames || '');
+      formData.append('type', updateData.type || '1');
+      formData.append('releaseDate', updateData.releaseDate || '');
+      formData.append('description', updateData.description || '');
+      formData.append('statusTitle', updateData.statusTitle || 'inproces');
+      formData.append('statusTranslation', updateData.statusTranslation || 'inproces');
+      formData.append('ageRestriction', updateData.ageRestriction || '0');
+
+      // Add array fields
+      if (updateData.authors && Array.isArray(updateData.authors)) {
+        updateData.authors.forEach(id => formData.append('authors', id));
+      }
+      if (updateData.artists && Array.isArray(updateData.artists)) {
+        updateData.artists.forEach(id => formData.append('artists', id));
+      }
+      if (updateData.publishers && Array.isArray(updateData.publishers)) {
+        updateData.publishers.forEach(id => formData.append('publishers', id));
+      }
+      if (updateData.teams && Array.isArray(updateData.teams)) {
+        updateData.teams.forEach(id => formData.append('teams', id));
+      }
+      if (updateData.categories && Array.isArray(updateData.categories)) {
+        updateData.categories.forEach(id => formData.append('categories', id));
+      }
+      if (updateData.tags && Array.isArray(updateData.tags)) {
+        updateData.tags.forEach(id => formData.append('tags', id));
+      }
+      if (updateData.formats && Array.isArray(updateData.formats)) {
+        updateData.formats.forEach(id => formData.append('formats', id));
+      }
+
+      // Add external links (filter out empty ones)
+      if (updateData.externalLinks && Array.isArray(updateData.externalLinks)) {
+        const validLinks = updateData.externalLinks.filter(link => link && link.trim());
+        validLinks.forEach(link => formData.append('externalLinks', link));
+      }
+
+      const response = await api.post(`/TitleApi/edit/${titleId}`, formData, {
+        headers: {
+          'Content-Type': undefined
+        }
+      });
+
+      return {
+        success: true,
+        message: response.data.message || 'Changes submitted for approval!'
+      };
+    } catch (error) {
+      console.error('Error submitting title changes:', error);
+
+      const errorMessage = error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.message ||
+        'Failed to submit changes';
+
+      return {
+        success: false,
+        error: errorMessage
       };
     }
   },

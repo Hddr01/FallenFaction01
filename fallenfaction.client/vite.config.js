@@ -5,8 +5,8 @@ import fs from 'fs';
 import path from 'path';
 import child_process from 'child_process';
 import { env } from 'process';
-import vueDevTools from 'vite-plugin-vue-devtools'
-import tailwindcss from '@tailwindcss/vite'
+import vueDevTools from 'vite-plugin-vue-devtools';
+import tailwindcss from '@tailwindcss/vite'; // Updated import
 
 const baseFolder =
   env.APPDATA !== undefined && env.APPDATA !== ''
@@ -23,8 +23,6 @@ if (!fs.existsSync(baseFolder)) {
 
 if (!fs.existsSync(certFilePath) || !fs.existsSync(keyFilePath)) {
   console.log('Generating frontend certificates...');
-
-  // First, ensure we have fresh certificates
   child_process.spawnSync('dotnet', ['dev-certs', 'https', '--clean'], { stdio: 'inherit' });
   child_process.spawnSync('dotnet', ['dev-certs', 'https', '--trust'], { stdio: 'inherit' });
 
@@ -46,12 +44,15 @@ const target = env.ASPNETCORE_HTTPS_PORT ? `https://localhost:${env.ASPNETCORE_H
 
 console.log(`Proxying API requests to: ${target}`);
 
-// https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [plugin(), tailwindcss(), vueDevTools({
-    enabled: true,
-    open: true,
-  })],
+  plugins: [
+    plugin(),
+    tailwindcss(), // Keep this
+    vueDevTools({
+      enabled: true,
+      open: true,
+    })
+  ],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
@@ -59,44 +60,36 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      // Proxy all API requests to the ASP.NET Core backend
       '^/api': {
         target,
         secure: false,
         changeOrigin: true,
-        // Remove the rewrite - let the path pass through as-is
         logLevel: 'debug'
       },
-      // Proxy authentication endpoints
       '^/auth': {
         target,
         secure: false,
         changeOrigin: true,
         logLevel: 'debug'
       },
-      // Proxy backend uploaded files ONLY (not frontend static files)
       '^/uploads': {
         target,
         secure: false,
         changeOrigin: true,
         logLevel: 'debug'
       }
-      // Remove '^/img' proxy - let frontend serve its own static images
     },
     port: 49217,
-    // RE-ENABLE HTTPS - Certificates are now fixed!
     https: {
       key: fs.readFileSync(keyFilePath),
       cert: fs.readFileSync(certFilePath),
     },
-    // Fix WebSocket/HMR connection issues
     hmr: {
       clientPort: 49217,
       port: 49217
     },
-    // Allow serving static files
     fs: {
       strict: false
     }
   }
-})
+});

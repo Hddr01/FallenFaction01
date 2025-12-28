@@ -1,4 +1,6 @@
+using FallenFaction.Server.Data;
 using FallenFaction.Server.Data.Models;
+using FallenFaction.Server.Data.SeedData;
 using FallenFaction.Server.Mappings;
 using FallenFaction.Server.Services;
 using FallenFaction.Server.Services.Interfaces;
@@ -209,6 +211,7 @@ builder.Services.AddSwaggerGen(c =>
         Description = "API for FallenFaction application"
     });
 
+
     c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token in the text input below. Example: 'Bearer 12345abcdef'",
@@ -241,6 +244,7 @@ builder.Services.Configure<Dictionary<string, string>>(options =>
 });
 
 var app = builder.Build();
+app.UseDeveloperExceptionPage();
 
 // Configure static files BEFORE other middleware
 app.UseStaticFiles();
@@ -324,6 +328,12 @@ if (app.Environment.IsDevelopment())
 
 // Fallback to serve the Vue.js app
 app.MapFallbackToFile("/index.html");
+
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await PermissionSeeder.SeedPermissions(context);
+}
 
 // Seed default roles and create admin user if needed
 using (var scope = app.Services.CreateScope())

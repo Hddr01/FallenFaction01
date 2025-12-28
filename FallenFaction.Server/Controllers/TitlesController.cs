@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using FallenFaction.Server.Data;
 using FallenFaction.Server.DTOs.Title;
+using FallenFaction.Server.DTOs.Team;
 using FallenFaction.Server.Data.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authorization;
@@ -36,7 +37,7 @@ namespace FallenFaction.Server.Controllers
         #region Chapter Management Methods
 
         /// <summary>
-        /// Get chapter creation form data for a specific title
+        /// Get chapter creation form data for a specific title - UPDATED with authorization
         /// GET: api/Titles/{titleId}/chapters/create
         /// </summary>
         [HttpGet("{titleId:int}/chapters/create")]
@@ -61,16 +62,21 @@ namespace FallenFaction.Server.Controllers
                     return Unauthorized();
                 }
 
-                // Get teams the user is part of that are associated with this title
-                var userTeams = await _context.Teams
-                    .Where(t => t.Members.Contains(user) && title.Teams.Contains(t))
-                    .Select(t => new { Id = t.Id, Name = t.Name })
-                    .ToListAsync();
+                // AUTHORIZATION CHECK: Get teams the user can add chapters to for this title
+                var authorizedTeamIds = await GetAuthorizedTeamIds(user.Id, "CanAddChapter");
+                var titleTeamIds = title.Teams.Select(t => t.Id).ToList();
+                var validTeamIds = authorizedTeamIds.Intersect(titleTeamIds).ToList();
 
-                if (!userTeams.Any())
+                if (!validTeamIds.Any())
                 {
                     return StatusCode(403, new { message = "You do not have permission to add chapters to this title." });
                 }
+
+                // Get only the teams user can add chapters to
+                var userTeams = await _context.Teams
+                    .Where(t => validTeamIds.Contains(t.Id))
+                    .Select(t => new { Id = t.Id, Name = t.Name })
+                    .ToListAsync();
 
                 // Get suggested next chapter/volume numbers
                 var lastChapter = title.Chapters
@@ -97,7 +103,7 @@ namespace FallenFaction.Server.Controllers
         }
 
         /// <summary>
-        /// Create a new pending chapter
+        /// Create a new pending chapter - UPDATED with authorization
         /// POST: api/Titles/{titleId}/chapters
         /// </summary>
         [HttpPost("{titleId:int}/chapters")]
@@ -121,15 +127,18 @@ namespace FallenFaction.Server.Controllers
                     return NotFound(new { message = "Title not found" });
                 }
 
-                // Verify user has permission to add chapters to this title
-                var userTeams = await _context.Teams
-                    .Where(t => t.Members.Contains(user))
-                    .ToListAsync();
+                // AUTHORIZATION CHECK: Verify user can add chapters to the selected team for this title
+                var authorizedTeamIds = await GetAuthorizedTeamIds(user.Id, "CanAddChapter");
 
-                var team = userTeams.FirstOrDefault(t => t.Id == request.TeamId && title.Teams.Contains(t));
-                if (team == null)
+                if (!authorizedTeamIds.Contains(request.TeamId))
                 {
-                    return Forbid("You do not have permission to add chapters for this team/title combination.");
+                    return Forbid("You do not have permission to add chapters for this team.");
+                }
+
+                // Verify the team is associated with this title
+                if (!title.Teams.Any(t => t.Id == request.TeamId))
+                {
+                    return BadRequest(new { message = "Selected team is not associated with this title" });
                 }
 
                 // Validate chapter images
@@ -167,6 +176,7 @@ namespace FallenFaction.Server.Controllers
                 _context.PendingChapters.Update(pendingChapter);
                 await _context.SaveChangesAsync();
 
+                var team = await _context.Teams.FindAsync(request.TeamId);
                 var result = new
                 {
                     Id = pendingChapter.Id,
@@ -174,10 +184,13 @@ namespace FallenFaction.Server.Controllers
                     VolumeNumber = pendingChapter.VolumeNumber,
                     ChapterNumber = pendingChapter.ChapterNumber,
                     TitleName = title.OriginalTitle,
-                    TeamName = team.Name,
+                    TeamName = team?.Name,
                     CreatedDate = pendingChapter.CreatedDate,
                     ImageCount = savedImages.Count
                 };
+
+                _logger.LogInformation("Chapter created by user {UserName} for title {TitleName}, team {TeamName}",
+                    user.UserName, title.OriginalTitle, team?.Name);
 
                 return CreatedAtAction(nameof(GetPendingChapter), new { id = pendingChapter.Id }, result);
             }
@@ -186,6 +199,78 @@ namespace FallenFaction.Server.Controllers
                 _logger.LogError(ex, "Error creating chapter for title {TitleId}", titleId);
                 return StatusCode(500, new { message = "Error creating chapter", error = ex.Message });
             }
+        }
+        // HELPER METHODS: Add these to TitlesController.cs
+
+        /// <summary>
+        /// Get teams user can perform specific action on
+        /// </summary>
+        // FOR TitleApiController.cs - Update the GetAuthorizedTeamIds method:
+        private async Task<List<int>> GetAuthorizedTeamIds(string userId, string permission)
+        {
+            // Admins can work with all teams
+            var isAdmin = await _userManager.IsInRoleAsync(await _userManager.FindByIdAsync(userId), "Admin");
+            if (isAdmin)
+            {
+                return await _context.Teams.Select(t => t.Id).ToListAsync();
+            }
+
+            // Get teams where user has specific permission
+            var authorizedTeamIds = await _context.UserTeamRoles
+                .Where(utr => utr.AppUserId == userId)
+                .Where(utr =>
+                    // Team creators (owners) have all permissions
+                    utr.Team.CreatorId == userId ||
+                    // Team admins have all permissions
+                    utr.Role == TeamRole.Admin ||
+                    // Members with specific permission - UPDATED permission names
+                    (utr.Role == TeamRole.Member &&
+                     utr.UserTeamRolePermissions.Any(p => p.UserTeamPermission.PermissionName == permission))
+                )
+                .Select(utr => utr.TeamId)
+                .Distinct()
+                .ToListAsync();
+
+            return authorizedTeamIds;
+        }
+
+        /// <summary>
+        /// Check if user can edit specific chapter
+        /// </summary>
+        private async Task<bool> CanUserEditChapter(string userId, Chapter chapter)
+        {
+            // Admins can edit all chapters
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user != null)
+            {
+                var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
+                if (isAdmin)
+                {
+                    return true;
+                }
+            }
+
+            // Check if user created the chapter
+            if (chapter.UpdatedByUserId == userId)
+            {
+                return true;
+            }
+
+            // Check if user has edit permissions in the chapter's team
+            var hasPermission = await _context.UserTeamRoles
+                .Where(utr => utr.AppUserId == userId && utr.TeamId == chapter.TeamId)
+                .Where(utr =>
+                    // Team creators have all permissions
+                    utr.Team.CreatorId == userId ||
+                    // Team admins have all permissions
+                    utr.Role == TeamRole.Admin ||
+                    // Members with specific permission - UPDATED permission name
+                    (utr.Role == TeamRole.Member &&
+                     utr.UserTeamRolePermissions.Any(p => p.UserTeamPermission.PermissionName == "CanEditChapter"))
+                )
+                .AnyAsync();
+
+            return hasPermission;
         }
 
         /// <summary>
@@ -284,7 +369,7 @@ namespace FallenFaction.Server.Controllers
         }
 
         /// <summary>
-        /// Approve a pending chapter
+        /// Approve a pending chapter - UPDATED with additional authorization
         /// POST: api/Titles/chapters/pending/{id}/approve
         /// </summary>
         [HttpPost("chapters/pending/{id:int}/approve")]
@@ -308,6 +393,21 @@ namespace FallenFaction.Server.Controllers
                 if (pendingChapter == null)
                 {
                     return NotFound(new { message = "Pending chapter not found" });
+                }
+
+                // Additional authorization: Non-admin moderators can only approve chapters for teams they're part of
+                var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
+                if (!isAdmin)
+                {
+                    var canApprove = await _context.UserTeamRoles
+                        .Where(utr => utr.AppUserId == user.Id && utr.TeamId == pendingChapter.TeamId)
+                        .Where(utr => utr.Role == TeamRole.Admin)
+                        .AnyAsync();
+
+                    if (!canApprove)
+                    {
+                        return Forbid("You can only approve chapters for teams where you are an admin");
+                    }
                 }
 
                 using var transaction = await _context.Database.BeginTransactionAsync();
@@ -353,6 +453,9 @@ namespace FallenFaction.Server.Controllers
                         .FirstOrDefaultAsync(c => c.Id == chapter.Id);
 
                     var result = ChapterMapper.ToDTO(fullChapter);
+
+                    _logger.LogInformation("Chapter approved by {UserName}: {ChapterName} for {TitleName}",
+                        user.UserName, chapter.Name, pendingChapter.Title.OriginalTitle);
 
                     return Ok(result);
                 }
@@ -812,129 +915,143 @@ namespace FallenFaction.Server.Controllers
         }
         // Add these methods to your TitlesController.cs
 
-/// <summary>
-/// Get user's uploaded titles
-/// GET: api/Titles/UserTitles
-/// </summary>
-[HttpGet("UserTitles")]
-[Authorize]
-public async Task<ActionResult<IEnumerable<object>>> GetUserTitles()
-{
-    try
-    {
-        var user = await _userManager.GetUserAsync(User);
-        if (user == null)
+        /// <summary>
+        /// Get user's uploaded titles - UPDATED with proper filtering
+        /// GET: api/Titles/UserTitles
+        /// </summary>
+        [HttpGet("UserTitles")]
+        [Authorize]
+        public async Task<ActionResult<IEnumerable<object>>> GetUserTitles()
         {
-            return Unauthorized();
+            try
+            {
+                var user = await _userManager.GetUserAsync(User);
+                if (user == null)
+                {
+                    return Unauthorized();
+                }
+
+                // Get titles user created or has edit permissions for
+                var userTitles = await _context.Titles
+                    .Where(t =>
+                        // User created the title
+                        t.CreatedByUserId == user.Id ||
+                        // Or user has edit permissions in any of the title's teams
+                        t.Teams.Any(team =>
+                            _context.UserTeamRoles.Any(utr =>
+                                utr.AppUserId == user.Id &&
+                                utr.TeamId == team.Id &&
+                                (utr.Role == TeamRole.Admin ||
+                                 (utr.Role == TeamRole.Member &&
+                                  utr.UserTeamRolePermissions.Any(p => p.UserTeamPermission.PermissionName == "CanEditTitle")))
+                            )
+                        )
+                    )
+                    .Include(t => t.Categories)
+                    .Include(t => t.Teams)
+                    .Include(t => t.Chapters)
+                    .Select(t => new
+                    {
+                        t.Id,
+                        t.OriginalTitle,
+                        t.EnglishTitle,
+                        t.CoverImagePath,
+                        t.StatusTitle,
+                        t.IsAvailable,
+                        ChapterCount = t.Chapters.Count(),
+                        LastUpdated = t.Chapters.Any() ?
+                            t.Chapters.OrderByDescending(c => c.ReleaseDate).First().ReleaseDate :
+                            (DateTime?)null,
+                        Teams = t.Teams.Select(team => team.Name).ToList(),
+                        CanEdit = t.CreatedByUserId == user.Id // Flag to indicate if user created it
+                    })
+                    .ToListAsync();
+
+                return Ok(userTitles);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting user titles");
+                return StatusCode(500, new { message = "Error retrieving user titles" });
+            }
         }
 
-        // This depends on how you track title ownership
-        // You might need to add a CreatedByUserId field to Title model
-        var userTitles = await _context.Titles
-            .Where(t => t.CreatedByUserId == user.Id) // Add this field to Title model
-            .Include(t => t.Categories)
-            .Include(t => t.Teams)
-            .Include(t => t.Chapters)
-            .Select(t => new
-            {
-                t.Id,
-                t.OriginalTitle,
-                t.EnglishTitle,
-                t.CoverImagePath,
-                t.StatusTitle,
-                t.IsAvailable,
-                ChapterCount = t.Chapters.Count(),
-                LastUpdated = t.Chapters.Any() ? 
-                    t.Chapters.OrderByDescending(c => c.ReleaseDate).First().ReleaseDate : 
-                    (DateTime?)null
-            })
-            .ToListAsync();
-
-        return Ok(userTitles);
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error getting user titles");
-        return StatusCode(500, new { message = "Error retrieving user titles" });
-    }
-}
-
-/// <summary>
-/// Get user's chapters
-/// GET: api/Titles/UserChapters
-/// </summary>
-[HttpGet("UserChapters")]
-[Authorize]
-public async Task<ActionResult<object>> GetUserChapters()
-{
-    try
-    {
-        var user = await _userManager.GetUserAsync(User);
-        if (user == null)
+        /// <summary>
+        /// Get user's chapters
+        /// GET: api/Titles/UserChapters
+        /// </summary>
+        [HttpGet("UserChapters")]
+        [Authorize]
+        public async Task<ActionResult<object>> GetUserChapters()
         {
-            return Unauthorized();
+            try
+            {
+                var user = await _userManager.GetUserAsync(User);
+                if (user == null)
+                {
+                    return Unauthorized();
+                }
+
+                var userChapters = await _context.Chapters
+                    .Where(c => c.UpdatedByUserId == user.Id)
+                    .Include(c => c.Title)
+                    .Include(c => c.Team)
+                    .ToListAsync();
+
+                var pendingChapters = await _context.PendingChapters
+                    .Where(c => c.UpdatedByUserId == user.Id)
+                    .Include(c => c.Title)
+                    .Include(c => c.Team)
+                    .ToListAsync();
+
+                var rejectedChapters = await _context.RejectedChapters
+                    .Where(c => c.UpdatedByUserId == user.Id)
+                    .Include(c => c.Title)
+                    .Include(c => c.Team)
+                    .ToListAsync();
+
+                var result = new
+                {
+                    ApprovedChapters = userChapters.Select(c => new
+                    {
+                        c.Id,
+                        c.Name,
+                        c.VolumeNumber,
+                        c.ChapterNumber,
+                        TitleName = c.Title.OriginalTitle,
+                        TeamName = c.Team.Name,
+                        c.ReleaseDate
+                    }),
+                    PendingChapters = pendingChapters.Select(c => new
+                    {
+                        c.Id,
+                        c.Name,
+                        c.VolumeNumber,
+                        c.ChapterNumber,
+                        TitleName = c.Title.OriginalTitle,
+                        TeamName = c.Team.Name,
+                        c.CreatedDate
+                    }),
+                    RejectedChapters = rejectedChapters.Select(c => new
+                    {
+                        c.Id,
+                        c.Name,
+                        c.VolumeNumber,
+                        c.ChapterNumber,
+                        TitleName = c.Title.OriginalTitle,
+                        TeamName = c.Team.Name,
+                        c.CreatedDate
+                    })
+                };
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting user chapters");
+                return StatusCode(500, new { message = "Error retrieving user chapters" });
+            }
         }
-
-        var userChapters = await _context.Chapters
-            .Where(c => c.UpdatedByUserId == user.Id)
-            .Include(c => c.Title)
-            .Include(c => c.Team)
-            .ToListAsync();
-
-        var pendingChapters = await _context.PendingChapters
-            .Where(c => c.UpdatedByUserId == user.Id)
-            .Include(c => c.Title)
-            .Include(c => c.Team)
-            .ToListAsync();
-
-        var rejectedChapters = await _context.RejectedChapters
-            .Where(c => c.UpdatedByUserId == user.Id)
-            .Include(c => c.Title)
-            .Include(c => c.Team)
-            .ToListAsync();
-
-        var result = new
-        {
-            ApprovedChapters = userChapters.Select(c => new
-            {
-                c.Id,
-                c.Name,
-                c.VolumeNumber,
-                c.ChapterNumber,
-                TitleName = c.Title.OriginalTitle,
-                TeamName = c.Team.Name,
-                c.ReleaseDate
-            }),
-            PendingChapters = pendingChapters.Select(c => new
-            {
-                c.Id,
-                c.Name,
-                c.VolumeNumber,
-                c.ChapterNumber,
-                TitleName = c.Title.OriginalTitle,
-                TeamName = c.Team.Name,
-                c.CreatedDate
-            }),
-            RejectedChapters = rejectedChapters.Select(c => new
-            {
-                c.Id,
-                c.Name,
-                c.VolumeNumber,
-                c.ChapterNumber,
-                TitleName = c.Title.OriginalTitle,
-                TeamName = c.Team.Name,
-                c.CreatedDate
-            })
-        };
-
-        return Ok(result);
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error getting user chapters");
-        return StatusCode(500, new { message = "Error retrieving user chapters" });
-    }
-}
         /// <summary>
         /// Get featured titles for homepage
         /// GET: api/Titles/Featured
@@ -1110,64 +1227,92 @@ public async Task<ActionResult<object>> GetUserChapters()
                 var decodedTitle = Uri.UnescapeDataString(encodedTitle);
                 _logger.LogInformation($"Looking for title: {decodedTitle}");
 
-                var titleData = await _context.Titles
+                // OPTIMIZED: Split into multiple efficient queries instead of one massive JOIN
+
+                // 1. Get the basic title with only necessary navigation properties
+                var title = await _context.Titles
                     .Where(t => t.IsAvailable && t.OriginalTitle == decodedTitle)
-                    .Include(t => t.Chapters)
-                        .ThenInclude(c => c.Views)
                     .Include(t => t.Teams)
                     .Include(t => t.Authors)
                     .Include(t => t.Artists)
                     .Include(t => t.Categories)
                     .Include(t => t.Tags)
-                    .Include(t => t.Ratings)
-                    .Include(t => t.Bookmarks)
-                        .ThenInclude(b => b.Folder)
-                    .Select(t => new
-                    {
-                        Title = t,
-                        ChapterCount = t.Chapters.Count(),
-                        LatestChapterNumber = t.Chapters.Any() ? t.Chapters.Max(c => c.ChapterNumber) : 0,
-                        AverageRating = t.Ratings.Any() ? t.Ratings.Average(r => (double)r.Value) : 0.0,
-                        RatingCount = t.Ratings.Count(),
-                        BookmarkCount = t.Bookmarks.Count(),
-                        ViewCount = t.Chapters.SelectMany(c => c.Views).Count(),
-                        LastUpdated = t.Chapters.Any() ?
-                            t.Chapters.OrderByDescending(c => c.ReleaseDate).First().ReleaseDate :
-                            (DateTime?)null
-                    })
                     .FirstOrDefaultAsync();
 
-                if (titleData == null)
+                if (title == null)
                 {
                     _logger.LogWarning($"Title not found: {decodedTitle}");
                     return NotFound(new { message = "Title not found" });
                 }
 
+                // 2. Get aggregated statistics with separate efficient queries
+                var titleId = title.Id;
+
+                var chapterCount = await _context.Chapters
+                    .Where(c => c.TitleId == titleId)
+                    .CountAsync();
+
+                var latestChapterNumber = await _context.Chapters
+                    .Where(c => c.TitleId == titleId)
+                    .MaxAsync(c => (int?)c.ChapterNumber) ?? 0;
+
+                var ratingStats = await _context.Ratings
+                    .Where(r => r.TitleId == titleId)
+                    .GroupBy(r => r.TitleId)
+                    .Select(g => new
+                    {
+                        Average = g.Average(r => (double)r.Value),
+                        Count = g.Count()
+                    })
+                    .FirstOrDefaultAsync();
+
+                var bookmarkCount = await _context.Bookmarks
+                    .Where(b => b.TitleId == titleId)
+                    .CountAsync();
+
+                var viewCount = await _context.ChapterViews
+                    .Where(cv => _context.Chapters
+                        .Where(c => c.TitleId == titleId)
+                        .Select(c => c.Id)
+                        .Contains(cv.ChapterId))
+                    .CountAsync();
+
+                var lastUpdated = await _context.Chapters
+                    .Where(c => c.TitleId == titleId)
+                    .OrderByDescending(c => c.ReleaseDate)
+                    .Select(c => (DateTime?)c.ReleaseDate)
+                    .FirstOrDefaultAsync();
+
+                // 3. Build the DTO
                 var titleDto = new TitleDetailDto
                 {
-                    Id = titleData.Title.Id,
-                    OriginalTitle = titleData.Title.OriginalTitle,
-                    EnglishTitle = titleData.Title.EnglishTitle ?? titleData.Title.OriginalTitle,
-                    Description = titleData.Title.Description ?? "",
-                    CoverImagePath = !string.IsNullOrEmpty(titleData.Title.CoverImagePath) ? titleData.Title.CoverImagePath : "/img/logo.png",
-                    BackgroundImagePath = titleData.Title.BackgroundImagePath,
-                    Type = titleData.Title.Type,
-                    StatusTitle = titleData.Title.StatusTitle ?? "Unknown",
-                    StatusTranslation = titleData.Title.StatusTranslation ?? "Unknown",
-                    ReleaseDate = titleData.Title.ReleaseDate ?? "Unknown",
-                    AgeRestriction = titleData.Title.AgeRestriction,
-                    ChapterCount = titleData.ChapterCount,
-                    LatestChapter = titleData.LatestChapterNumber > 0 ? titleData.LatestChapterNumber.ToString() : "No chapters",
-                    AverageRating = titleData.AverageRating,
-                    RatingCount = titleData.RatingCount,
-                    BookmarkCount = titleData.BookmarkCount,
-                    ViewCount = titleData.ViewCount,
-                    LastUpdated = titleData.LastUpdated,
-                    Teams = titleData.Title.Teams.Select(team => team.Name).ToList(),
-                    Authors = titleData.Title.Authors.Select(author => author.Name).ToList(),
-                    Artists = titleData.Title.Artists.Select(artist => artist.Name).ToList(),
-                    Categories = titleData.Title.Categories.Select(cat => cat.Name).ToList(),
-                    Tags = titleData.Title.Tags.Select(tag => tag.Name).ToList()
+                    Id = title.Id,
+                    OriginalTitle = title.OriginalTitle,
+                    EnglishTitle = title.EnglishTitle ?? title.OriginalTitle,
+                    Description = title.Description ?? "",
+                    CoverImagePath = !string.IsNullOrEmpty(title.CoverImagePath) ? title.CoverImagePath : "/img/logo.png",
+                    BackgroundImagePath = title.BackgroundImagePath,
+                    Type = title.Type,
+                    StatusTitle = title.StatusTitle ?? "Unknown",
+                    StatusTranslation = title.StatusTranslation ?? "Unknown",
+                    ReleaseDate = title.ReleaseDate ?? "Unknown",
+                    AgeRestriction = title.AgeRestriction,
+                    ChapterCount = chapterCount,
+                    LatestChapter = latestChapterNumber > 0 ? latestChapterNumber.ToString() : "No chapters",
+                    AverageRating = ratingStats?.Average ?? 0.0,
+                    RatingCount = ratingStats?.Count ?? 0,
+                    BookmarkCount = bookmarkCount,
+                    ViewCount = viewCount,
+                    LastUpdated = lastUpdated,
+                    Teams = title.Teams.Select(team => new TeamSimpleDto
+                    {
+                        Id = team.Id,
+                        Name = team.Name
+                    }).ToList(),
+                    Authors = title.Authors.Select(author => author.Name).ToList(),
+                    Artists = title.Artists.Select(artist => artist.Name).ToList(),
+                    Categories = title.Categories.Select(cat => cat.Name).ToList(),
+                    Tags = title.Tags.Select(tag => tag.Name).ToList()
                 };
 
                 return Ok(titleDto);
@@ -1452,6 +1597,8 @@ public async Task<ActionResult<object>> GetUserChapters()
                 return StatusCode(500, new { message = "Error updating progress" });
             }
         }
+
+
 
         public class UpdateProgressRequest
         {
