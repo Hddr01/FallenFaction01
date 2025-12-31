@@ -1,651 +1,641 @@
-<!-- components/team/TeamDetails.vue - Updated with Role Management -->
 <template>
-  <div class="min-h-screen bg-[var(--color-background)] py-8">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-      <!-- Loading State -->
-      <div v-if="loading" class="text-center py-12">
-        <div class="inline-flex items-center">
-          <svg class="animate-spin -ml-1 mr-3 h-8 w-8 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <span class="text-xl text-[var(--color-text)]">Loading team details...</span>
-        </div>
+  <div class="container mx-auto px-4 py-8 max-w-7xl">
+    <!-- Loading State -->
+    <div v-if="loading" class="flex items-center justify-center min-h-[400px]">
+      <div class="text-center">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+        <p class="text-muted-foreground">Loading team details...</p>
       </div>
+    </div>
 
-      <!-- Error State -->
-      <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-md p-4">
-        <div class="flex">
-          <div class="flex-shrink-0">
-            <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-            </svg>
-          </div>
-          <div class="ml-3">
-            <h3 class="text-sm font-medium text-red-800">Error Loading Team</h3>
-            <div class="mt-2 text-sm text-red-700">
-              <p>{{ error }}</p>
-            </div>
-            <div class="mt-4">
-              <button @click="loadTeamDetails"
-                      class="bg-red-100 px-3 py-2 rounded-md text-sm font-medium text-red-800 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors duration-200">
-                Try Again
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+    <!-- Error State -->
+    <Alert v-else-if="error" variant="destructive" class="mb-6">
+      <AlertCircle class="h-4 w-4" />
+      <AlertTitle>Error</AlertTitle>
+      <AlertDescription>{{ error }}</AlertDescription>
+    </Alert>
 
-      <!-- Team Details -->
-      <div v-else-if="team" class="space-y-6">
-        <!-- Navigation Tabs -->
-        <div class="border-b border-[var(--color-border)]">
-          <nav class="-mb-px flex space-x-8">
-            <button @click="activeTab = 'overview'"
-                    class="py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200"
-                    :class="{
-                      'border-green-500 text-green-600': activeTab === 'overview',
-                      'border-transparent text-[var(--color-text)] opacity-75 hover:text-[var(--color-heading)] hover:border-[var(--color-border-hover)]': activeTab !== 'overview'
-                    }">
-              Overview
-            </button>
-            <button @click="activeTab = 'members'"
-                    class="py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200"
-                    :class="{
-                      'border-green-500 text-green-600': activeTab === 'members',
-                      'border-transparent text-[var(--color-text)] opacity-75 hover:text-[var(--color-heading)] hover:border-[var(--color-border-hover)]': activeTab !== 'members'
-                    }">
-              Members ({{ team.members?.length || 0 }})
-            </button>
-            <button v-if="canManageRoles"
-                    @click="activeTab = 'roles'"
-                    class="py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200"
-                    :class="{
-                      'border-green-500 text-green-600': activeTab === 'roles',
-                      'border-transparent text-[var(--color-text)] opacity-75 hover:text-[var(--color-heading)] hover:border-[var(--color-border-hover)]': activeTab !== 'roles'
-                    }">
-              Role Management
-            </button>
-            <button v-if="isCreator || isAdmin"
-                    @click="activeTab = 'settings'"
-                    class="py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200"
-                    :class="{
-                      'border-green-500 text-green-600': activeTab === 'settings',
-                      'border-transparent text-[var(--color-text)] opacity-75 hover:text-[var(--color-heading)] hover:border-[var(--color-border-hover)]': activeTab !== 'settings'
-                    }">
-              Settings
-            </button>
-          </nav>
+    <!-- Team Details -->
+    <div v-else-if="team">
+      <!-- Background Image Section -->
+      <Card class="overflow-hidden mb-6">
+        <div class="relative h-64 bg-gradient-to-br from-primary/10 to-primary/5">
+          <div v-if="team.backgroundImagePath" class="absolute inset-0">
+            <img :src="getImageUrl(team.backgroundImagePath)"
+                 :alt="`${team.name} background`"
+                 class="w-full h-full object-cover" />
+            <div class="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+          </div>
+          <div v-else class="flex items-center justify-center h-full">
+            <Empty description="No background image"
+                   class="text-muted-foreground/50">
+              <template #icon>
+                <ImageIcon class="h-16 w-16" />
+              </template>
+            </Empty>
+          </div>
+
+          <!-- Background Edit Button -->
+          <div v-if="canEdit" class="absolute top-4 right-4 flex gap-2">
+            <Button size="sm"
+                    variant="secondary"
+                    @click="triggerBackgroundUpload"
+                    :disabled="uploadingBackground">
+              <Upload v-if="!uploadingBackground" class="h-4 w-4 mr-2" />
+              <Loader2 v-else class="h-4 w-4 mr-2 animate-spin" />
+              {{ team.backgroundImagePath ? 'Change' : 'Upload' }} Background
+            </Button>
+            <Button v-if="team.backgroundImagePath"
+                    size="sm"
+                    variant="destructive"
+                    @click="deleteBackground"
+                    :disabled="uploadingBackground">
+              <Trash2 class="h-4 w-4" />
+            </Button>
+          </div>
+
+          <input ref="backgroundInput"
+                 type="file"
+                 accept="image/*"
+                 class="hidden"
+                 @change="handleBackgroundUpload" />
         </div>
 
-        <!-- Tab Content -->
-        <div v-if="activeTab === 'overview'">
-          <!-- Header -->
-          <div class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-lg shadow-sm overflow-hidden">
-            <div class="px-6 py-8">
-              <div class="sm:flex sm:items-center sm:justify-between">
-                <div class="sm:flex sm:space-x-5">
-                  <div class="flex-1">
-                    <h1 class="text-2xl font-bold text-[var(--color-heading)]">{{ team.name }}</h1>
-                    <p class="mt-2 text-[var(--color-text)]">{{ team.description }}</p>
+        <Separator />
 
-                    <div class="mt-4 flex items-center space-x-6">
-                      <div class="flex items-center text-sm text-[var(--color-text)] opacity-75">
-                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-1.657-.126-3.153-.356-4.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-1.657.126-3.153.356-4.857m0 0a5.002 5.002 0 019.288 0" />
-                        </svg>
-                        <span>{{ team.members?.length || 0 }} member{{ team.memberCount !== 1 ? 's' : '' }}</span>
-                      </div>
-                      <div class="flex items-center text-sm text-[var(--color-text)] opacity-75">
-                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                        </svg>
-                        <span>{{ team.titleCount }} title{{ team.titleCount !== 1 ? 's' : '' }}</span>
-                      </div>
-                    </div>
+        <CardContent class="p-8 relative">
+          <!-- Avatar and Team Info -->
+          <div class="flex items-start gap-6 -mt-20">
+            <!-- Avatar Section -->
+            <div class="relative">
+              <Avatar class="h-32 w-32 border-4 border-background shadow-xl">
+                <AvatarImage v-if="team.avatarImagePath"
+                             :src="getImageUrl(team.avatarImagePath)"
+                             :alt="team.name" />
+                <AvatarFallback class="bg-primary/10 text-4xl">
+                  <Empty v-if="!team.avatarImagePath" description="">
+                    <template #icon>
+                      <Users class="h-16 w-16 text-muted-foreground" />
+                    </template>
+                  </Empty>
+                </AvatarFallback>
+              </Avatar>
+
+              <!-- Avatar Edit Buttons -->
+              <div v-if="canEdit" class="absolute -bottom-2 -right-2 flex gap-1">
+                <Button size="icon"
+                        variant="secondary"
+                        class="h-8 w-8 rounded-full shadow-lg"
+                        @click="triggerAvatarUpload"
+                        :disabled="uploadingAvatar">
+                  <Upload v-if="!uploadingAvatar" class="h-4 w-4" />
+                  <Loader2 v-else class="h-4 w-4 animate-spin" />
+                </Button>
+                <Button v-if="team.avatarImagePath"
+                        size="icon"
+                        variant="destructive"
+                        class="h-8 w-8 rounded-full shadow-lg"
+                        @click="deleteAvatar"
+                        :disabled="uploadingAvatar">
+                  <Trash2 class="h-3 w-3" />
+                </Button>
+              </div>
+
+              <input ref="avatarInput"
+                     type="file"
+                     accept="image/*"
+                     class="hidden"
+                     @change="handleAvatarUpload" />
+            </div>
+
+            <!-- Team Header -->
+            <div class="flex-1 mt-12">
+              <div class="flex items-start justify-between">
+                <div>
+                  <div class="flex items-center gap-3 mb-2">
+                    <h1 class="text-3xl font-bold">{{ team.name }}</h1>
+                    <Badge v-if="team.isCreator" variant="default">
+                      <Crown class="h-3 w-3 mr-1" />
+                      Creator
+                    </Badge>
+                    <Badge v-else-if="team.userRole !== undefined" :variant="getRoleBadgeVariant(team.userRole)">
+                      {{ getRoleName(team.userRole) }}
+                    </Badge>
                   </div>
+                  <p class="text-muted-foreground">{{ team.description }}</p>
                 </div>
 
-                <div class="mt-5 sm:mt-0 sm:ml-6 sm:flex-shrink-0 sm:flex sm:items-center">
-                  <div class="flex space-x-3">
-                    <button v-if="!isMember && !isCreator"
-                            @click="joinTeam"
-                            :disabled="actionLoading"
-                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200">
-                      <svg v-if="actionLoading" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      {{ actionLoading ? 'Joining...' : 'Join Team' }}
-                    </button>
+                <!-- Action Buttons -->
+                <div v-if="canEdit" class="flex gap-2">
+                  <Button @click="isEditDialogOpen = true">
+                    <Settings class="h-4 w-4 mr-2" />
+                    Edit Team
+                  </Button>
+                </div>
+              </div>
 
-                    <button v-else-if="isMember && !isCreator"
-                            @click="leaveTeam"
-                            :disabled="actionLoading"
-                            class="inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200">
-                      <svg v-if="actionLoading" class="animate-spin -ml-1 mr-2 h-4 w-4 text-red-700" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      {{ actionLoading ? 'Leaving...' : 'Leave Team' }}
-                    </button>
-                  </div>
+              <!-- Team Stats -->
+              <div class="flex items-center gap-6 mt-4">
+                <div class="flex items-center gap-2 text-sm">
+                  <Users class="h-4 w-4 text-muted-foreground" />
+                  <span class="font-medium">{{ team.members?.length || 0 }}</span>
+                  <span class="text-muted-foreground">Members</span>
+                </div>
+                <div class="flex items-center gap-2 text-sm">
+                  <Book class="h-4 w-4 text-muted-foreground" />
+                  <span class="font-medium">{{ team.titles?.length || 0 }}</span>
+                  <span class="text-muted-foreground">Titles</span>
+                </div>
+                <div class="flex items-center gap-2 text-sm">
+                  <Calendar class="h-4 w-4 text-muted-foreground" />
+                  <span class="text-muted-foreground">Created {{ formatDate(team.createdDate) }}</span>
                 </div>
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
 
-          <!-- Team Creator Info -->
-          <div class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-lg shadow-sm overflow-hidden">
-            <div class="px-6 py-4 border-b border-[var(--color-border)]">
-              <h3 class="text-lg font-medium text-[var(--color-heading)]">Team Creator</h3>
-            </div>
-            <div class="px-6 py-4">
-              <div class="flex items-center">
-                <div class="text-sm">
-                  <div class="font-medium text-[var(--color-text)]">{{ team.creatorName }}</div>
-                  <div class="text-[var(--color-text)] opacity-60">Team founder</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+      <Separator class="my-8" />
+
+      <!-- Tabs Section -->
+      <Tabs default-value="members" class="w-full">
+        <TabsList class="grid w-full grid-cols-3">
+          <TabsTrigger value="members">
+            <Users class="h-4 w-4 mr-2" />
+            Members
+          </TabsTrigger>
+          <TabsTrigger value="titles">
+            <Book class="h-4 w-4 mr-2" />
+            Titles
+          </TabsTrigger>
+          <TabsTrigger value="permissions" v-if="canManageRoles">
+            <Shield class="h-4 w-4 mr-2" />
+            Permissions
+          </TabsTrigger>
+        </TabsList>
 
         <!-- Members Tab -->
-        <div v-if="activeTab === 'members'">
-          <div class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-lg shadow-sm overflow-hidden">
-            <div class="px-6 py-4 border-b border-[var(--color-border)] flex justify-between items-center">
-              <h3 class="text-lg font-medium text-[var(--color-heading)]">Team Members ({{ team.members?.length || 0 }})</h3>
-              <div class="flex items-center space-x-2">
-                <span class="text-sm text-[var(--color-text)] opacity-60">Click on a role to see permissions</span>
-              </div>
-            </div>
-
-            <div class="divide-y divide-[var(--color-border)]">
-              <div v-for="member in team.members"
-                   :key="member.userId"
-                   class="px-6 py-4 flex items-center justify-between hover:bg-[var(--color-background-mute)] transition-colors duration-200">
-                <div class="flex items-center">
-                  <img :src="member.profilePicturePath || '/img/default-avatar.png'"
-                       :alt="member.userName"
-                       class="h-10 w-10 rounded-full object-cover" />
-                  <div class="ml-4">
-                    <div class="text-sm font-medium text-[var(--color-text)]">{{ member.userName }}</div>
-                    <div class="text-sm text-[var(--color-text)] opacity-60">{{ member.email }}</div>
-                    <div class="flex items-center mt-1">
-                      <button @click="showRolePermissions(member)"
-                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium transition-colors duration-200 hover:bg-opacity-80"
-                              :class="getRoleClass(member.role)">
-                        {{ formatRole(member.role) }}
-                        <svg class="ml-1 w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                      </button>
-                      <span class="ml-2 flex items-center text-xs text-[var(--color-text)] opacity-50">
-                        <span class="w-2 h-2 rounded-full mr-1"
-                              :class="{ 'bg-green-400': member.isOnline, 'bg-gray-400': !member.isOnline }"></span>
-                        {{ member.isOnline ? 'Online' : 'Offline' }}
-                      </span>
+        <TabsContent value="members">
+          <Card>
+            <CardHeader>
+              <CardTitle>Team Members</CardTitle>
+              <CardDescription>
+                Manage team members and their roles
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div class="space-y-4">
+                <div v-for="member in team.members"
+                     :key="member.userId"
+                     class="flex items-center justify-between p-4 border rounded-lg">
+                  <div class="flex items-center gap-3">
+                    <Avatar>
+                      <AvatarFallback>
+                        {{ member.username?.substring(0, 2).toUpperCase() }}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p class="font-medium">{{ member.username }}</p>
+                      <p class="text-sm text-muted-foreground">
+                        Joined {{ formatDate(member.joinedDate) }}
+                      </p>
                     </div>
                   </div>
-                </div>
 
-                <div v-if="canManageRoles && member.userId !== team.creatorId" class="flex items-center">
-                  <select :value="member.role"
-                          @change="updateMemberRole(member.userId, $event.target.value)"
-                          class="text-sm border border-[var(--color-border)] rounded-md bg-[var(--color-background)] text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200">
-                    <option value="0">Admin</option>
-                    <option value="1">Member</option>
-                    <option value="2">Viewer</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+                  <div class="flex items-center gap-2">
+                    <Badge :variant="getRoleBadgeVariant(member.role)">
+                      {{ getRoleName(member.role) }}
+                    </Badge>
 
-        <!-- Role Management Tab -->
-        <div v-if="activeTab === 'roles' && canManageRoles">
-          <TeamRoleManagement :teamId="team.id" />
-        </div>
-
-        <!-- Settings Tab -->
-        <div v-if="activeTab === 'settings' && (isCreator || isAdmin)">
-          <div class="space-y-6">
-            <!-- Edit Team Settings -->
-            <div class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-lg shadow-sm overflow-hidden">
-              <div class="px-6 py-4 border-b border-[var(--color-border)]">
-                <h3 class="text-lg font-medium text-[var(--color-heading)]">Team Settings</h3>
-              </div>
-              <div class="px-6 py-4">
-                <form @submit.prevent="updateTeam" class="space-y-4">
-                  <div>
-                    <label class="block text-sm font-medium text-[var(--color-text)] mb-2">Team Name</label>
-                    <input v-model="editForm.name"
-                           type="text"
-                           class="w-full px-3 py-2 border border-[var(--color-border)] rounded-md bg-[var(--color-background)] text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200"
-                           maxlength="100"
-                           required />
-                  </div>
-
-                  <div>
-                    <label class="block text-sm font-medium text-[var(--color-text)] mb-2">Description</label>
-                    <textarea v-model="editForm.description"
-                              class="w-full px-3 py-2 border border-[var(--color-border)] rounded-md bg-[var(--color-background)] text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200 resize-vertical"
-                              maxlength="500"
-                              rows="4"
-                              required></textarea>
-                  </div>
-
-                  <div class="flex justify-end space-x-3 pt-4">
-                    <button type="submit"
-                            :disabled="updateLoading"
-                            class="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200">
-                      <svg v-if="updateLoading" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      {{ updateLoading ? 'Updating...' : 'Update Team' }}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-
-            <!-- Danger Zone -->
-            <div v-if="isCreator" class="bg-[var(--color-background-soft)] border border-red-200 rounded-lg overflow-hidden">
-              <div class="px-6 py-4 border-b border-red-200">
-                <h3 class="text-lg font-medium text-red-800">Danger Zone</h3>
-              </div>
-              <div class="px-6 py-4">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <h4 class="text-sm font-medium text-red-800">Delete Team</h4>
-                    <p class="text-sm text-red-600">Once deleted, this team and all its data will be permanently removed.</p>
-                  </div>
-                  <button @click="deleteTeam"
-                          :disabled="actionLoading"
-                          class="px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200">
-                    Delete Team
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Role Permissions Modal -->
-      <div v-if="showPermissionsModal"
-           class="fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-lg shadow-xl w-full max-w-lg mx-auto">
-          <div class="p-6">
-            <div class="flex items-center justify-between mb-6">
-              <h3 class="text-lg font-medium text-[var(--color-heading)]">
-                {{ selectedMember?.userName }} - {{ formatRole(selectedMember?.role) }} Permissions
-              </h3>
-              <button @click="showPermissionsModal = false" class="text-[var(--color-text)] opacity-50 hover:opacity-75 transition-opacity duration-200">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-              </button>
-            </div>
-
-            <div class="space-y-3">
-              <div v-for="permission in rolePermissions" :key="permission.name"
-                   class="flex items-center p-3 rounded-lg"
-                   :class="permission.hasPermission ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-200'">
-                <svg class="w-5 h-5 mr-3"
-                     :class="permission.hasPermission ? 'text-green-600' : 'text-gray-400'"
-                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path v-if="permission.hasPermission"
-                        stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                  <path v-else
-                        stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-                <div>
-                  <div class="font-medium"
-                       :class="permission.hasPermission ? 'text-green-800' : 'text-gray-600'">
-                    {{ permission.displayName }}
-                  </div>
-                  <div class="text-sm opacity-75"
-                       :class="permission.hasPermission ? 'text-green-700' : 'text-gray-500'">
-                    {{ permission.description }}
+                    <Button v-if="canManageRoles && !isCreator(member.userId)"
+                            size="sm"
+                            variant="ghost"
+                            @click="openRoleDialog(member)">
+                      <Settings class="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
+
+                <Empty v-if="!team.members || team.members.length === 0">
+                  <template #icon>
+                    <Users class="h-12 w-12" />
+                  </template>
+                  <template #description>
+                    No members yet
+                  </template>
+                </Empty>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <!-- Titles Tab -->
+        <TabsContent value="titles">
+          <Card>
+            <CardHeader>
+              <CardTitle>Team Titles</CardTitle>
+              <CardDescription>
+                Manga titles managed by this team
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div v-for="title in team.titles"
+                     :key="title.id"
+                     class="group cursor-pointer"
+                     @click="navigateToTitle(title.id)">
+                  <div class="aspect-[2/3] rounded-lg overflow-hidden border bg-muted mb-2">
+                    <img v-if="title.coverImagePath"
+                         :src="getImageUrl(title.coverImagePath)"
+                         :alt="title.englishTitle"
+                         class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                    <div v-else class="flex items-center justify-center h-full">
+                      <Book class="h-12 w-12 text-muted-foreground" />
+                    </div>
+                  </div>
+                  <p class="text-sm font-medium line-clamp-2">{{ title.englishTitle }}</p>
+                </div>
+
+                <Empty v-if="!team.titles || team.titles.length === 0">
+                  <template #icon>
+                    <Book class="h-12 w-12" />
+                  </template>
+                  <template #description>
+                    No titles yet
+                  </template>
+                </Empty>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <!-- Permissions Tab -->
+        <TabsContent value="permissions" v-if="canManageRoles">
+          <TeamRoleManagement :teamId="teamId" />
+        </TabsContent>
+      </Tabs>
+
+      <!-- Edit Team Dialog -->
+      <Dialog v-model:open="isEditDialogOpen">
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Team</DialogTitle>
+            <DialogDescription>
+              Update your team's information
+            </DialogDescription>
+          </DialogHeader>
+
+          <div class="space-y-4 py-4">
+            <div class="space-y-2">
+              <Label for="name">Team Name</Label>
+              <Input id="name"
+                     v-model="editForm.name"
+                     placeholder="Enter team name" />
             </div>
 
-            <div class="mt-6 flex justify-end">
-              <button @click="showPermissionsModal = false"
-                      class="px-4 py-2 border border-[var(--color-border)] rounded-md text-sm font-medium text-[var(--color-text)] bg-[var(--color-background)] hover:bg-[var(--color-background-mute)] transition-all duration-200">
-                Close
-              </button>
+            <div class="space-y-2">
+              <Label for="description">Description</Label>
+              <Textarea id="description"
+                        v-model="editForm.description"
+                        placeholder="Enter team description"
+                        rows="4" />
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- Success/Error Messages -->
-      <div v-if="message.text"
-           class="fixed top-20 right-4 max-w-sm w-full bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-lg shadow-lg transition-all duration-300"
-           style="z-index: 9999;"
-           :class="{
-             'border-green-500': message.type === 'success',
-             'border-red-500': message.type === 'error'
-           }">
-        <div class="p-4">
-          <div class="flex">
-            <div class="flex-shrink-0">
-              <svg v-if="message.type === 'success'" class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-              </svg>
-              <svg v-else class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-              </svg>
-            </div>
-            <div class="ml-3 w-0 flex-1">
-              <p class="text-sm font-medium text-[var(--color-text)]">
-                {{ message.text }}
-              </p>
-            </div>
-            <div class="ml-4 flex-shrink-0 flex">
-              <button @click="message.text = ''"
-                      class="rounded-md inline-flex text-[var(--color-text)] opacity-50 hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-200">
-                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+          <DialogFooter>
+            <Button variant="outline" @click="isEditDialogOpen = false">
+              Cancel
+            </Button>
+            <Button @click="updateTeam" :disabled="updating">
+              <Loader2 v-if="updating" class="h-4 w-4 mr-2 animate-spin" />
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   </div>
 </template>
 
-<script>
-  import { ref, reactive, computed, onMounted } from 'vue';
-  import { useRoute, useRouter } from 'vue-router';
-  import { useAuthStore } from '../../stores/authStore';
-  import { teamService } from '../../services/teamService';
+<script setup>
+  import { ref, computed, onMounted } from 'vue';
+  import { useRouter } from 'vue-router';
+  import { toast } from 'sonner';
+  import { teamService } from '@/services/teamService';
+  import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+  import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+  import { Badge } from '@/components/ui/badge';
+  import { Button } from '@/components/ui/button';
+  import { Separator } from '@/components/ui/separator';
+  import { Empty } from '@/components/ui/empty';
+  import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+  import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+  import { Label } from '@/components/ui/label';
+  import { Input } from '@/components/ui/input';
+  import { Textarea } from '@/components/ui/textarea';
+  import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
   import TeamRoleManagement from './TeamRoleManagement.vue';
+  import {
+    Users, Book, Calendar, Crown, Settings, Shield,
+    AlertCircle, Upload, Trash2, Loader2, ImageIcon
+  } from 'lucide-vue-next';
 
-  export default {
-    name: 'TeamDetails',
-    components: {
-      TeamRoleManagement
-    },
-    props: {
-      teamId: {
-        type: Number,
-        required: true
+  const props = defineProps({
+    teamId: {
+      type: Number,
+      required: true
+    }
+  });
+
+  const router = useRouter();
+
+  const loading = ref(true);
+  const error = ref(null);
+  const team = ref(null);
+  const isEditDialogOpen = ref(false);
+  const updating = ref(false);
+  const uploadingAvatar = ref(false);
+  const uploadingBackground = ref(false);
+
+  const avatarInput = ref(null);
+  const backgroundInput = ref(null);
+
+  const editForm = ref({
+    name: '',
+    description: ''
+  });
+
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5064';
+
+  const canEdit = computed(() => {
+    return team.value?.userRole === 0 || team.value?.isCreator;
+  });
+
+  const canManageRoles = computed(() => {
+    return team.value?.userRole === 0 || team.value?.isCreator;
+  });
+
+  const getImageUrl = (path) => {
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    // Remove /api from base URL for static files
+    const baseUrl = API_BASE_URL.replace('/api', '');
+    return `${baseUrl}${path}`;
+  };
+
+  const loadTeamDetails = async () => {
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const result = await teamService.getTeamById(props.teamId);
+
+      if (result.success) {
+        team.value = result.data;
+        editForm.value = {
+          name: result.data.name,
+          description: result.data.description
+        };
+      } else {
+        error.value = result.error;
       }
-    },
-    setup(props) {
-      const route = useRoute();
-      const router = useRouter();
-      const authStore = useAuthStore();
-
-      const team = ref(null);
-      const loading = ref(false);
-      const error = ref('');
-      const actionLoading = ref(false);
-      const updateLoading = ref(false);
-      const activeTab = ref('overview');
-      const showPermissionsModal = ref(false);
-      const selectedMember = ref(null);
-
-      const editForm = reactive({
-        name: '',
-        description: ''
-      });
-
-      const message = reactive({
-        text: '',
-        type: ''
-      });
-
-      // Available permissions for role checking
-      const availablePermissions = [
-        { name: 'CanAddTitle', displayName: 'Add Titles', description: 'Create new manga titles' },
-        { name: 'CanEditTitle', displayName: 'Edit Titles', description: 'Modify existing titles' },
-        { name: 'CanDeleteTitle', displayName: 'Delete Titles', description: 'Remove titles from team' },
-        { name: 'CanAddChapter', displayName: 'Add Chapters', description: 'Upload new chapters' },
-        { name: 'CanEditChapter', displayName: 'Edit Chapters', description: 'Modify existing chapters' },
-        { name: 'CanDeleteChapter', displayName: 'Delete Chapters', description: 'Remove chapters' },
-        { name: 'CanAddMember', displayName: 'Add Members', description: 'Invite new team members' },
-        { name: 'CanRemoveMember', displayName: 'Remove Members', description: 'Remove team members' },
-        { name: 'CanViewAnalytics', displayName: 'View Analytics', description: 'Access team statistics' }
-      ];
-
-      // Role permissions based on your backend logic
-      const rolePermissions = computed(() => {
-        if (!selectedMember.value) return [];
-
-        const role = selectedMember.value.role;
-        let permissions = [];
-
-        if (role === 0) { // Admin
-          permissions = availablePermissions.map(p => p.name);
-        } else if (role === 1) { // Member
-          permissions = ['CanAddTitle', 'CanEditTitle', 'CanAddChapter', 'CanEditChapter'];
-        } else { // Viewer
-          permissions = [];
-        }
-
-        return availablePermissions.map(permission => ({
-          ...permission,
-          hasPermission: permissions.includes(permission.name)
-        }));
-      });
-
-      const isCreator = computed(() => {
-        return team.value && authStore.user && team.value.creatorId === authStore.user.id;
-      });
-
-      const isMember = computed(() => {
-        return team.value && authStore.user &&
-          team.value.members?.some(member => member.userId === authStore.user.id);
-      });
-
-      const isAdmin = computed(() => {
-        if (!team.value || !authStore.user) return false;
-        const userMembership = team.value.members?.find(member => member.userId === authStore.user.id);
-        return userMembership && userMembership.role === 0; // Admin role
-      });
-
-      const canManageRoles = computed(() => {
-        return isCreator.value || isAdmin.value;
-      });
-
-      const showMessage = (text, type) => {
-        message.text = text;
-        message.type = type;
-        setTimeout(() => {
-          message.text = '';
-        }, type === 'success' ? 3000 : 5000);
-      };
-
-      const loadTeamDetails = async () => {
-        loading.value = true;
-        error.value = '';
-
-        try {
-          const result = await teamService.getTeamById(props.teamId);
-          if (result.success) {
-            team.value = result.data;
-            editForm.name = result.data.name;
-            editForm.description = result.data.description;
-          } else {
-            error.value = result.error;
-          }
-        } catch (err) {
-          error.value = 'Failed to load team details';
-        } finally {
-          loading.value = false;
-        }
-      };
-
-      const joinTeam = async () => {
-        actionLoading.value = true;
-        try {
-          const result = await teamService.joinTeam(props.teamId);
-          if (result.success) {
-            showMessage('Successfully joined the team!', 'success');
-            await loadTeamDetails(); // Refresh data
-          } else {
-            showMessage(result.error, 'error');
-          }
-        } catch (error) {
-          showMessage('Failed to join team', 'error');
-        } finally {
-          actionLoading.value = false;
-        }
-      };
-
-      const leaveTeam = async () => {
-        if (!confirm('Are you sure you want to leave this team?')) {
-          return;
-        }
-
-        actionLoading.value = true;
-        try {
-          const result = await teamService.leaveTeam(props.teamId);
-          if (result.success) {
-            showMessage('Successfully left the team', 'success');
-            setTimeout(() => {
-              router.push('/teams');
-            }, 1500);
-          } else {
-            showMessage(result.error, 'error');
-          }
-        } catch (error) {
-          showMessage('Failed to leave team', 'error');
-        } finally {
-          actionLoading.value = false;
-        }
-      };
-
-      const updateTeam = async () => {
-        updateLoading.value = true;
-        try {
-          const result = await teamService.updateTeam(props.teamId, {
-            name: editForm.name,
-            description: editForm.description
-          });
-
-          if (result.success) {
-            showMessage('Team updated successfully!', 'success');
-            await loadTeamDetails(); // Refresh data
-          } else {
-            showMessage(result.error, 'error');
-          }
-        } catch (error) {
-          showMessage('Failed to update team', 'error');
-        } finally {
-          updateLoading.value = false;
-        }
-      };
-
-      const deleteTeam = async () => {
-        if (!confirm('Are you sure you want to delete this team? This action cannot be undone.')) {
-          return;
-        }
-
-        actionLoading.value = true;
-        try {
-          const result = await teamService.deleteTeam(props.teamId);
-          if (result.success) {
-            showMessage('Team deleted successfully', 'success');
-            setTimeout(() => {
-              router.push('/teams');
-            }, 1500);
-          } else {
-            showMessage(result.error, 'error');
-          }
-        } catch (error) {
-          showMessage('Failed to delete team', 'error');
-        } finally {
-          actionLoading.value = false;
-        }
-      };
-
-      const updateMemberRole = async (userId, newRole) => {
-        try {
-          const result = await teamService.updateMemberRole(props.teamId, userId, parseInt(newRole));
-          if (result.success) {
-            showMessage('Member role updated successfully', 'success');
-            await loadTeamDetails(); // Refresh data
-          } else {
-            showMessage(result.error, 'error');
-          }
-        } catch (error) {
-          showMessage('Failed to update member role', 'error');
-        }
-      };
-
-      const showRolePermissions = (member) => {
-        selectedMember.value = member;
-        showPermissionsModal.value = true;
-      };
-
-      const formatRole = (role) => {
-        const roles = {
-          0: 'Admin',
-          1: 'Member',
-          2: 'Viewer'
-        };
-        return roles[role] || 'Unknown';
-      };
-
-      const getRoleClass = (role) => {
-        const classes = {
-          0: 'bg-red-100 text-red-800',
-          1: 'bg-blue-100 text-blue-800',
-          2: 'bg-gray-100 text-gray-800'
-        };
-        return classes[role] || 'bg-gray-100 text-gray-800';
-      };
-
-      onMounted(() => {
-        loadTeamDetails();
-      });
-
-      return {
-        team,
-        loading,
-        error,
-        actionLoading,
-        updateLoading,
-        activeTab,
-        showPermissionsModal,
-        selectedMember,
-        editForm,
-        message,
-        rolePermissions,
-        isCreator,
-        isMember,
-        isAdmin,
-        canManageRoles,
-        loadTeamDetails,
-        joinTeam,
-        leaveTeam,
-        updateTeam,
-        deleteTeam,
-        updateMemberRole,
-        showRolePermissions,
-        formatRole,
-        getRoleClass
-      };
+    } catch (err) {
+      error.value = 'Failed to load team details';
+      console.error(err);
+    } finally {
+      loading.value = false;
     }
   };
-</script>
 
-<style scoped>
-  /* Custom focus ring offset color */
-  .focus\:ring-offset-2:focus {
-    --tw-ring-offset-width: 2px;
-    --tw-ring-offset-color: var(--color-background);
-  }
-</style>
+  const triggerAvatarUpload = () => {
+    avatarInput.value?.click();
+  };
+
+  const triggerBackgroundUpload = () => {
+    backgroundInput.value?.click();
+  };
+
+  const handleAvatarUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Invalid file type', {
+        description: 'Please upload an image file'
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File too large', {
+        description: 'Avatar image must be less than 5MB'
+      });
+      return;
+    }
+
+    uploadingAvatar.value = true;
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/team/${props.teamId}/upload-avatar`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success('Success', {
+          description: 'Avatar uploaded successfully'
+        });
+        await loadTeamDetails();
+      } else {
+        throw new Error(data.message || 'Upload failed');
+      }
+    } catch (err) {
+      toast.error('Upload failed', {
+        description: err.message
+      });
+    } finally {
+      uploadingAvatar.value = false;
+      if (avatarInput.value) {
+        avatarInput.value.value = '';
+      }
+    }
+  };
+
+  const handleBackgroundUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Invalid file type', {
+        description: 'Please upload an image file'
+      });
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File too large', {
+        description: 'Background image must be less than 10MB'
+      });
+      return;
+    }
+
+    uploadingBackground.value = true;
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/team/${props.teamId}/upload-background`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success('Success', {
+          description: 'Background uploaded successfully'
+        });
+        await loadTeamDetails();
+      } else {
+        throw new Error(data.message || 'Upload failed');
+      }
+    } catch (err) {
+      toast.error('Upload failed', {
+        description: err.message
+      });
+    } finally {
+      uploadingBackground.value = false;
+      if (backgroundInput.value) {
+        backgroundInput.value.value = '';
+      }
+    }
+  };
+
+  const deleteAvatar = async () => {
+    if (!confirm('Are you sure you want to delete the team avatar?')) return;
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/team/${props.teamId}/avatar`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        toast.success('Success', {
+          description: 'Avatar deleted successfully'
+        });
+        await loadTeamDetails();
+      } else {
+        throw new Error('Delete failed');
+      }
+    } catch (err) {
+      toast.error('Delete failed', {
+        description: err.message
+      });
+    }
+  };
+
+  const deleteBackground = async () => {
+    if (!confirm('Are you sure you want to delete the team background?')) return;
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/team/${props.teamId}/background`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        toast.success('Success', {
+          description: 'Background deleted successfully'
+        });
+        await loadTeamDetails();
+      } else {
+        throw new Error('Delete failed');
+      }
+    } catch (err) {
+      toast.error('Delete failed', {
+        description: err.message
+      });
+    }
+  };
+
+  const updateTeam = async () => {
+    updating.value = true;
+
+    try {
+      const result = await teamService.updateTeam(props.teamId, editForm.value);
+
+      if (result.success) {
+        toast.success('Success', {
+          description: 'Team updated successfully'
+        });
+        isEditDialogOpen.value = false;
+        await loadTeamDetails();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (err) {
+      toast.error('Update failed', {
+        description: err.message
+      });
+    } finally {
+      updating.value = false;
+    }
+  };
+
+  const getRoleName = (role) => {
+    const roles = { 0: 'Admin', 1: 'Member', 2: 'Viewer' };
+    return roles[role] || 'Unknown';
+  };
+
+  const getRoleBadgeVariant = (role) => {
+    const variants = { 0: 'destructive', 1: 'default', 2: 'secondary' };
+    return variants[role] || 'secondary';
+  };
+
+  const isCreator = (userId) => {
+    return team.value?.creatorId === userId;
+  };
+
+  const formatDate = (date) => {
+    if (!date) return 'Unknown';
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const navigateToTitle = (titleId) => {
+    router.push(`/title/${titleId}`);
+  };
+
+  const openRoleDialog = (member) => {
+    console.log('Open role dialog for', member);
+  };
+
+  onMounted(() => {
+    loadTeamDetails();
+  });
+</script>

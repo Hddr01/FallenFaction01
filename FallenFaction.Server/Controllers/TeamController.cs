@@ -1,12 +1,12 @@
-﻿// Controllers/TeamController.cs
+﻿// Controllers/TeamController.cs - Updated to match existing UserTeamRole model
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http;
+using System.Security.Claims;
 using FallenFaction.Server.Data;
 using FallenFaction.Server.Data.Models;
+using Microsoft.EntityFrameworkCore;
 using FallenFaction.Server.DTOs.Team;
-using FallenFaction.Server.Data.SeedData;
 
 namespace FallenFaction.Server.Controllers
 {
@@ -16,30 +16,38 @@ namespace FallenFaction.Server.Controllers
     public class TeamController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        private readonly UserManager<AppUser> _userManager;
+        private readonly IWebHostEnvironment _environment;
+        private readonly ILogger<TeamController> _logger;
 
-        public TeamController(ApplicationDbContext context, UserManager<AppUser> userManager)
+        public TeamController(
+            ApplicationDbContext context,
+            IWebHostEnvironment environment,
+            ILogger<TeamController> logger)
         {
             _context = context;
-            _userManager = userManager;
+            _environment = environment;
+            _logger = logger;
         }
 
         // GET: api/team
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<TeamListDto>>> GetTeams()
+        [AllowAnonymous]
+        public async Task<ActionResult<IEnumerable<object>>> GetAllTeams()
         {
             var teams = await _context.Teams
-                .Include(t => t.Members)
-                .Include(t => t.Titles)
-                .Select(t => new TeamListDto
+                .Include(t => t.UserTeamRoles)
+                    .ThenInclude(utr => utr.AppUser)
+                .Select(t => new
                 {
-                    Id = t.Id,
-                    Name = t.Name,
-                    Description = t.Description,
-                    CreatorName = _context.Users.Where(u => u.Id == t.CreatorId).Select(u => u.UserName).FirstOrDefault(),
-                    MemberCount = t.Members.Count,
-                    TitleCount = t.Titles.Count,
-                    CreatedDate = DateTime.UtcNow // You might want to add a CreatedDate property to Team model
+                    t.Id,
+                    t.Name,
+                    t.Description,
+                    t.CreatorId,
+                    t.AvatarImagePath,
+                    t.BackgroundImagePath,
+                    t.CreatedDate,
+                    MemberCount = t.UserTeamRoles.Count,
+                    TitleCount = t.Titles.Count
                 })
                 .ToListAsync();
 
@@ -48,10 +56,11 @@ namespace FallenFaction.Server.Controllers
 
         // GET: api/team/{id}
         [HttpGet("{id}")]
-        public async Task<ActionResult<TeamDto>> GetTeam(int id)
+        public async Task<ActionResult<object>> GetTeamById(int id)
         {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
             var team = await _context.Teams
-                .Include(t => t.Members)
                 .Include(t => t.UserTeamRoles)
                     .ThenInclude(utr => utr.AppUser)
                 .Include(t => t.Titles)
@@ -59,157 +68,403 @@ namespace FallenFaction.Server.Controllers
 
             if (team == null)
             {
-                return NotFound();
+                return NotFound(new { message = "Team not found" });
             }
 
-            var teamDto = new TeamDto
+            var userRole = team.UserTeamRoles
+                .FirstOrDefault(utr => utr.AppUserId == userId);
+
+            var response = new
             {
-                Id = team.Id,
-                Name = team.Name,
-                Description = team.Description,
-                CreatorId = team.CreatorId,
-                CreatorName = (await _userManager.FindByIdAsync(team.CreatorId))?.UserName,
-                MemberCount = team.Members.Count,
-                TitleCount = team.Titles.Count,
-                Members = team.UserTeamRoles.Select(utr => new TeamMemberDto
+                team.Id,
+                team.Name,
+                team.Description,
+                team.CreatorId,
+                team.AvatarImagePath,
+                team.BackgroundImagePath,
+                team.CreatedDate,
+                Members = team.UserTeamRoles.Select(utr => new
                 {
                     UserId = utr.AppUserId,
-                    UserName = utr.AppUser.UserName,
-                    Email = utr.AppUser.Email,
-                    ProfilePicturePath = utr.AppUser.ProfilePicturePath,
+                    Username = utr.AppUser.UserName,
                     Role = utr.Role,
-                    JoinedDate = DateTime.UtcNow, // You might want to add this to UserTeamRole
-                    IsOnline = utr.AppUser.IsOnline
-                }).ToList()
+                    JoinedDate = utr.AppUser.RegistrationDate // Using registration date as fallback
+                }).ToList(),
+                Titles = team.Titles.Select(t => new
+                {
+                    t.Id,
+                    t.EnglishTitle,
+                    t.CoverImagePath
+                }).ToList(),
+                UserRole = userRole?.Role,
+                IsMember = userRole != null,
+                IsCreator = team.CreatorId == userId
             };
 
-            return Ok(teamDto);
+            return Ok(response);
         }
 
-        // Controllers/TeamController.cs - Updated CreateTeam method with permission assignment
+        // POST: api/team
         [HttpPost]
-        public async Task<ActionResult<TeamDto>> CreateTeam(CreateTeamDto createTeamDto)
+        public async Task<ActionResult<Team>> CreateTeam([FromBody] CreateTeamDto dto)
         {
-            var currentUser = await _userManager.GetUserAsync(User);
-            if (currentUser == null)
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(userId))
             {
-                return Unauthorized();
+                return Unauthorized(new { message = "User not authenticated" });
             }
 
             var team = new Team
             {
-                Name = createTeamDto.Name,
-                Description = createTeamDto.Description,
-                CreatorId = currentUser.Id
+                Name = dto.Name,
+                Description = dto.Description,
+                CreatorId = userId,
+                CreatedDate = DateTime.UtcNow
             };
 
             _context.Teams.Add(team);
             await _context.SaveChangesAsync();
 
-            // Add creator as admin member
+            // Add creator as admin
             var userTeamRole = new UserTeamRole
             {
-                AppUserId = currentUser.Id,
+                AppUserId = userId,
                 TeamId = team.Id,
                 Role = TeamRole.Admin
             };
 
             _context.UserTeamRoles.Add(userTeamRole);
-
-            // Also add to Members collection for proper counting
-            team.Members.Add(currentUser);
-
             await _context.SaveChangesAsync();
 
-            // IMPORTANT: Assign default permissions to the creator
-            await PermissionSeeder.AssignDefaultPermissionsToRole(_context, userTeamRole);
-
-            // Return the created team with the creator as a member
-            var teamDto = new TeamDto
-            {
-                Id = team.Id,
-                Name = team.Name,
-                Description = team.Description,
-                CreatorId = team.CreatorId,
-                CreatorName = currentUser.UserName,
-                MemberCount = 1,
-                TitleCount = 0,
-                Members = new List<TeamMemberDto>
-        {
-            new TeamMemberDto
-            {
-                UserId = currentUser.Id,
-                UserName = currentUser.UserName,
-                Email = currentUser.Email,
-                ProfilePicturePath = currentUser.ProfilePicturePath,
-                Role = TeamRole.Admin,
-                JoinedDate = DateTime.UtcNow,
-                IsOnline = currentUser.IsOnline
-            }
-        }
-            };
-
-            return CreatedAtAction(nameof(GetTeam), new { id = team.Id }, teamDto);
-        }
-
-        // Also add this alias endpoint for NavBar compatibility
-        [HttpGet("~/api/Teams/GetUserTeams")]
-        public async Task<ActionResult<IEnumerable<TeamListDto>>> GetUserTeams()
-        {
-            return await GetMyTeams();
+            return CreatedAtAction(nameof(GetTeamById), new { id = team.Id }, team);
         }
 
         // PUT: api/team/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateTeam(int id, UpdateTeamDto updateTeamDto)
+        public async Task<IActionResult> UpdateTeam(int id, [FromBody] UpdateTeamDto dto)
         {
-            var currentUser = await _userManager.GetUserAsync(User);
-            if (currentUser == null)
-            {
-                return Unauthorized();
-            }
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            var team = await _context.Teams.FindAsync(id);
+            var team = await _context.Teams
+                .Include(t => t.UserTeamRoles)
+                .FirstOrDefaultAsync(t => t.Id == id);
+
             if (team == null)
             {
-                return NotFound();
+                return NotFound(new { message = "Team not found" });
             }
 
-            // Check if user is admin or creator
-            var userRole = await _context.UserTeamRoles
-                .FirstOrDefaultAsync(utr => utr.AppUserId == currentUser.Id && utr.TeamId == id);
+            // Check if user is admin
+            var userRole = team.UserTeamRoles
+                .FirstOrDefault(utr => utr.AppUserId == userId);
 
-            if (team.CreatorId != currentUser.Id && (userRole == null || userRole.Role != TeamRole.Admin))
+            if (userRole?.Role != TeamRole.Admin && team.CreatorId != userId)
             {
                 return Forbid();
             }
 
-            team.Name = updateTeamDto.Name;
-            team.Description = updateTeamDto.Description;
+            team.Name = dto.Name;
+            team.Description = dto.Description;
 
             await _context.SaveChangesAsync();
 
-            return NoContent();
+            return Ok(new { message = "Team updated successfully" });
+        }
+
+        // POST: api/team/{id}/upload-avatar
+        [HttpPost("{id}/upload-avatar")]
+        public async Task<IActionResult> UploadAvatar(int id, IFormFile file)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            var team = await _context.Teams
+                .Include(t => t.UserTeamRoles)
+                .FirstOrDefaultAsync(t => t.Id == id);
+
+            if (team == null)
+            {
+                return NotFound(new { message = "Team not found" });
+            }
+
+            // Check if user is admin
+            var userRole = team.UserTeamRoles
+                .FirstOrDefault(utr => utr.AppUserId == userId);
+
+            if (userRole?.Role != TeamRole.Admin && team.CreatorId != userId)
+            {
+                return Forbid();
+            }
+
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { message = "No file uploaded" });
+            }
+
+            // Validate file type
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+
+            if (!allowedExtensions.Contains(extension))
+            {
+                return BadRequest(new { message = "Invalid file type. Only images are allowed." });
+            }
+
+            // Validate file size (5MB max)
+            if (file.Length > 5 * 1024 * 1024)
+            {
+                return BadRequest(new { message = "File size exceeds 5MB limit" });
+            }
+
+            try
+            {
+                // Delete old avatar if exists
+                if (!string.IsNullOrEmpty(team.AvatarImagePath))
+                {
+                    var oldPath = Path.Combine(_environment.WebRootPath, team.AvatarImagePath.TrimStart('/'));
+                    if (System.IO.File.Exists(oldPath))
+                    {
+                        System.IO.File.Delete(oldPath);
+                    }
+                }
+
+                // Create directory if not exists
+                var uploadsDir = Path.Combine(_environment.WebRootPath, "uploads", "teams", "avatars");
+                Directory.CreateDirectory(uploadsDir);
+
+                // Generate unique filename
+                var fileName = $"team_{id}_avatar_{Guid.NewGuid()}{extension}";
+                var filePath = Path.Combine(uploadsDir, fileName);
+
+                // Save file
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                // Update database
+                team.AvatarImagePath = $"/uploads/teams/avatars/{fileName}";
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    message = "Avatar uploaded successfully",
+                    avatarPath = team.AvatarImagePath
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error uploading avatar for team {TeamId}", id);
+                return StatusCode(500, new { message = "Error uploading avatar" });
+            }
+        }
+
+        // POST: api/team/{id}/upload-background
+        [HttpPost("{id}/upload-background")]
+        public async Task<IActionResult> UploadBackground(int id, IFormFile file)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            var team = await _context.Teams
+                .Include(t => t.UserTeamRoles)
+                .FirstOrDefaultAsync(t => t.Id == id);
+
+            if (team == null)
+            {
+                return NotFound(new { message = "Team not found" });
+            }
+
+            // Check if user is admin
+            var userRole = team.UserTeamRoles
+                .FirstOrDefault(utr => utr.AppUserId == userId);
+
+            if (userRole?.Role != TeamRole.Admin && team.CreatorId != userId)
+            {
+                return Forbid();
+            }
+
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { message = "No file uploaded" });
+            }
+
+            // Validate file type
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+
+            if (!allowedExtensions.Contains(extension))
+            {
+                return BadRequest(new { message = "Invalid file type. Only images are allowed." });
+            }
+
+            // Validate file size (10MB max for backgrounds)
+            if (file.Length > 10 * 1024 * 1024)
+            {
+                return BadRequest(new { message = "File size exceeds 10MB limit" });
+            }
+
+            try
+            {
+                // Delete old background if exists
+                if (!string.IsNullOrEmpty(team.BackgroundImagePath))
+                {
+                    var oldPath = Path.Combine(_environment.WebRootPath, team.BackgroundImagePath.TrimStart('/'));
+                    if (System.IO.File.Exists(oldPath))
+                    {
+                        System.IO.File.Delete(oldPath);
+                    }
+                }
+
+                // Create directory if not exists
+                var uploadsDir = Path.Combine(_environment.WebRootPath, "uploads", "teams", "backgrounds");
+                Directory.CreateDirectory(uploadsDir);
+
+                // Generate unique filename
+                var fileName = $"team_{id}_bg_{Guid.NewGuid()}{extension}";
+                var filePath = Path.Combine(uploadsDir, fileName);
+
+                // Save file
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                // Update database
+                team.BackgroundImagePath = $"/uploads/teams/backgrounds/{fileName}";
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    message = "Background uploaded successfully",
+                    backgroundPath = team.BackgroundImagePath
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error uploading background for team {TeamId}", id);
+                return StatusCode(500, new { message = "Error uploading background" });
+            }
+        }
+
+        // DELETE: api/team/{id}/avatar
+        [HttpDelete("{id}/avatar")]
+        public async Task<IActionResult> DeleteAvatar(int id)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            var team = await _context.Teams
+                .Include(t => t.UserTeamRoles)
+                .FirstOrDefaultAsync(t => t.Id == id);
+
+            if (team == null)
+            {
+                return NotFound(new { message = "Team not found" });
+            }
+
+            // Check if user is admin
+            var userRole = team.UserTeamRoles
+                .FirstOrDefault(utr => utr.AppUserId == userId);
+
+            if (userRole?.Role != TeamRole.Admin && team.CreatorId != userId)
+            {
+                return Forbid();
+            }
+
+            if (string.IsNullOrEmpty(team.AvatarImagePath))
+            {
+                return BadRequest(new { message = "No avatar to delete" });
+            }
+
+            try
+            {
+                // Delete file
+                var filePath = Path.Combine(_environment.WebRootPath, team.AvatarImagePath.TrimStart('/'));
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+
+                // Update database
+                team.AvatarImagePath = null;
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "Avatar deleted successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting avatar for team {TeamId}", id);
+                return StatusCode(500, new { message = "Error deleting avatar" });
+            }
+        }
+
+        // DELETE: api/team/{id}/background
+        [HttpDelete("{id}/background")]
+        public async Task<IActionResult> DeleteBackground(int id)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            var team = await _context.Teams
+                .Include(t => t.UserTeamRoles)
+                .FirstOrDefaultAsync(t => t.Id == id);
+
+            if (team == null)
+            {
+                return NotFound(new { message = "Team not found" });
+            }
+
+            // Check if user is admin
+            var userRole = team.UserTeamRoles
+                .FirstOrDefault(utr => utr.AppUserId == userId);
+
+            if (userRole?.Role != TeamRole.Admin && team.CreatorId != userId)
+            {
+                return Forbid();
+            }
+
+            if (string.IsNullOrEmpty(team.BackgroundImagePath))
+            {
+                return BadRequest(new { message = "No background to delete" });
+            }
+
+            try
+            {
+                // Delete file
+                var filePath = Path.Combine(_environment.WebRootPath, team.BackgroundImagePath.TrimStart('/'));
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+
+                // Update database
+                team.BackgroundImagePath = null;
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "Background deleted successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting background for team {TeamId}", id);
+                return StatusCode(500, new { message = "Error deleting background" });
+            }
         }
 
         // DELETE: api/team/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteTeam(int id)
         {
-            var currentUser = await _userManager.GetUserAsync(User);
-            if (currentUser == null)
-            {
-                return Unauthorized();
-            }
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            var team = await _context.Teams.FindAsync(id);
+            var team = await _context.Teams
+                .Include(t => t.UserTeamRoles)
+                .FirstOrDefaultAsync(t => t.Id == id);
+
             if (team == null)
             {
-                return NotFound();
+                return NotFound(new { message = "Team not found" });
             }
 
             // Only creator can delete team
-            if (team.CreatorId != currentUser.Id)
+            if (team.CreatorId != userId)
             {
                 return Forbid();
             }
@@ -217,339 +472,240 @@ namespace FallenFaction.Server.Controllers
             _context.Teams.Remove(team);
             await _context.SaveChangesAsync();
 
-            return NoContent();
+            return Ok(new { message = "Team deleted successfully" });
         }
 
+        // GET: api/team/my-teams
+        [HttpGet("my-teams")]
+        public async Task<ActionResult<IEnumerable<object>>> GetMyTeams()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
+            var teams = await _context.UserTeamRoles
+                .Where(utr => utr.AppUserId == userId)
+                .Include(utr => utr.Team)
+                .Select(utr => new
+                {
+                    utr.Team.Id,
+                    utr.Team.Name,
+                    utr.Team.Description,
+                    utr.Team.AvatarImagePath,
+                    utr.Team.BackgroundImagePath,
+                    utr.Team.CreatedDate,
+                    Role = utr.Role,
+                    IsCreator = utr.Team.CreatorId == userId,
+                    MemberCount = utr.Team.UserTeamRoles.Count
+                })
+                .ToListAsync();
+
+            return Ok(teams);
+        }
+
+        // PUT: api/team/{id}/members/{userId}/role
+        [HttpPut("{id}/members/{userId}/role")]
+        public async Task<IActionResult> UpdateMemberRole(int id, string userId, [FromBody] UpdateMemberRoleDto dto)
+        {
+            var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            var team = await _context.Teams
+                .Include(t => t.UserTeamRoles)
+                .FirstOrDefaultAsync(t => t.Id == id);
+
+            if (team == null)
+            {
+                return NotFound(new { message = "Team not found" });
+            }
+
+            // Check if current user is admin
+            var currentUserRole = team.UserTeamRoles
+                .FirstOrDefault(utr => utr.AppUserId == currentUserId);
+
+            if (currentUserRole?.Role != TeamRole.Admin && team.CreatorId != currentUserId)
+            {
+                return Forbid();
+            }
+
+            // Cannot change creator's role
+            if (team.CreatorId == userId)
+            {
+                return BadRequest(new { message = "Cannot change creator's role" });
+            }
+
+            var targetUserRole = team.UserTeamRoles
+                .FirstOrDefault(utr => utr.AppUserId == userId);
+
+            if (targetUserRole == null)
+            {
+                return NotFound(new { message = "User is not a member of this team" });
+            }
+
+            targetUserRole.Role = dto.Role;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Member role updated successfully" });
+        }
+
+        // POST: api/team/{id}/join
         [HttpPost("{id}/join")]
         public async Task<IActionResult> JoinTeam(int id)
         {
-            var currentUser = await _userManager.GetUserAsync(User);
-            if (currentUser == null)
-            {
-                return Unauthorized();
-            }
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            var team = await _context.Teams.FindAsync(id);
+            var team = await _context.Teams
+                .Include(t => t.UserTeamRoles)
+                .FirstOrDefaultAsync(t => t.Id == id);
+
             if (team == null)
             {
-                return NotFound();
+                return NotFound(new { message = "Team not found" });
             }
 
-            // Check if user is already a member
-            var existingRole = await _context.UserTeamRoles
-                .FirstOrDefaultAsync(utr => utr.AppUserId == currentUser.Id && utr.TeamId == id);
+            // Check if already a member
+            var existingRole = team.UserTeamRoles
+                .FirstOrDefault(utr => utr.AppUserId == userId);
 
             if (existingRole != null)
             {
-                return BadRequest("You are already a member of this team.");
+                return BadRequest(new { message = "Already a member of this team" });
             }
 
+            // Add as member
             var userTeamRole = new UserTeamRole
             {
-                AppUserId = currentUser.Id,
+                AppUserId = userId,
                 TeamId = id,
-                Role = TeamRole.Viewer // FIXED: New members start as Viewers, not Members
+                Role = TeamRole.Member
             };
 
             _context.UserTeamRoles.Add(userTeamRole);
             await _context.SaveChangesAsync();
 
-            // IMPORTANT: Assign default permissions for the new viewer role
-            await PermissionSeeder.AssignDefaultPermissionsToRole(_context, userTeamRole);
-
-            return Ok();
+            return Ok(new { message = "Successfully joined team" });
         }
 
         // DELETE: api/team/{id}/leave
         [HttpDelete("{id}/leave")]
         public async Task<IActionResult> LeaveTeam(int id)
         {
-            var currentUser = await _userManager.GetUserAsync(User);
-            if (currentUser == null)
-            {
-                return Unauthorized();
-            }
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            var team = await _context.Teams.FindAsync(id);
+            var team = await _context.Teams
+                .Include(t => t.UserTeamRoles)
+                .FirstOrDefaultAsync(t => t.Id == id);
+
             if (team == null)
             {
-                return NotFound();
+                return NotFound(new { message = "Team not found" });
             }
 
-            // Creator cannot leave their own team
-            if (team.CreatorId == currentUser.Id)
+            // Cannot leave if you're the creator
+            if (team.CreatorId == userId)
             {
-                return BadRequest("Team creator cannot leave the team. Transfer ownership or delete the team instead.");
+                return BadRequest(new { message = "Team creator cannot leave the team" });
             }
 
-            var userTeamRole = await _context.UserTeamRoles
-                .FirstOrDefaultAsync(utr => utr.AppUserId == currentUser.Id && utr.TeamId == id);
+            var userTeamRole = team.UserTeamRoles
+                .FirstOrDefault(utr => utr.AppUserId == userId);
 
             if (userTeamRole == null)
             {
-                return BadRequest("You are not a member of this team.");
+                return BadRequest(new { message = "You are not a member of this team" });
             }
 
             _context.UserTeamRoles.Remove(userTeamRole);
             await _context.SaveChangesAsync();
 
-            return Ok();
+            return Ok(new { message = "Successfully left team" });
         }
 
-        // PUT: api/team/{id}/members/{userId}/role - Updated with permission reassignment
-        [HttpPut("{id}/members/{userId}/role")]
-        public async Task<IActionResult> UpdateMemberRole(int id, string userId, UpdateMemberRoleDto updateRoleDto)
-        {
-            var currentUser = await _userManager.GetUserAsync(User);
-            if (currentUser == null)
-            {
-                return Unauthorized();
-            }
-
-            var team = await _context.Teams.FindAsync(id);
-            if (team == null)
-            {
-                return NotFound();
-            }
-
-            // Check if current user is admin or creator
-            var currentUserRole = await _context.UserTeamRoles
-                .FirstOrDefaultAsync(utr => utr.AppUserId == currentUser.Id && utr.TeamId == id);
-
-            if (team.CreatorId != currentUser.Id && (currentUserRole == null || currentUserRole.Role != TeamRole.Admin))
-            {
-                return Forbid();
-            }
-
-            var targetUserRole = await _context.UserTeamRoles
-                .Include(utr => utr.UserTeamRolePermissions)
-                .FirstOrDefaultAsync(utr => utr.AppUserId == userId && utr.TeamId == id);
-
-            if (targetUserRole == null)
-            {
-                return NotFound("User is not a member of this team.");
-            }
-
-            // Cannot change creator's role
-            if (team.CreatorId == userId)
-            {
-                return BadRequest("Cannot change team creator's role.");
-            }
-
-            // Remove existing permissions
-            _context.UserTeamRolePermissions.RemoveRange(targetUserRole.UserTeamRolePermissions);
-
-            // Update role
-            targetUserRole.Role = updateRoleDto.Role;
-
-            await _context.SaveChangesAsync();
-
-            // Assign new permissions based on the new role
-            await PermissionSeeder.AssignDefaultPermissionsToRole(_context, targetUserRole);
-
-            return Ok();
-        }
-
-
-        // Add this helper method to check user permissions in teams
-        private async Task<bool> HasTeamPermission(string userId, int teamId, string permission)
-        {
-            // Admins have all permissions
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user != null && await _userManager.IsInRoleAsync(user, "Admin"))
-            {
-                return true;
-            }
-
-            // Check specific team permission
-            return await _context.UserTeamRoles
-                .Where(utr => utr.AppUserId == userId && utr.TeamId == teamId)
-                .Where(utr =>
-                    // Team creators have all permissions
-                    utr.Team.CreatorId == userId ||
-                    // Team admins have all permissions
-                    utr.Role == TeamRole.Admin ||
-                    // Members with specific permission
-                    (utr.Role == TeamRole.Member &&
-                     utr.UserTeamRolePermissions.Any(p => p.UserTeamPermission.PermissionName == permission))
-                )
-                .AnyAsync();
-        }
-        // Add this endpoint to get user's team permissions (useful for frontend)
+        // GET: api/team/{id}/permissions
         [HttpGet("{id}/permissions")]
-        [Authorize]
-        public async Task<ActionResult<object>> GetUserTeamPermissions(int id)
+        public async Task<ActionResult<object>> GetTeamPermissions(int id)
         {
-            var currentUser = await _userManager.GetUserAsync(User);
-            if (currentUser == null)
-            {
-                return Unauthorized();
-            }
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            var team = await _context.Teams.FindAsync(id);
-            if (team == null)
-            {
-                return NotFound();
-            }
-
-            var userRole = await _context.UserTeamRoles
+            var userTeamRole = await _context.UserTeamRoles
                 .Include(utr => utr.UserTeamRolePermissions)
                     .ThenInclude(utrp => utrp.UserTeamPermission)
-                .FirstOrDefaultAsync(utr => utr.AppUserId == currentUser.Id && utr.TeamId == id);
+                .FirstOrDefaultAsync(utr => utr.TeamId == id && utr.AppUserId == userId);
 
-            if (userRole == null)
+            if (userTeamRole == null)
             {
                 return Ok(new
                 {
                     teamId = id,
-                    teamName = team.Name,
                     isMember = false,
-                    role = (string)null,
-                    permissions = new string[0]
+                    role = (TeamRole?)null,
+                    permissions = new List<string>()
                 });
             }
 
-            var permissions = new List<string>();
-
-            // Team creators and admins have all permissions
-            if (team.CreatorId == currentUser.Id || userRole.Role == TeamRole.Admin)
-            {
-                permissions = await _context.UserTeamPermissions
-                    .Select(p => p.PermissionName)
-                    .ToListAsync();
-            }
-            else
-            {
-                // Get specific permissions for members
-                permissions = userRole.UserTeamRolePermissions
-                    .Select(utrp => utrp.UserTeamPermission.PermissionName)
-                    .ToList();
-            }
+            var permissions = userTeamRole.UserTeamRolePermissions
+                .Select(utrp => utrp.UserTeamPermission.PermissionName)
+                .ToList();
 
             return Ok(new
             {
                 teamId = id,
-                teamName = team.Name,
                 isMember = true,
-                role = userRole.Role.ToString(),
-                isCreator = team.CreatorId == currentUser.Id,
+                role = userTeamRole.Role,
                 permissions = permissions
             });
         }
 
-
-        // Replace the GetTopTeams method in your TeamController.cs
-        /// <summary>
-        /// Get top teams for homepage
-        /// GET: api/Team/TopTeams
-        /// </summary>
-        [HttpGet("TopTeams")]
+        [HttpGet("search")]
         [AllowAnonymous]
-        public async Task<ActionResult<IEnumerable<TeamTopDto>>> GetTopTeams()
+        public async Task<ActionResult<IEnumerable<TeamSearchDto>>> SearchTeams([FromQuery] string query)
         {
             try
             {
-                var logger = HttpContext.RequestServices.GetService<ILogger<TeamController>>();
-                logger?.LogInformation("Fetching top teams");
-
-                var teamCount = await _context.Teams.CountAsync();
-                logger?.LogInformation($"Total teams in database: {teamCount}");
-
-                if (teamCount == 0)
+                if (string.IsNullOrWhiteSpace(query))
                 {
-                    logger?.LogWarning("No teams found in database");
-                    return Ok(new List<TeamTopDto>());
+                    return BadRequest(new { message = "Search query is required" });
                 }
 
-                // Get teams and randomize in memory to avoid database issues
                 var teams = await _context.Teams
-                    .Include(t => t.Members)
-                    .Include(t => t.Titles)
+                    .Where(t => t.Name.Contains(query) || t.Description.Contains(query))
+                    .Select(t => new TeamSearchDto
+                    {
+                        Id = t.Id,
+                        Name = t.Name,
+                        Description = t.Description,
+                        MemberCount = t.Members.Count,
+                        TitleCount = t.Titles.Count,
+                        AvatarImagePath = t.AvatarImagePath
+                    })
+                    .OrderBy(t => t.Name)
+                    .Take(50) // Limit results
                     .ToListAsync();
 
-                // Randomize in memory
-                var randomizedTeams = teams
-                    .OrderBy(t => Random.Shared.Next())
-                    .Take(6)
-                    .ToList();
-
-                var topTeams = randomizedTeams.Select(t => new TeamTopDto
-                {
-                    Id = t.Id,
-                    Name = t.Name ?? "Unknown Team",
-                    Avatar = "/uploads/default-team.png", // Default team avatar
-                    Level = GetTeamLevel(t.Id), // Mock level
-                    Progress = Random.Shared.Next(60, 95), // Mock progress
-                    Score = GetTeamScore(t.Id) // Mock score
-                }).ToList();
-
-                logger?.LogInformation($"Returning {topTeams.Count} top teams");
-                return Ok(topTeams);
+                return Ok(teams);
             }
             catch (Exception ex)
             {
-                var logger = HttpContext.RequestServices.GetService<ILogger<TeamController>>();
-                logger?.LogError(ex, "Error fetching top teams: {Error}", ex.Message);
-                return StatusCode(500, new { message = "Error fetching top teams", error = ex.Message });
+                _logger.LogError(ex, "Error searching teams with query: {Query}", query);
+                return StatusCode(500, new { message = "An error occurred while searching teams" });
             }
         }
-
-        /// <summary>
-        /// Get user teams (alias for NavBar compatibility)
-        /// GET: api/Teams/UserTeams
-        /// </summary>
-        [HttpGet("~/api/Teams/UserTeams")]
-        public async Task<ActionResult<IEnumerable<TeamListDto>>> GetUserTeamsAlias()
-        {
-            return await GetMyTeams();
-        }
-
-        // Also update these helper methods to be consistent
-        private int GetTeamLevel(int teamId)
-        {
-            // Mock level calculation based on team ID for consistency
-            return (teamId % 8) + 1; // Level 1-8
-        }
-
-        private string GetTeamScore(int teamId)
-        {
-            // Mock score based on team ID for consistency
-            var current = (teamId % 80) + 100; // 100-179
-            var max = (teamId % 50) + 200; // 200-249
-            return $"{current}/{max}";
-        }
+    }
 
 
-        // GET: api/team/my-teams
-        [HttpGet("my-teams")]
-        public async Task<ActionResult<IEnumerable<TeamListDto>>> GetMyTeams()
-        {
-            var currentUser = await _userManager.GetUserAsync(User);
-            if (currentUser == null)
-            {
-                return Unauthorized();
-            }
 
-            var teams = await _context.UserTeamRoles
-                .Where(utr => utr.AppUserId == currentUser.Id)
-                .Include(utr => utr.Team)
-                    .ThenInclude(t => t.Members)
-                .Include(utr => utr.Team)
-                    .ThenInclude(t => t.Titles)
-                .Select(utr => new TeamListDto
-                {
-                    Id = utr.Team.Id,
-                    Name = utr.Team.Name,
-                    Description = utr.Team.Description,
-                    CreatorName = _context.Users.Where(u => u.Id == utr.Team.CreatorId).Select(u => u.UserName).FirstOrDefault(),
-                    MemberCount = utr.Team.Members.Count,
-                    TitleCount = utr.Team.Titles.Count,
-                    CreatedDate = DateTime.UtcNow
-                })
-                .ToListAsync();
+    // DTOs
+    public class CreateTeamDto
+    {
+        public string Name { get; set; }
+        public string Description { get; set; }
+    }
 
-            return Ok(teams);
-        }
+    public class UpdateTeamDto
+    {
+        public string Name { get; set; }
+        public string Description { get; set; }
+    }
+
+    public class UpdateMemberRoleDto
+    {
+        public TeamRole Role { get; set; }
     }
 }

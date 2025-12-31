@@ -129,7 +129,8 @@
                         <!-- Avatar Section -->
                         <div class="w-full aspect-square bg-muted flex items-center justify-center p-4">
                           <Avatar class="w-20 h-20">
-                            <AvatarImage :src="`/api/teams/${team.id}/avatar`"
+                            <AvatarImage v-if="team.avatarImagePath"
+                                         :src="getImageUrl(team.avatarImagePath)"
                                          :alt="team.name" />
                             <AvatarFallback class="text-2xl font-bold">
                               {{ team.name?.substring(0, 2).toUpperCase() || 'TE' }}
@@ -494,6 +495,17 @@
   })
 
   const emit = defineEmits(['tab-changed', 'comments-updated', 'show-rating-modal', 'go-to-login'])
+
+  // Helper function to get correct image URLs
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5064'
+
+  const getImageUrl = (path) => {
+    if (!path) return ''
+    if (path.startsWith('http')) return path
+    // Remove /api from base URL for static files
+    const baseUrl = API_BASE_URL.replace('/api', '')
+    return `${baseUrl}${path}`
+  }
 
   // Tab state
   const activeTab = ref(props.initialTab)

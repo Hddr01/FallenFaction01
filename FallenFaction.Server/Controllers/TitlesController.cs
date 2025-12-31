@@ -1307,7 +1307,9 @@ namespace FallenFaction.Server.Controllers
                     Teams = title.Teams.Select(team => new TeamSimpleDto
                     {
                         Id = team.Id,
-                        Name = team.Name
+                        Name = team.Name,
+                        AvatarImagePath = team.AvatarImagePath,
+                        BackgroundImagePath = team.BackgroundImagePath
                     }).ToList(),
                     Authors = title.Authors.Select(author => author.Name).ToList(),
                     Artists = title.Artists.Select(artist => artist.Name).ToList(),
@@ -1598,13 +1600,405 @@ namespace FallenFaction.Server.Controllers
             }
         }
 
+        // Controllers/TitlesController.cs - Add this CORRECTED catalog method
 
+        /// <summary>
+        /// Get catalog titles with filtering, sorting, and pagination
+        /// GET: api/Titles/Catalog
+        /// </summary>
+        [HttpGet("Catalog")]
+        public async Task<ActionResult<CatalogResponseDto>> GetCatalog(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 24,
+            [FromQuery] string? search = null,
+            [FromQuery] MangaType? type = null,
+            [FromQuery] string? status = null,
+            [FromQuery] string? translationStatus = null,
+            [FromQuery] int? ageRestriction = null,
+            [FromQuery] List<int>? categories = null,
+            [FromQuery] List<int>? tags = null,
+            [FromQuery] List<int>? formats = null,
+            [FromQuery] List<int>? authors = null,
+            [FromQuery] List<int>? artists = null,
+            [FromQuery] List<int>? publishers = null,
+            [FromQuery] List<int>? teams = null,
+            [FromQuery] int? yearFrom = null,
+            [FromQuery] int? yearTo = null,
+            [FromQuery] string sortBy = "updated",
+            [FromQuery] string sortOrder = "desc")
+        {
+            try
+            {
+                _logger.LogInformation("Fetching catalog - Page: {Page}, PageSize: {PageSize}, Search: {Search}",
+                    page, pageSize, search);
+
+                // Validate pagination
+                if (page < 1) page = 1;
+                if (pageSize < 1) pageSize = 24;
+                if (pageSize > 100) pageSize = 100;
+
+                // Start with base query - only available titles
+                var query = _context.Titles
+                    .Include(t => t.Categories)
+                    .Include(t => t.Tags)
+                    .Include(t => t.Formats)
+                    .Include(t => t.Authors)
+                    .Include(t => t.Artists)
+                    .Include(t => t.Publishers)
+                    .Include(t => t.Teams)
+                    .Include(t => t.Chapters)
+                    .Where(t => t.IsAvailable);
+
+                // Search filter
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    var searchLower = search.ToLower();
+                    query = query.Where(t =>
+                        t.OriginalTitle.ToLower().Contains(searchLower) ||
+                        (t.EnglishTitle != null && t.EnglishTitle.ToLower().Contains(searchLower)) ||
+                        (t.AlternativeNames != null && t.AlternativeNames.ToLower().Contains(searchLower)) ||
+                        (t.Description != null && t.Description.ToLower().Contains(searchLower))
+                    );
+                }
+
+                // Type filter
+                if (type.HasValue)
+                {
+                    query = query.Where(t => t.Type == type.Value);
+                }
+
+                // Status filters
+                if (!string.IsNullOrWhiteSpace(status) && status != "all")
+                {
+                    query = query.Where(t => t.StatusTitle == status);
+                }
+
+                if (!string.IsNullOrWhiteSpace(translationStatus) && translationStatus != "all")
+                {
+                    query = query.Where(t => t.StatusTranslation == translationStatus);
+                }
+
+                // Age restriction filter
+                if (ageRestriction.HasValue)
+                {
+                    query = query.Where(t => t.AgeRestriction == ageRestriction.Value);
+                }
+
+                // Category filter
+                if (categories != null && categories.Any())
+                {
+                    query = query.Where(t => t.Categories.Any(c => categories.Contains(c.Id)));
+                }
+
+                // Tag filter
+                if (tags != null && tags.Any())
+                {
+                    query = query.Where(t => t.Tags.Any(tag => tags.Contains(tag.Id)));
+                }
+
+                // Format filter
+                if (formats != null && formats.Any())
+                {
+                    query = query.Where(t => t.Formats.Any(f => formats.Contains(f.Id)));
+                }
+
+                // Author filter
+                if (authors != null && authors.Any())
+                {
+                    query = query.Where(t => t.Authors.Any(a => authors.Contains(a.Id)));
+                }
+
+                // Artist filter
+                if (artists != null && artists.Any())
+                {
+                    query = query.Where(t => t.Artists.Any(a => artists.Contains(a.Id)));
+                }
+
+                // Publisher filter
+                if (publishers != null && publishers.Any())
+                {
+                    query = query.Where(t => t.Publishers.Any(p => publishers.Contains(p.Id)));
+                }
+
+                // Team filter
+                if (teams != null && teams.Any())
+                {
+                    query = query.Where(t => t.Teams.Any(team => teams.Contains(team.Id)));
+                }
+
+                // Year range filter - ReleaseDate is a string in your model
+                if (yearFrom.HasValue || yearTo.HasValue)
+                {
+                    if (yearFrom.HasValue && yearTo.HasValue)
+                    {
+                        query = query.Where(t =>
+                            t.ReleaseDate != null &&
+                            int.Parse(t.ReleaseDate.Substring(0, 4)) >= yearFrom.Value &&
+                            int.Parse(t.ReleaseDate.Substring(0, 4)) <= yearTo.Value);
+                    }
+                    else if (yearFrom.HasValue)
+                    {
+                        query = query.Where(t =>
+                            t.ReleaseDate != null &&
+                            int.Parse(t.ReleaseDate.Substring(0, 4)) >= yearFrom.Value);
+                    }
+                    else if (yearTo.HasValue)
+                    {
+                        query = query.Where(t =>
+                            t.ReleaseDate != null &&
+                            int.Parse(t.ReleaseDate.Substring(0, 4)) <= yearTo.Value);
+                    }
+                }
+
+                // Get total count before sorting/paging
+                var totalCount = await query.CountAsync();
+
+                // Sorting - Note: No direct rating/view fields on Title, using chapter count for now
+                query = sortBy.ToLower() switch
+                {
+                    "title" => sortOrder == "asc"
+                        ? query.OrderBy(t => t.OriginalTitle)
+                        : query.OrderByDescending(t => t.OriginalTitle),
+
+                    "chapters" => sortOrder == "asc"
+                        ? query.OrderBy(t => t.Chapters.Count)
+                        : query.OrderByDescending(t => t.Chapters.Count),
+
+                    _ => sortOrder == "asc" // "updated" or default - use latest chapter date
+                        ? query.OrderBy(t => t.Chapters.Any()
+                            ? t.Chapters.Max(c => c.ReleaseDate)
+                            : DateTime.MinValue)
+                        : query.OrderByDescending(t => t.Chapters.Any()
+                            ? t.Chapters.Max(c => c.ReleaseDate)
+                            : DateTime.MinValue)
+                };
+
+                // Get title IDs for this page
+                var titleIds = await query
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .Select(t => t.Id)
+                    .ToListAsync();
+
+                // Get the full titles with navigation properties
+                var titles = await _context.Titles
+                    .Where(t => titleIds.Contains(t.Id))
+                    .Include(t => t.Categories)
+                    .Include(t => t.Tags)
+                    .Include(t => t.Formats)
+                    .Include(t => t.Authors)
+                    .Include(t => t.Artists)
+                    .Include(t => t.Publishers)
+                    .Include(t => t.Teams)
+                    .Include(t => t.Chapters)
+                    .ToListAsync();
+
+                // Calculate stats for each title (similar to your TitleDetailDto approach)
+                var items = new List<TitleCatalogDto>();
+
+                foreach (var title in titles)
+                {
+                    // Calculate rating stats
+                    var ratingStats = await _context.Ratings
+                        .Where(r => r.TitleId == title.Id)
+                        .GroupBy(r => r.TitleId)
+                        .Select(g => new { Average = g.Average(r => (double)r.Value), Count = g.Count() })
+                        .FirstOrDefaultAsync();
+
+                    // Calculate bookmark count
+                    var bookmarkCount = await _context.Bookmarks
+                        .Where(b => b.TitleId == title.Id)
+                        .CountAsync();
+
+                    // Calculate view count
+                    var viewCount = await _context.ChapterViews
+                        .Where(cv => _context.Chapters
+                            .Where(c => c.TitleId == title.Id)
+                            .Select(c => c.Id)
+                            .Contains(cv.ChapterId))
+                        .CountAsync();
+
+                    // Get latest chapter info
+                    var latestChapter = title.Chapters
+                        .OrderByDescending(c => c.ReleaseDate)
+                        .FirstOrDefault();
+
+                    var catalogDto = new TitleCatalogDto
+                    {
+                        Id = title.Id,
+                        OriginalTitle = title.OriginalTitle ?? "Unknown Title",
+                        EnglishTitle = title.EnglishTitle ?? title.OriginalTitle ?? "",
+                        AlternativeNames = title.AlternativeNames,
+                        CoverImagePath = !string.IsNullOrEmpty(title.CoverImagePath) ? title.CoverImagePath : "/img/logo.png",
+                        BackgroundImagePath = title.BackgroundImagePath,
+                        Type = title.Type,
+                        StatusTitle = title.StatusTitle ?? "Unknown",
+                        StatusTranslation = title.StatusTranslation ?? "Unknown",
+                        AgeRestriction = title.AgeRestriction,
+                        Description = title.Description != null && title.Description.Length > 200
+                            ? title.Description.Substring(0, 200) + "..."
+                            : title.Description ?? "",
+                        LatestChapter = latestChapter != null
+                            ? $"Ch. {latestChapter.ChapterNumber}"
+                            : null,
+                        ChapterCount = title.Chapters.Count,
+                        ReleaseDate = title.ReleaseDate ?? "Unknown",
+                        LastUpdated = latestChapter?.ReleaseDate,
+                        AverageRating = ratingStats?.Average ?? 0.0,
+                        RatingCount = ratingStats?.Count ?? 0,
+                        BookmarkCount = bookmarkCount,
+                        ViewCount = viewCount,
+                        Authors = title.Authors.Select(a => a.Name).ToList(),
+                        Artists = title.Artists.Select(a => a.Name).ToList(),
+                        Publishers = title.Publishers.Select(p => p.Name).ToList(),
+                        Teams = title.Teams.Select(t => t.Name).ToList(),
+                        Categories = title.Categories.Select(c => c.Name).ToList(),
+                        Tags = title.Tags.Select(tag => tag.Name).ToList(),
+                        Formats = title.Formats.Select(f => f.Name).ToList()
+                    };
+
+                    items.Add(catalogDto);
+                }
+
+                // Sort items to match the original query order
+                var orderedItems = sortBy.ToLower() switch
+                {
+                    "title" => sortOrder == "asc"
+                        ? items.OrderBy(t => t.OriginalTitle).ToList()
+                        : items.OrderByDescending(t => t.OriginalTitle).ToList(),
+                    "chapters" => sortOrder == "asc"
+                        ? items.OrderBy(t => t.ChapterCount).ToList()
+                        : items.OrderByDescending(t => t.ChapterCount).ToList(),
+                    _ => sortOrder == "asc"
+                        ? items.OrderBy(t => t.LastUpdated ?? DateTime.MinValue).ToList()
+                        : items.OrderByDescending(t => t.LastUpdated ?? DateTime.MinValue).ToList()
+                };
+
+                var response = new CatalogResponseDto
+                {
+                    Items = orderedItems,
+                    TotalCount = totalCount,
+                    Page = page,
+                    PageSize = pageSize,
+                    TotalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+                };
+
+                _logger.LogInformation("Catalog query successful - Found {Count} titles, Page {Page}/{TotalPages}",
+                    totalCount, page, response.TotalPages);
+
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching catalog: {Error}", ex.Message);
+                return StatusCode(500, new { message = "Error fetching catalog", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Get filter options with counts
+        /// GET: api/Titles/Catalog/FilterOptions
+        /// </summary>
+        [HttpGet("Catalog/FilterOptions")]
+        public async Task<ActionResult<CatalogFilterOptionsDto>> GetCatalogFilterOptions()
+        {
+            try
+            {
+                var availableTitles = _context.Titles.Where(t => t.IsAvailable);
+
+                var filterOptions = new CatalogFilterOptionsDto
+                {
+                    Authors = await _context.Authors
+                        .Where(a => availableTitles.Any(t => t.Authors.Contains(a)))
+                        .Select(a => new FilterOptionDto
+                        {
+                            Id = a.Id,
+                            Name = a.Name,
+                            Count = availableTitles.Count(t => t.Authors.Contains(a))
+                        })
+                        .OrderBy(a => a.Name)
+                        .ToListAsync(),
+
+                    Artists = await _context.Artists
+                        .Where(a => availableTitles.Any(t => t.Artists.Contains(a)))
+                        .Select(a => new FilterOptionDto
+                        {
+                            Id = a.Id,
+                            Name = a.Name,
+                            Count = availableTitles.Count(t => t.Artists.Contains(a))
+                        })
+                        .OrderBy(a => a.Name)
+                        .ToListAsync(),
+
+                    Publishers = await _context.Publishers
+                        .Where(p => availableTitles.Any(t => t.Publishers.Contains(p)))
+                        .Select(p => new FilterOptionDto
+                        {
+                            Id = p.Id,
+                            Name = p.Name,
+                            Count = availableTitles.Count(t => t.Publishers.Contains(p))
+                        })
+                        .OrderBy(p => p.Name)
+                        .ToListAsync(),
+
+                    Teams = await _context.Teams
+                        .Where(t => availableTitles.Any(title => title.Teams.Contains(t)))
+                        .Select(t => new FilterOptionDto
+                        {
+                            Id = t.Id,
+                            Name = t.Name,
+                            Count = availableTitles.Count(title => title.Teams.Contains(t))
+                        })
+                        .OrderBy(t => t.Name)
+                        .ToListAsync(),
+
+                    Categories = await _context.Categories
+                        .Where(c => availableTitles.Any(t => t.Categories.Contains(c)))
+                        .Select(c => new FilterOptionDto
+                        {
+                            Id = c.Id,
+                            Name = c.Name,
+                            Count = availableTitles.Count(t => t.Categories.Contains(c))
+                        })
+                        .OrderBy(c => c.Name)
+                        .ToListAsync(),
+
+                    Tags = await _context.Tags
+                        .Where(tag => availableTitles.Any(t => t.Tags.Contains(tag)))
+                        .Select(tag => new FilterOptionDto
+                        {
+                            Id = tag.Id,
+                            Name = tag.Name,
+                            Count = availableTitles.Count(t => t.Tags.Contains(tag))
+                        })
+                        .OrderBy(tag => tag.Name)
+                        .ToListAsync(),
+
+                    Formats = await _context.Formats
+                        .Where(f => availableTitles.Any(t => t.Formats.Contains(f)))
+                        .Select(f => new FilterOptionDto
+                        {
+                            Id = f.Id,
+                            Name = f.Name,
+                            Count = availableTitles.Count(t => t.Formats.Contains(f))
+                        })
+                        .OrderBy(f => f.Name)
+                        .ToListAsync()
+                };
+
+                return Ok(filterOptions);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching filter options: {Error}", ex.Message);
+                return StatusCode(500, new { message = "Error fetching filter options", error = ex.Message });
+            }
+        }
 
         public class UpdateProgressRequest
         {
             public int TitleId { get; set; }
             public int ChapterNumber { get; set; }
         }
-
     }
 }

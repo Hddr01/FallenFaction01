@@ -40,6 +40,8 @@ namespace FallenFaction.Server.DTOs.Chapter
     {
         public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
+        public string? AvatarImagePath { get; set; }
+        public string? BackgroundImagePath { get; set; }
     }
 
     public static class ChapterMapper
@@ -57,7 +59,13 @@ namespace FallenFaction.Server.DTOs.Chapter
                 TitleId = chapter.TitleId,
                 TitleName = chapter.Title?.EnglishTitle ?? chapter.Title?.OriginalTitle ?? string.Empty,
                 TeamId = chapter.TeamId,
-                Team = chapter.Team != null ? new NameIdDTO { Id = chapter.Team.Id, Name = chapter.Team.Name ?? string.Empty } : null,
+                Team = chapter.Team != null ? new NameIdDTO
+                {
+                    Id = chapter.Team.Id,
+                    Name = chapter.Team.Name ?? string.Empty,
+                    AvatarImagePath = chapter.Team.AvatarImagePath,
+                    BackgroundImagePath = chapter.Team.BackgroundImagePath
+                } : null,
                 CreatedDate = chapter.CreatedDate,
                 ReleaseDate = chapter.ReleaseDate,
                 ImagePaths = chapter.ImagePaths?.Select(ip => new ChapterImageDTO

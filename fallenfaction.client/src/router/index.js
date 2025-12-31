@@ -52,6 +52,10 @@ import TitleChangeHistory from '../components/title-details/TitleChangeHistory.v
 import AddChapter from '../components/title-details/AddChapter.vue'
 import ChapterReader from '../components/title-details/ChapterReader.vue';
 
+// cataloge
+import Catalog from '../components/catalog/Catalog.vue';
+
+
 const routes = [
   {
     path: '/',
@@ -336,6 +340,32 @@ const routes = [
     meta: {
       requiresAuth: true,
       title: 'Create Artist'
+    }
+  },
+
+
+  {
+    path: '/catalog',
+    name: 'Catalog',
+    component: Catalog,
+    meta: {
+      title: 'Browse Catalog',
+      requiresAuth: false
+    }
+  },
+
+  // Alternative route with category/tag pre-filtering
+  {
+    path: '/catalog/:filter',
+    name: 'CatalogFiltered',
+    component: Catalog,
+    props: route => ({
+      initialFilter: route.params.filter,
+      initialValues: route.query
+    }),
+    meta: {
+      title: 'Browse Catalog',
+      requiresAuth: false
     }
   },
 
