@@ -1,4 +1,4 @@
-// Data/Models/Team.cs - Updated with proper relationships
+// Data/Models/Team.cs - Updated with Avatar and Background images
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Collections.Generic;
@@ -19,6 +19,13 @@ namespace FallenFaction.Server.Data.Models
 
         public string CreatorId { get; set; }
 
+        // Image paths
+        [StringLength(255)]
+        public string? AvatarImagePath { get; set; }
+
+        [StringLength(255)]
+        public string? BackgroundImagePath { get; set; }
+
         // Add creation date for better tracking
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
@@ -36,4 +43,3 @@ namespace FallenFaction.Server.Data.Models
         public ICollection<RejectedChapter> RejectedChapters { get; set; } = new List<RejectedChapter>();
     }
 }
-

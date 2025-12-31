@@ -1,10 +1,8 @@
-// services/teamService.js - FIXED VERSION with improved role update debugging
+// services/teamService.js - Updated with image upload functionality
 import axios from 'axios';
 
-// Use Vite environment variables (not process.env)
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5064/api';
 
-// Create axios instance with base configuration
 const teamApi = axios.create({
   baseURL: `${API_BASE_URL}/team`,
   headers: {
@@ -14,7 +12,6 @@ const teamApi = axios.create({
   timeout: 10000,
 });
 
-// Add request interceptor to include auth token
 teamApi.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('authToken');
@@ -33,7 +30,6 @@ teamApi.interceptors.request.use(
   }
 );
 
-// Add response interceptor for error handling
 teamApi.interceptors.response.use(
   (response) => {
     if (import.meta.env.DEV) {
@@ -51,7 +47,6 @@ teamApi.interceptors.response.use(
     });
 
     if (error.response?.status === 401) {
-      // Handle unauthorized access
       localStorage.removeItem('authToken');
       localStorage.removeItem('authUser');
       if (!window.location.pathname.includes('/account/login')) {
@@ -62,7 +57,6 @@ teamApi.interceptors.response.use(
   }
 );
 
-// SINGLE EXPORT - export const (not export { teamService } at the end)
 export const teamService = {
   // Get all teams
   async getAllTeams() {
@@ -144,6 +138,86 @@ export const teamService = {
     }
   },
 
+  // Upload avatar
+  async uploadAvatar(teamId, file) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await teamApi.post(`/${teamId}/upload-avatar`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Failed to upload avatar'
+      };
+    }
+  },
+
+  // Upload background
+  async uploadBackground(teamId, file) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await teamApi.post(`/${teamId}/upload-background`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Failed to upload background'
+      };
+    }
+  },
+
+  // Delete avatar
+  async deleteAvatar(teamId) {
+    try {
+      const response = await teamApi.delete(`/${teamId}/avatar`);
+      return {
+        success: true,
+        message: response.data.message
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Failed to delete avatar'
+      };
+    }
+  },
+
+  // Delete background
+  async deleteBackground(teamId) {
+    try {
+      const response = await teamApi.delete(`/${teamId}/background`);
+      return {
+        success: true,
+        message: response.data.message
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Failed to delete background'
+      };
+    }
+  },
+
   // Join team
   async joinTeam(id) {
     try {
@@ -174,20 +248,17 @@ export const teamService = {
     }
   },
 
-  // FIXED: Update member role to match backend UpdateMemberRoleDto structure
+  // Update member role
   async updateMemberRole(teamId, userId, role) {
     try {
       console.log('Updating member role:', { teamId, userId, role });
 
-      // Ensure role is a number (TeamRole enum)
       const roleValue = typeof role === 'string' ? parseInt(role) : role;
 
-      // Validate role value (0=Admin, 1=Member, 2=Viewer)
       if (isNaN(roleValue) || roleValue < 0 || roleValue > 2) {
         throw new Error('Invalid role value. Must be 0 (Admin), 1 (Member), or 2 (Viewer)');
       }
 
-      // Send the correct data structure expected by UpdateMemberRoleDto
       const payload = {
         role: roleValue
       };
@@ -206,7 +277,6 @@ export const teamService = {
     } catch (error) {
       console.error('Error updating member role:', error);
 
-      // Enhanced error reporting
       const errorDetails = {
         status: error.response?.status,
         statusText: error.response?.statusText,
@@ -221,7 +291,6 @@ export const teamService = {
 
       console.error('Detailed error information:', errorDetails);
 
-      // Handle specific error cases
       let errorMessage = 'Failed to update member role';
 
       if (error.response?.status === 400) {
@@ -311,5 +380,31 @@ export const teamService = {
   isValidRole(role) {
     const roleValue = typeof role === 'string' ? parseInt(role) : role;
     return !isNaN(roleValue) && roleValue >= 0 && roleValue <= 2;
+  },
+
+  // Helper to get full image URL
+  getImageUrl(path) {
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    const baseUrl = API_BASE_URL.replace('/api', '');
+    return `${baseUrl}${path}`;
+  },
+
+  // Validate image file
+  validateImageFile(file, maxSizeMB = 5) {
+    if (!file) {
+      return { valid: false, error: 'No file provided' };
+    }
+
+    if (!file.type.startsWith('image/')) {
+      return { valid: false, error: 'File must be an image' };
+    }
+
+    const maxSize = maxSizeMB * 1024 * 1024;
+    if (file.size > maxSize) {
+      return { valid: false, error: `File size must be less than ${maxSizeMB}MB` };
+    }
+
+    return { valid: true };
   }
 };

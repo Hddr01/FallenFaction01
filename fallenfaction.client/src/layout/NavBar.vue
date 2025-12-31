@@ -15,7 +15,7 @@
             </router-link>
           </div>
           <div class="nav-item">
-            <router-link to="/home/cataloge" class="nav-link">
+            <router-link to="/catalog" class="nav-link">
               <BookOpen class="nav-icon-lucide" :size="20" />
               <span class="nav-text">Catalog</span>
             </router-link>
@@ -272,7 +272,7 @@
               </router-link>
             </Button>
             <Button variant="ghost" as-child class="sidebar-item">
-              <router-link to="/home/cataloge" @click="closeMobileSidebar">
+              <router-link to="/catalog" @click="closeMobileSidebar">
                 <BookOpen :size="20" class="mr-3" />
                 <span>Catalog</span>
               </router-link>
