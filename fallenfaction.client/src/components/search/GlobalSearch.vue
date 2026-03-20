@@ -25,7 +25,7 @@
                 variant="ghost"
                 size="sm"
                 @click="clearSearch"
-                class="h-6 w-6 p-0">
+                class="h-6 w-6 p-0 clear-search-btn ml-2">
           <X class="h-3 w-3" />
         </Button>
       </div>
@@ -409,6 +409,13 @@
     };
     return types[type] || 'Unknown';
   };
+
+  // Expose method to open dialog programmatically (for mobile button)
+  defineExpose({
+    open: () => {
+      isOpen.value = true;
+    }
+  });
 </script>
 
 <style scoped>
@@ -416,5 +423,15 @@
   :deep(.DialogOverlay) {
     backdrop-filter: blur(4px);
     background-color: rgba(0, 0, 0, 0.5);
+  }
+
+  /* Hide the default Dialog close button to prevent overlap with our clear button */
+  :deep([data-radix-dialog-close]) {
+    display: none !important;
+  }
+
+  /* Ensure our clear button is properly positioned */
+  .clear-search-btn {
+    flex-shrink: 0;
   }
 </style>

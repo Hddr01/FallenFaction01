@@ -1,4 +1,4 @@
-<!-- Enhanced Comments Component with Improved Error Handling -->
+<!-- Enhanced Comments Component with shadcn-vue UI Components -->
 <template>
   <div class="border border-[var(--color-border)] rounded-xl overflow-hidden">
     <!-- Comments Header -->
@@ -8,38 +8,40 @@
           Comments ({{ totalComments }})
         </h3>
 
-        <!-- Sort Options -->
+        <!-- Sort Options with shadcn Select -->
         <div class="flex items-center space-x-2">
           <span class="text-sm text-[var(--color-text)] opacity-60">Sort by:</span>
-          <select v-model="currentSort"
-                  @change="handleSortChange"
-                  class="bg-[var(--color-background-mute)] border border-[var(--color-border)] text-[var(--color-text)] rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent">
-            <option value="newest">Newest</option>
-            <option value="oldest">Oldest</option>
-            <option value="likes">Most Liked</option>
-          </select>
+          <Select v-model="currentSort" @update:model-value="handleSortChange">
+            <SelectTrigger class="w-[140px]">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="newest">Newest</SelectItem>
+                <SelectItem value="oldest">Oldest</SelectItem>
+                <SelectItem value="likes">Most Liked</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      <!-- Comments Disabled Notice -->
-      <div v-if="commentsDisabled"
-           class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4">
-        <div class="flex items-center">
-          <svg class="w-5 h-5 text-amber-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.732 15.5c-.77.833.192 2.5 1.732 2.5z"></path>
-          </svg>
-          <span class="text-amber-800 dark:text-amber-200 text-sm font-medium">
-            Comments have been disabled for this content.
-          </span>
-        </div>
-      </div>
+      <!-- Comments Disabled Notice with shadcn Alert -->
+      <Alert v-if="commentsDisabled" variant="warning" class="mb-4">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.732 15.5c-.77.833.192 2.5 1.732 2.5z"></path>
+        </svg>
+        <AlertTitle>Comments Disabled</AlertTitle>
+        <AlertDescription>
+          Comments have been disabled for this content.
+        </AlertDescription>
+      </Alert>
 
-      <!-- Debug Info (only show in development) -->
-      <div v-if="showDebugInfo && (debugMode || error)"
-           class="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-3 mb-4 text-xs">
+      <!-- Debug Info with shadcn Alert -->
+      <Alert v-if="showDebugInfo && (debugMode || error)" variant="default" class="mb-4">
         <details>
-          <summary class="cursor-pointer font-medium text-gray-700 dark:text-gray-300">Debug Info</summary>
-          <div class="mt-2 space-y-1 text-gray-600 dark:text-gray-400">
+          <summary class="cursor-pointer font-medium">Debug Info</summary>
+          <div class="mt-2 space-y-1 text-xs">
             <div><strong>Target ID:</strong> {{ targetId }}</div>
             <div><strong>Target Type:</strong> {{ targetType }}</div>
             <div><strong>Comments Enabled:</strong> {{ commentsEnabled }}</div>
@@ -49,51 +51,52 @@
             <div><strong>Stats Loaded:</strong> {{ statsLoaded }}</div>
           </div>
         </details>
-      </div>
+      </Alert>
 
       <!-- Comment Form -->
       <div v-if="!commentsDisabled" class="space-y-4">
-        <!-- Auth Check -->
-        <div v-if="!isAuthenticated"
-             class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+        <!-- Auth Check with shadcn Alert and Button -->
+        <Alert v-if="!isAuthenticated" variant="default" class="border-blue-200 dark:border-blue-800">
           <div class="flex items-center justify-between">
             <div class="flex items-center">
               <svg class="w-5 h-5 text-blue-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
               </svg>
-              <span class="text-blue-800 dark:text-blue-200 text-sm">
+              <AlertDescription class="text-blue-800 dark:text-blue-200">
                 Sign in to join the conversation
-              </span>
+              </AlertDescription>
             </div>
-            <button @click="goToLogin"
-                    class="bg-[var(--color-accent)] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[var(--color-accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] transition-colors duration-200">
+            <Button size="sm" @click="goToLogin">
               Sign In
-            </button>
+            </Button>
           </div>
-        </div>
+        </Alert>
 
-        <!-- Comment Input -->
+        <!-- Comment Input with shadcn components -->
         <div v-else class="space-y-3">
           <div class="flex space-x-3">
-            <!-- User Avatar -->
+            <!-- User Avatar with shadcn Avatar -->
             <div class="flex-shrink-0">
-              <div class="w-10 h-10 bg-[var(--color-background-mute)] border border-[var(--color-border)] rounded-full flex items-center justify-center">
-                <svg class="w-5 h-5 text-[var(--color-text)] opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                </svg>
-              </div>
+              <Avatar>
+                <AvatarImage src="" alt="User" />
+                <AvatarFallback>
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                  </svg>
+                </AvatarFallback>
+              </Avatar>
             </div>
 
-            <!-- Comment Input -->
+            <!-- Comment Input with shadcn Textarea -->
             <div class="flex-1">
-              <textarea v-model="newCommentText"
+              <Textarea v-model="newCommentText"
                         :disabled="submittingComment"
                         placeholder="Share your thoughts..."
-                        rows="3"
+                        :rows="3"
                         maxlength="2000"
-                        class="w-full bg-[var(--color-background)] border border-[var(--color-border)] text-[var(--color-text)] rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent resize-none transition-colors duration-200"
+                        class="resize-none"
                         @keydown.ctrl.enter="submitComment"
-                        @keydown.meta.enter="submitComment"></textarea>
+                        @keydown.meta.enter="submitComment" />
 
               <!-- Character Count & Actions -->
               <div class="flex items-center justify-between mt-2">
@@ -104,15 +107,14 @@
                   <span class="text-xs text-[var(--color-text)] opacity-60">
                     Ctrl+Enter to post
                   </span>
-                  <button @click="submitComment"
-                          :disabled="!newCommentText.trim() || submittingComment"
-                          class="bg-[var(--color-accent)] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[var(--color-accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200">
-                    <svg v-if="submittingComment" class="animate-spin w-4 h-4 mr-2 inline" fill="none" viewBox="0 0 24 24">
+                  <Button @click="submitComment"
+                          :disabled="!newCommentText.trim() || submittingComment">
+                    <svg v-if="submittingComment" class="animate-spin w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24">
                       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                       <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                     {{ submittingComment ? 'Posting...' : 'Post Comment' }}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -123,6 +125,35 @@
 
     <!-- Comments List -->
     <div class="p-6">
+      <!-- Thread Mode Breadcrumb (Reddit-style) -->
+      <div v-if="threadMode && parentChain.length > 0" class="mb-4 p-4 bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-lg">
+        <div class="flex items-center gap-2 mb-3 pb-3 border-b border-[var(--color-border)]">
+          <svg class="w-4 h-4 text-[var(--color-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16l-4-4m0 0l4-4m-4 4h18"></path>
+          </svg>
+          <a :href="getBackToFullDiscussionUrl()" class="text-[var(--color-accent)] font-semibold text-sm hover:underline">
+            Back to full discussion
+          </a>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <span class="text-xs font-semibold text-[var(--color-text)] opacity-60 uppercase">Parent comments:</span>
+          <div class="flex flex-wrap items-center gap-2">
+            <a v-for="(parent, index) in parentChain"
+               :key="parent.id"
+               :href="getCommentUrl(parent.id)"
+               :title="parent.content"
+               class="inline-flex items-center gap-2 px-3 py-1.5 bg-[var(--color-background)] border border-[var(--color-border)] rounded-md hover:bg-[var(--color-background-soft)] hover:border-[var(--color-accent)] transition-all">
+              <Badge variant="secondary">{{ parent.userName }}</Badge>
+              <span class="text-xs text-[var(--color-text)] opacity-70 max-w-[200px] truncate">{{ parent.content }}</span>
+              <svg v-if="index < parentChain.length - 1" class="w-3.5 h-3.5 text-[var(--color-text)] opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+              </svg>
+            </a>
+          </div>
+        </div>
+      </div>
+
       <!-- Loading State -->
       <div v-if="loading" class="flex items-center justify-center py-12">
         <div class="text-center">
@@ -134,20 +165,21 @@
         </div>
       </div>
 
-      <!-- Error State -->
-      <div v-else-if="error" class="text-center py-12">
-        <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6 max-w-md mx-auto">
-          <svg class="w-12 h-12 text-red-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.732 15.5c-.77.833.192 2.5 1.732 2.5z"></path>
-          </svg>
-          <h3 class="text-lg font-medium text-red-800 dark:text-red-200 mb-2">Error Loading Comments</h3>
-          <p class="text-red-700 dark:text-red-300 text-sm mb-4">{{ error }}</p>
-          <button @click="retryLoad"
-                  class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors duration-200">
+      <!-- Error State with shadcn Alert and Button -->
+      <Alert v-else-if="error" variant="destructive" class="max-w-md mx-auto">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.732 15.5c-.77.833.192 2.5 1.732 2.5z"></path>
+        </svg>
+        <AlertTitle>Error Loading Comments</AlertTitle>
+        <AlertDescription>
+          {{ error }}
+        </AlertDescription>
+        <div class="mt-4">
+          <Button variant="destructive" @click="retryLoad">
             Try Again
-          </button>
+          </Button>
         </div>
-      </div>
+      </Alert>
 
       <!-- Empty State -->
       <div v-else-if="comments.length === 0" class="text-center py-16">
@@ -161,8 +193,6 @@
       </div>
 
       <!-- Comments -->
-      <!-- Fixed template section for CommentsComponent.vue -->
-      <!-- Comments -->
       <div v-else class="space-y-6">
         <CommentItem v-for="comment in comments"
                      :key="comment.id"
@@ -173,23 +203,21 @@
                      :current-user-id="currentUserId"
                      :is-admin="isAdmin"
                      :can-reply="!commentsDisabled"
-                     :reply-depth="0"
-                     :max-reply-depth="3"
+                     :depth="0"
+                     :max-depth="8"
                      @reply-added="onReplyAdded"
                      @comment-updated="onCommentUpdated"
                      @comment-deleted="onCommentDeleted" />
 
         <!-- Load More Button -->
-        <div v-if="hasMoreComments" class="text-center pt-6">
-          <button @click="loadMoreComments"
-                  :disabled="loadingMore"
-                  class="bg-[var(--color-background-mute)] border border-[var(--color-border)] text-[var(--color-text)] px-6 py-3 rounded-lg font-medium hover:bg-[var(--color-background-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200">
-            <svg v-if="loadingMore" class="animate-spin w-4 h-4 mr-2 inline" fill="none" viewBox="0 0 24 24">
+        <div v-if="hasMore" class="flex justify-center pt-4">
+          <Button variant="outline" :disabled="loadingMore" @click="loadMore">
+            <svg v-if="loadingMore" class="animate-spin w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            {{ loadingMore ? 'Loading...' : `Load More Comments (${remainingComments} remaining)` }}
-          </button>
+            {{ loadingMore ? 'Loading...' : 'Load More Comments' }}
+          </Button>
         </div>
       </div>
     </div>
@@ -199,11 +227,43 @@
 <script>
   import { commentsService } from '../../services/commentsService'
   import CommentItem from './CommentItem.vue'
+  import { Button } from '@/components/ui/button'
+  import { Textarea } from '@/components/ui/textarea'
+  import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+  import {
+    Select,
+    SelectContent,
+    SelectGroup,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+  } from '@/components/ui/select'
+  import {
+    Alert,
+    AlertDescription,
+    AlertTitle,
+  } from '@/components/ui/alert'
+  import { Badge } from '@/components/ui/badge'
 
   export default {
     name: 'CommentsSection',
     components: {
-      CommentItem
+      CommentItem,
+      Button,
+      Textarea,
+      Avatar,
+      AvatarFallback,
+      AvatarImage,
+      Select,
+      SelectContent,
+      SelectGroup,
+      SelectItem,
+      SelectTrigger,
+      SelectValue,
+      Alert,
+      AlertDescription,
+      AlertTitle,
+      Badge
     },
     props: {
       targetId: {
@@ -234,26 +294,23 @@
         comments: [],
         loading: true,
         error: null,
-        commentsEnabled: true, // Default to true
+        commentsEnabled: true,
         totalComments: 0,
         currentSort: 'newest',
         currentPage: 1,
-        hasMoreComments: false,
+        hasMore: false,
         loadingMore: false,
-
-        // Comment form
         newCommentText: '',
         submittingComment: false,
-
-        // Pagination info
+        threadMode: false,
+        focusedCommentId: null,
+        parentChain: [],
         pagination: {
           totalCount: 0,
           totalPages: 0,
           hasNext: false,
           hasPrevious: false
         },
-
-        // Debug info
         debugMode: process.env.NODE_ENV === 'development',
         showDebugInfo: true,
         apiCallMade: false,
@@ -263,7 +320,6 @@
     },
     computed: {
       commentsDisabled() {
-        // Comments are disabled if explicitly set to false
         return this.commentsEnabled === false
       },
       remainingComments() {
@@ -276,8 +332,16 @@
     methods: {
       async initializeComments() {
         console.log('Initializing comments for target:', this.targetId, 'type:', this.targetType)
-        await this.loadCommentStats()
-        await this.loadComments()
+
+        const urlParams = new URLSearchParams(window.location.search)
+        const commentId = urlParams.get('comment_id')
+
+        if (commentId) {
+          await this.loadCommentThread(parseInt(commentId))
+        } else {
+          await this.loadCommentStats()
+          await this.loadComments()
+        }
       },
 
       async loadCommentStats() {
@@ -285,33 +349,52 @@
           this.apiCallMade = true
           this.apiError = null
 
-          console.log('Loading comment stats for target:', this.targetId, 'type:', this.targetType)
-
           const result = await commentsService.getCommentStats(
             parseInt(this.targetId),
             parseInt(this.targetType)
           )
 
-          console.log('Comment stats result:', result)
-
           if (result.success) {
-            this.commentsEnabled = result.data.commentsEnabled !== false // Default to true if undefined
+            this.commentsEnabled = result.data.commentsEnabled !== false
             this.totalComments = result.data.totalComments || 0
             this.statsLoaded = true
-
-            console.log('Comments enabled:', this.commentsEnabled)
-            console.log('Total comments:', this.totalComments)
           } else {
-            console.error('Failed to load comment stats:', result.error)
             this.apiError = result.error
-            // Don't disable comments on API failure - default to enabled
             this.commentsEnabled = true
           }
         } catch (error) {
           console.error('Error loading comment stats:', error)
           this.apiError = error.message
-          // Don't disable comments on exception - default to enabled
           this.commentsEnabled = true
+        }
+      },
+
+      async loadCommentThread(commentId) {
+        try {
+          this.loading = true
+          this.threadMode = true
+          this.focusedCommentId = commentId
+          this.error = null
+
+          const result = await commentsService.getCommentThread(commentId)
+
+          if (result.success) {
+            this.comments = [result.data.comment]
+            this.parentChain = result.data.parentChain || []
+            this.commentsEnabled = true
+
+            this.$emit('comments-loaded', {
+              comments: this.comments,
+              totalCount: 1
+            })
+          } else {
+            this.error = result.error
+          }
+        } catch (error) {
+          console.error('Error loading comment thread:', error)
+          this.error = 'Failed to load comment thread'
+        } finally {
+          this.loading = false
         }
       },
 
@@ -326,19 +409,13 @@
 
           this.error = null
 
-          console.log('Loading comments for target:', this.targetId, 'type:', this.targetType)
-
           const result = await commentsService.getComments(
             parseInt(this.targetId),
             parseInt(this.targetType),
-            {
-              page: this.currentPage,
-              sortBy: this.currentSort,
-              pageSize: 20
-            }
+            this.currentPage,
+            20,
+            this.currentSort
           )
-
-          console.log('Comments result:', result)
 
           if (result.success) {
             if (reset) {
@@ -348,7 +425,7 @@
             }
 
             this.pagination = result.data.pagination
-            this.hasMoreComments = result.data.pagination.hasNext
+            this.hasMore = result.data.pagination.hasNext
             this.totalComments = result.data.pagination.totalCount
 
             this.$emit('comments-loaded', {
@@ -357,7 +434,6 @@
             })
           } else {
             this.error = result.error
-            console.error('Failed to load comments:', result.error)
           }
         } catch (error) {
           console.error('Error loading comments:', error)
@@ -368,9 +444,8 @@
         }
       },
 
-      async loadMoreComments() {
-        if (this.loadingMore || !this.hasMoreComments) return
-
+      async loadMore() {
+        if (this.loadingMore || !this.hasMore) return
         this.currentPage += 1
         await this.loadComments(false)
       },
@@ -391,7 +466,6 @@
           return
         }
 
-        // Validate content
         const validation = commentsService.validateCommentContent(this.newCommentText)
         if (!validation.isValid) {
           this.showToast(validation.error, 'error')
@@ -402,13 +476,13 @@
 
         try {
           const result = await commentsService.addComment(
-            this.newCommentText,
             parseInt(this.targetId),
-            parseInt(this.targetType)
+            parseInt(this.targetType),
+            this.newCommentText.trim(),
+            null
           )
 
           if (result.success) {
-            // Add new comment to the beginning of the list
             this.comments.unshift(result.data)
             this.totalComments += 1
             this.newCommentText = ''
@@ -432,14 +506,15 @@
       },
 
       onReplyAdded(reply) {
-        // Find the parent comment and add the reply
-        const parentComment = this.findCommentById(reply.parentCommentId)
+        const parentComment = commentsService.findCommentById(this.comments, reply.parentCommentId)
+
         if (parentComment) {
           if (!parentComment.replies) {
             parentComment.replies = []
           }
           parentComment.replies.push(reply)
           this.totalComments += 1
+          this.comments = [...this.comments]
 
           this.$emit('comments-updated', {
             comments: this.comments,
@@ -449,58 +524,22 @@
       },
 
       onCommentUpdated(updatedComment) {
-        // Update the comment in the list
-        const comment = this.findCommentById(updatedComment.id)
-        if (comment) {
-          Object.assign(comment, updatedComment)
+        const updated = commentsService.updateCommentInTree(this.comments, updatedComment.id, updatedComment)
+        if (updated) {
+          this.comments = [...this.comments]
         }
       },
 
       onCommentDeleted(deletedCommentId) {
-        // Remove comment from list
-        this.removeCommentById(deletedCommentId)
-        this.totalComments = Math.max(0, this.totalComments - 1)
+        const removed = commentsService.removeCommentFromTree(this.comments, deletedCommentId)
+        if (removed) {
+          this.totalComments = Math.max(0, this.totalComments - 1)
+          this.comments = [...this.comments]
 
-        this.$emit('comments-updated', {
-          comments: this.comments,
-          totalCount: this.totalComments
-        })
-      },
-
-      findCommentById(commentId) {
-        for (const comment of this.comments) {
-          if (comment.id === commentId) {
-            return comment
-          }
-          if (comment.replies) {
-            const reply = comment.replies.find(r => r.id === commentId)
-            if (reply) return reply
-          }
-        }
-        return null
-      },
-
-      removeCommentById(commentId) {
-        // Remove from top-level comments
-        const index = this.comments.findIndex(c => c.id === commentId)
-        if (index !== -1) {
-          const removedComment = this.comments.splice(index, 1)[0]
-          // Count total removed (comment + replies)
-          const totalRemoved = 1 + (removedComment.replies?.length || 0)
-          this.totalComments = Math.max(0, this.totalComments - totalRemoved)
-          return
-        }
-
-        // Remove from replies
-        for (const comment of this.comments) {
-          if (comment.replies) {
-            const replyIndex = comment.replies.findIndex(r => r.id === commentId)
-            if (replyIndex !== -1) {
-              comment.replies.splice(replyIndex, 1)
-              this.totalComments = Math.max(0, this.totalComments - 1)
-              return
-            }
-          }
+          this.$emit('comments-updated', {
+            comments: this.comments,
+            totalCount: this.totalComments
+          })
         }
       },
 
@@ -509,10 +548,20 @@
         window.location.href = `/account/login?returnUrl=${returnUrl}`
       },
 
-      showToast(message, type = 'info') {
-        // Create toast notification
-        const toastContainer = document.getElementById('toast-container') || this.createToastContainer()
+      getBackToFullDiscussionUrl() {
+        const currentUrl = new URL(window.location.href)
+        currentUrl.searchParams.delete('comment_id')
+        return currentUrl.toString()
+      },
 
+      getCommentUrl(commentId) {
+        const currentUrl = new URL(window.location.href)
+        currentUrl.searchParams.set('comment_id', commentId)
+        return currentUrl.toString()
+      },
+
+      showToast(message, type = 'info') {
+        const toastContainer = document.getElementById('toast-container') || this.createToastContainer()
         const toast = document.createElement('div')
         const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'
 
@@ -530,12 +579,10 @@
 
         toastContainer.appendChild(toast)
 
-        // Trigger animation
         setTimeout(() => {
           toast.classList.remove('translate-x-full', 'opacity-0')
         }, 100)
 
-        // Auto remove after 5 seconds
         setTimeout(() => {
           toast.classList.add('translate-x-full', 'opacity-0')
           setTimeout(() => {
@@ -556,6 +603,107 @@
     }
   }
 </script>
+
+<style scoped>
+  /* Thread Mode Breadcrumb Navigation (Reddit-style) */
+  .thread-breadcrumb {
+    margin-bottom: 16px;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--color-border, #e5e5e5);
+    border-radius: 8px;
+  }
+
+  .breadcrumb-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--color-border, #e5e5e5);
+  }
+
+    .breadcrumb-header svg {
+      color: var(--color-accent, #ff6d00);
+    }
+
+  .back-link {
+    color: var(--color-accent, #ff6d00);
+    font-weight: 600;
+    font-size: 14px;
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+
+    .back-link:hover {
+      color: var(--color-accent-hover, #ff9100);
+      text-decoration: underline;
+    }
+
+  .breadcrumb-chain {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .breadcrumb-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-muted, #8a8a8e);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .breadcrumb-items {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .breadcrumb-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--color-background, white);
+    border: 1px solid var(--color-border, #e5e5e5);
+    border-radius: 6px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    max-width: 300px;
+  }
+
+    .breadcrumb-item:hover {
+      background: var(--color-background-soft, #f0f0f0);
+      border-color: var(--color-accent, #ff6d00);
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+  .breadcrumb-user {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text, #212529);
+    white-space: nowrap;
+  }
+
+  .breadcrumb-preview {
+    font-size: 12px;
+    color: var(--color-text-muted, #8a8a8e);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+  }
+
+  .breadcrumb-arrow {
+    width: 14px;
+    height: 14px;
+    color: var(--color-text-muted, #8a8a8e);
+    flex-shrink: 0;
+  }
+</style>
 
 <style scoped>
   .chapters-container {

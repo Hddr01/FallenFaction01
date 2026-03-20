@@ -1,7 +1,7 @@
 <!-- components/artist/AddArtist.vue -->
 <template>
-  <div class="min-h-screen bg-[var(--color-background)] py-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-2xl mx-auto">
+  <div class="min-h-screen bg-black py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-2xl bg-black mx-auto">
       <!-- Page Header -->
       <div class="text-center mb-8">
         <h1 class="text-3xl font-bold text-[var(--color-heading)]">Add New Artist</h1>
@@ -13,71 +13,72 @@
         <div class="px-4 py-5 sm:p-6">
           <form @submit.prevent="handleSubmit" class="space-y-6">
             <!-- Artist Name -->
-            <div>
-              <label for="name" class="block text-sm font-medium text-[var(--color-text)] mb-2">
+            <div class="space-y-3">
+              <Label for="name" class="text-sm font-medium text-foreground">
                 Name <span class="text-red-500">*</span>
-              </label>
-              <input id="name"
+              </Label>
+              <Input id="name"
                      v-model="form.name"
                      type="text"
-                     class="w-full px-3 py-2 border border-[var(--color-border)] rounded-md shadow-sm bg-[var(--color-background)] text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 hover:border-[var(--color-border-hover)] transition-colors duration-200"
+                     class="form-input-bg"
                      :class="{ 'border-red-500 focus:ring-red-500 focus:border-red-500': errors.name }"
                      placeholder="Enter artist name (English preferred)"
                      maxlength="200"
                      required />
-              <div v-if="errors.name" class="mt-1 text-sm text-red-600">{{ errors.name }}</div>
-              <div class="mt-1 text-xs text-[var(--color-text)] opacity-50 text-right">{{ form.name.length }}/200</div>
+              <div v-if="errors.name" class="text-sm text-red-600">{{ errors.name }}</div>
+              <div class="text-xs text-[var(--color-text)] opacity-50 text-right">{{ form.name.length }}/200</div>
             </div>
 
             <!-- Other Name -->
-            <div>
-              <label for="otherName" class="block text-sm font-medium text-[var(--color-text)] mb-2">
+            <div class="space-y-3">
+              <Label for="otherName" class="text-sm font-medium text-foreground">
                 Alternative Names
-              </label>
-              <input id="otherName"
+              </Label>
+              <Input id="otherName"
                      v-model="form.otherName"
                      type="text"
-                     class="w-full px-3 py-2 border border-[var(--color-border)] rounded-md shadow-sm bg-[var(--color-background)] text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 hover:border-[var(--color-border-hover)] transition-colors duration-200"
+                     class="form-input-bg"
                      :class="{ 'border-red-500 focus:ring-red-500 focus:border-red-500': errors.otherName }"
                      placeholder="Known also as (pen names, aliases, etc.)"
                      maxlength="300" />
-              <div v-if="errors.otherName" class="mt-1 text-sm text-red-600">{{ errors.otherName }}</div>
-              <div class="mt-1 text-xs text-[var(--color-text)] opacity-50 text-right">{{ form.otherName.length }}/300</div>
+              <div v-if="errors.otherName" class="text-sm text-red-600">{{ errors.otherName }}</div>
+              <div class="text-xs text-[var(--color-text)] opacity-50 text-right">{{ form.otherName.length }}/300</div>
             </div>
 
             <!-- Description -->
-            <div>
-              <label for="description" class="block text-sm font-medium text-[var(--color-text)] mb-2">
+            <div class="space-y-3">
+              <Label for="description" class="text-sm font-medium text-foreground">
                 Description
-              </label>
-              <textarea id="description"
+              </Label>
+              <Textarea id="description"
                         v-model="form.description"
-                        class="w-full px-3 py-2 border border-[var(--color-border)] rounded-md shadow-sm bg-[var(--color-background)] text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 hover:border-[var(--color-border-hover)] transition-colors duration-200 resize-vertical"
+                        class="form-textarea-bg resize-vertical"
                         :class="{ 'border-red-500 focus:ring-red-500 focus:border-red-500': errors.description }"
                         placeholder="Brief description about the artist (optional)"
                         maxlength="2000"
-                        rows="5"></textarea>
-              <div v-if="errors.description" class="mt-1 text-sm text-red-600">{{ errors.description }}</div>
-              <div class="mt-1 text-xs text-[var(--color-text)] opacity-50 text-right">{{ form.description.length }}/2000</div>
+                        rows="5" />
+              <div v-if="errors.description" class="text-sm text-red-600">{{ errors.description }}</div>
+              <div class="text-xs text-[var(--color-text)] opacity-50 text-right">{{ form.description.length }}/2000</div>
             </div>
 
             <!-- Submit Buttons -->
             <div class="flex space-x-4 pt-4">
-              <button type="submit"
+              <Button type="submit"
                       :disabled="loading || !isFormValid"
-                      class="flex-1 inline-flex justify-center items-center px-6 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200">
+                      class="flex-1">
                 <svg v-if="loading" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
                 {{ loading ? 'Creating...' : 'Create Artist' }}
-              </button>
-              <button type="button"
+              </Button>
+              <Button type="button"
                       @click="handleCancel"
                       :disabled="loading"
-                      class="flex-1 inline-flex justify-center items-center px-6 py-2 border border-[var(--color-border)] text-sm font-medium rounded-md text-[var(--color-text)] bg-[var(--color-background)] hover:bg-[var(--color-background-mute)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--color-border-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200">
+                      variant="outline"
+                      class="flex-1">
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         </div>
@@ -125,9 +126,19 @@
   import { useRouter } from 'vue-router';
   import { useAuthStore } from '../../stores/authStore';
   import { artistService } from '../../services/artistService';
+  import { Input } from '@/components/ui/input';
+  import { Label } from '@/components/ui/label';
+  import { Textarea } from '@/components/ui/textarea';
+  import { Button } from '@/components/ui/button';
 
   export default {
     name: 'AddArtist',
+    components: {
+      Input,
+      Label,
+      Textarea,
+      Button
+    },
     setup() {
       const router = useRouter();
       const authStore = useAuthStore();
@@ -272,9 +283,32 @@
 </script>
 
 <style scoped>
-  /* Custom focus ring offset color */
-  .focus\:ring-offset-2:focus {
-    --tw-ring-offset-width: 2px;
-    --tw-ring-offset-color: var(--color-background);
+  /* Custom styling for form inputs with #141414 background */
+  .form-input-bg {
+    background-color: #141414;
+    border-color: rgba(255, 255, 255, 0.1);
   }
+
+    .form-input-bg:hover {
+      background-color: #1a1a1a;
+    }
+
+    .form-input-bg:focus {
+      background-color: #141414;
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+  .form-textarea-bg {
+    background-color: #141414;
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+    .form-textarea-bg:hover {
+      background-color: #1a1a1a;
+    }
+
+    .form-textarea-bg:focus {
+      background-color: #141414;
+      border-color: rgba(255, 255, 255, 0.2);
+    }
 </style>

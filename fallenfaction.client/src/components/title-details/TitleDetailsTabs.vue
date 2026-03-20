@@ -40,7 +40,8 @@
             <!-- Description -->
             <div class="mb-6 px-2">
               <div class="text-base leading-relaxed">
-                <div class="transition-all duration-300 ease-in-out text-gray-100 break-words"
+                <div class="transition-all duration-300 ease-in-out text-gray-100"
+                     style="word-break: break-all; overflow-wrap: anywhere;"
                      :class="descriptionExpanded ? '' : 'line-clamp-3'">
                   {{ titleData.description }}
                 </div>
@@ -156,10 +157,10 @@
             </div>
 
             <!-- Statistics Section -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8 px-2">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8 px-2" style="min-width: 0;">
               <!-- Rating Statistics Section - FIXED: 10-grade system -->
               <div>
-                <Card class="w-full">
+                <Card class="w-full" style="min-width: 0; overflow: hidden;">
                   <CardHeader class="border-b-0 pb-3">
                     <CardTitle class="text-lg">Rating Statistics</CardTitle>
                     <CardDescription>
@@ -285,7 +286,7 @@
 
               <!-- Bookmarks Section -->
               <div>
-                <Card class="w-full">
+                <Card class="w-full" style="min-width: 0; overflow: hidden;">
                   <CardHeader class="border-b-0 pb-3">
                     <CardTitle class="text-lg">Reading Lists</CardTitle>
                     <CardDescription>
@@ -841,20 +842,22 @@
       display: none;
     }
 
-  /* Desktop - absolute positioning to prevent jumping, but allow natural height */
+  /* Desktop - CSS Grid to prevent jumping between tabs while allowing dynamic height */
   @media (min-width: 1024px) {
     .tab-content-container {
-      position: relative;
-      min-height: 800px;
+      display: grid;
+      grid-template-columns: 1fr;
+      min-height: 400px;
+      overflow-x: hidden;
     }
 
     .tab-content-panel {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
+      grid-column: 1;
+      grid-row: 1;
+      min-height: 0;
       width: 100%;
-      height: auto;
+      min-width: 0;
+      overflow-x: hidden;
     }
   }
 

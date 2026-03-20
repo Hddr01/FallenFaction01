@@ -1,4 +1,4 @@
-// services/commentsService.js - Enhanced with DTO mapping utilities and comprehensive functionality
+// services/commentsService.js - Simplified for Infinite Accordion Approach
 import axios from 'axios';
 
 // Create axios instance with base configuration
@@ -13,12 +13,67 @@ const api = axios.create({
 });
 
 // =============================================================================
-// DTO MAPPING UTILITIES - Handles different API response formats
+// AXIOS INTERCEPTORS
+// =============================================================================
+
+// Request interceptor to add auth token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    // Log requests in development
+    if (import.meta.env.DEV) {
+      console.log(`📤 API Request: ${config.method?.toUpperCase()} ${config.url}`, {
+        params: config.params,
+        data: config.data
+      });
+    }
+
+    return config;
+  },
+  (error) => {
+    console.error('📤 Request Error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor for error handling and auth
+api.interceptors.response.use(
+  (response) => {
+    if (import.meta.env.DEV) {
+      console.log(`📥 API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, {
+        status: response.status,
+        data: response.data
+      });
+    }
+    return response;
+  },
+  (error) => {
+    console.error('📥 Response Error:', error.response?.data || error.message);
+
+    // Handle 401 Unauthorized - redirect to login
+    if (error.response?.status === 401) {
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('authUser');
+
+      if (!window.location.pathname.includes('/account/login')) {
+        window.location.href = '/account/login?returnUrl=' + encodeURIComponent(window.location.pathname);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+// =============================================================================
+// DTO MAPPING UTILITIES
 // =============================================================================
 
 /**
- * Maps comment DTO from API response to consistent format
- * Handles both PascalCase (C#) and camelCase (JS) property names
+ * Maps comment DTO from API response to consistent camelCase format
  */
 const mapCommentFromDto = (dto) => {
   if (!dto) return null;
@@ -39,236 +94,98 @@ const mapCommentFromDto = (dto) => {
     deletedByUserName: dto.deletedByUserName || dto.DeletedByUserName,
     deletionReason: dto.deletionReason || dto.DeletionReason,
     parentCommentId: dto.parentCommentId || dto.ParentCommentId,
-    replies: dto.replies?.map(mapCommentFromDto) || dto.Replies?.map(mapCommentFromDto) || [],
-    targetId: dto.targetId || dto.TargetId,
-    targetType: dto.targetType || dto.TargetType,
-    targetTitle: dto.targetTitle || dto.TargetTitle,
-    isReported: dto.isReported || dto.IsReported || false
+    // Recursively map all nested replies (infinite depth support!)
+    replies: dto.replies?.map(mapCommentFromDto) || dto.Replies?.map(mapCommentFromDto) || []
   };
 };
 
 /**
- * Maps comments response with pagination data
+ * Maps pagination data from API response
  */
-const mapCommentsResponse = (response) => {
-  const data = response.data;
+const mapPagination = (data) => {
+  const pagination = data.pagination || data.Pagination || {};
 
   return {
-    comments: (data.comments || data.Comments || []).map(mapCommentFromDto),
-    pagination: {
-      totalCount: parseInt(response.headers['x-total-count'] || data.pagination?.totalCount || data.Pagination?.TotalCount || '0'),
-      page: parseInt(response.headers['x-page'] || data.pagination?.page || data.Pagination?.Page || '1'),
-      pageSize: parseInt(response.headers['x-page-size'] || data.pagination?.pageSize || data.Pagination?.PageSize || '20'),
-      totalPages: data.pagination?.totalPages || data.Pagination?.TotalPages || 0,
-      hasNext: data.pagination?.hasNext || data.Pagination?.HasNext || false,
-      hasPrevious: data.pagination?.hasPrevious || data.Pagination?.HasPrevious || false
-    }
-  };
-};
-
-/**
- * Maps reaction response to consistent format
- */
-const mapReactionResponse = (data) => {
-  return {
-    commentId: data.commentId || data.CommentId,
-    likesCount: data.likesCount || data.LikesCount || 0,
-    dislikesCount: data.dislikesCount || data.DislikesCount || 0,
-    userLiked: data.userLiked || data.UserLiked || false,
-    userDisliked: data.userDisliked || data.UserDisliked || false
+    totalCount: pagination.totalCount || pagination.TotalCount || 0,
+    page: pagination.page || pagination.Page || 1,
+    pageSize: pagination.pageSize || pagination.PageSize || 20,
+    totalPages: pagination.totalPages || pagination.TotalPages || 0,
+    hasNext: pagination.hasNext || pagination.HasNext || false,
+    hasPrevious: pagination.hasPrevious || pagination.HasPrevious || false
   };
 };
 
 // =============================================================================
-// AXIOS INTERCEPTORS - Request/Response handling
-// =============================================================================
-
-// Request interceptor to add auth token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    // Log requests in development
-    if (import.meta.env.DEV) {
-      console.log(`📤 API Request: ${config.method?.toUpperCase()} ${config.url}`, {
-        params: config.params,
-        data: config.data,
-        headers: config.headers
-      });
-    }
-
-    return config;
-  },
-  (error) => {
-    console.error('❌ Request interceptor error:', error);
-    return Promise.reject(error);
-  }
-);
-
-// Response interceptor to handle token expiration and errors
-api.interceptors.response.use(
-  (response) => {
-    if (import.meta.env.DEV) {
-      console.log(`✅ API Response: ${response.status} ${response.config.url}`, response.data);
-    }
-    return response;
-  },
-  (error) => {
-    if (import.meta.env.DEV) {
-      console.error(`❌ API Error: ${error.response?.status} ${error.config?.url}`, error.response?.data);
-    }
-
-    if (error.response?.status === 401) {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('authUser');
-      if (!window.location.pathname.includes('/account/login')) {
-        console.warn('🔐 Session expired, redirecting to login...');
-        window.location.href = '/account/login';
-      }
-    }
-    return Promise.reject(error);
-  }
-);
-
-// =============================================================================
-// ENHANCED COMMENTS SERVICE
+// COMMENT SERVICE API
 // =============================================================================
 
 export const commentsService = {
-  // =============================================================================
-  // ADMIN METHODS - For admin comment management
-  // =============================================================================
-
   /**
-   * Test admin comments connection
-   * @returns {Object} - Connection test result
+   * Get comment statistics for a target
    */
-  async testAdminCommentsConnection() {
+  async getCommentStats(targetId, targetType) {
     try {
-      console.log('🧪 Testing AdminComments connection...');
-      const response = await api.get('/AdminComments/test');
-      console.log('✅ AdminComments connection successful:', response.data);
+      const response = await api.get('/Comments/GetCommentStats', {
+        params: { targetId, targetType }
+      });
+
+      const data = response.data;
       return {
         success: true,
-        data: response.data,
-        error: null
+        data: {
+          totalComments: data.totalComments || data.TotalComments || 0,
+          commentsEnabled: data.commentsEnabled ?? data.CommentsEnabled ?? true
+        }
       };
     } catch (error) {
-      console.error('❌ AdminComments connection failed:', error);
+      console.error('Error fetching comment stats:', error);
       return {
         success: false,
-        data: null,
-        error: this.getErrorMessage(error)
-      };
-    }
-  },
-
-  /**
-   * Get comment statistics for admin dashboard
-   * @returns {Object} - Comment statistics
-   */
-  async getCommentStatsForAdmin() {
-    try {
-      console.log('📊 Loading comment statistics for admin...');
-
-      // First test the connection
-      const connectionTest = await this.testAdminCommentsConnection();
-      if (!connectionTest.success) {
-        console.error('🔴 Connection test failed, skipping stats request');
-        throw new Error(`Connection test failed: ${connectionTest.error}`);
-      }
-
-      const response = await api.get('/AdminComments/GetStats');
-
-      return {
-        success: true,
-        data: response.data,
-        error: null
-      };
-    } catch (error) {
-      console.error('❌ Error loading comment statistics for admin:', error);
-
-      // Provide more specific error messages
-      let errorMessage = 'Failed to load statistics';
-      if (error.response?.status === 404) {
-        errorMessage = 'AdminComments endpoint not found. Check controller registration.';
-      } else if (error.response?.status === 401) {
-        errorMessage = 'Authentication required. Please log in as admin.';
-      } else if (error.response?.status === 403) {
-        errorMessage = 'Access denied. Admin privileges required.';
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      return {
-        success: false,
+        error: error.response?.data?.message || 'Failed to load comment statistics',
         data: {
           totalComments: 0,
-          todayComments: 0,
-          reportedComments: 0,
-          activeCommenters: 0
-        },
-        error: errorMessage
+          commentsEnabled: true
+        }
       };
     }
   },
 
   /**
-   * Get all comments for admin management with filtering and pagination
-   * @param {Object} options - Filter and pagination options
-   * @returns {Object} - Comments data with pagination info
+   * Get comments for a target with infinite nesting support
+   * All nested replies are loaded recursively - no depth limit!
+   * 
+   * @param {number} targetId - The target entity ID
+   * @param {number} targetType - 1 = Title, 2 = Volume, 3 = Chapter
+   * @param {number} page - Page number (default: 1)
+   * @param {number} pageSize - Items per page (default: 20)
+   * @param {string} sortBy - Sort order: 'newest', 'oldest', 'likes' (default: 'newest')
    */
-  async getAllCommentsForAdmin(options = {}) {
+  async getComments(targetId, targetType, page = 1, pageSize = 20, sortBy = 'newest') {
     try {
-      const {
-        page = 1,
-        pageSize = 20,
-        sortBy = 'newest',
-        targetType = null,
-        showReported = false,
-        showDeleted = false,
-        search = ''
-      } = options;
-
-      console.log('🔍 Loading all comments for admin with options:', options);
-
-      const response = await api.get('/AdminComments/GetAllComments', {
+      const response = await api.get('/Comments/GetComments', {
         params: {
+          targetId,
+          targetType,
           page,
           pageSize,
-          sortBy,
-          targetType,
-          showReported,
-          showDeleted,
-          search
+          sortBy
         }
       });
 
-      // Use DTO mapping for consistent data structure
-      const mappedResponse = mapCommentsResponse(response);
+      const data = response.data;
 
       return {
         success: true,
-        data: mappedResponse,
-        error: null
+        data: {
+          comments: (data.comments || data.Comments || []).map(mapCommentFromDto),
+          pagination: mapPagination(data)
+        }
       };
     } catch (error) {
-      console.error('❌ Error loading all comments for admin:', error);
-
-      let errorMessage = 'Failed to load comments';
-      if (error.response?.status === 404) {
-        errorMessage = 'AdminComments endpoint not found. Check controller registration.';
-      } else if (error.response?.status === 401) {
-        errorMessage = 'Authentication required. Please log in as admin.';
-      } else if (error.response?.status === 403) {
-        errorMessage = 'Access denied. Admin privileges required.';
-      }
-
+      console.error('Error fetching comments:', error);
       return {
         success: false,
+        error: error.response?.data?.message || 'Failed to load comments',
         data: {
           comments: [],
           pagination: {
@@ -279,486 +196,207 @@ export const commentsService = {
             hasNext: false,
             hasPrevious: false
           }
-        },
-        error: errorMessage
+        }
       };
     }
   },
 
   /**
-   * Get detailed comment information for admin
-   * @param {number} commentId - Comment ID
-   * @returns {Object} - Detailed comment data
+   * Get a specific comment thread (Reddit-style isolated view)
+   * 
+   * @param {number} commentId - The comment ID to get the thread for
    */
-  async getCommentForAdmin(commentId) {
+  async getCommentThread(commentId) {
     try {
-      console.log(`🔍 Loading comment ${commentId} for admin`);
+      const response = await api.get(`/Comments/GetCommentThread/${commentId}`);
 
-      const response = await api.get(`/AdminComments/GetComment/${commentId}`);
+      const data = response.data;
 
       return {
         success: true,
-        data: mapCommentFromDto(response.data),
-        error: null
-      };
-    } catch (error) {
-      console.error('❌ Error loading comment for admin:', error);
-      return {
-        success: false,
-        data: null,
-        error: this.getErrorMessage(error)
-      };
-    }
-  },
-
-  /**
-   * Get comment deletion info (how many replies will be affected)
-   * @param {number} commentId - Comment ID
-   * @returns {Object} - Deletion info
-   */
-  async getCommentDeletionInfo(commentId) {
-    try {
-      console.log(`📋 Getting deletion info for comment ${commentId}`);
-
-      const response = await api.get(`/AdminComments/GetDeletionInfo/${commentId}`);
-
-      return {
-        success: true,
-        data: response.data,
-        error: null
-      };
-    } catch (error) {
-      console.error('❌ Error getting deletion info:', error);
-      return {
-        success: false,
-        data: null,
-        error: this.getErrorMessage(error)
-      };
-    }
-  },
-
-  /**
-   * Soft delete a comment (admin) with optional reason
-   * @param {number} commentId - Comment ID to delete
-   * @param {string} reason - Optional reason for deletion
-   * @returns {Object} - Deletion result
-   */
-  async deleteCommentAsAdmin(commentId, reason = null) {
-    try {
-      console.log(`🗑️ Admin soft-deleting comment ${commentId}`);
-
-      const params = reason ? `?reason=${encodeURIComponent(reason)}` : '';
-      await api.delete(`/AdminComments/DeleteComment/${commentId}${params}`);
-
-      return {
-        success: true,
-        message: 'Comment deleted successfully! (Can be restored)',
-        error: null
-      };
-    } catch (error) {
-      console.error('❌ Error deleting comment as admin:', error);
-
-      let errorMessage = this.getErrorMessage(error);
-
-      // Handle specific error cases
-      if (error.response?.status === 404) {
-        errorMessage = 'Comment not found or already deleted';
-      } else if (error.response?.status === 403) {
-        errorMessage = 'Access denied. Admin privileges required.';
-      } else if (error.response?.status === 400 && error.response?.data?.message?.includes('already deleted')) {
-        errorMessage = 'Comment is already deleted';
-      }
-
-      return {
-        success: false,
-        message: null,
-        error: errorMessage
-      };
-    }
-  },
-
-  /**
-   * Restore a soft-deleted comment (admin)
-   * @param {number} commentId - Comment ID to restore
-   * @returns {Object} - Restoration result
-   */
-  async restoreCommentAsAdmin(commentId) {
-    try {
-      console.log(`♻️ Admin restoring comment ${commentId}`);
-
-      await api.post(`/AdminComments/RestoreComment/${commentId}`);
-
-      return {
-        success: true,
-        message: 'Comment restored successfully!',
-        error: null
-      };
-    } catch (error) {
-      console.error('❌ Error restoring comment as admin:', error);
-
-      let errorMessage = this.getErrorMessage(error);
-
-      if (error.response?.status === 404) {
-        errorMessage = 'Comment not found';
-      } else if (error.response?.status === 400 && error.response?.data?.message?.includes('not deleted')) {
-        errorMessage = 'Comment is not deleted';
-      }
-
-      return {
-        success: false,
-        message: null,
-        error: errorMessage
-      };
-    }
-  },
-
-  /**
-   * Permanently delete a comment (admin only, cannot be undone)
-   * @param {number} commentId - Comment ID to permanently delete
-   * @returns {Object} - Deletion result
-   */
-  async permanentlyDeleteComment(commentId) {
-    try {
-      console.log(`💀 Admin permanently deleting comment ${commentId}`);
-
-      await api.delete(`/AdminComments/PermanentlyDeleteComment/${commentId}?confirmed=true`);
-
-      return {
-        success: true,
-        message: 'Comment permanently deleted (cannot be undone)',
-        error: null
-      };
-    } catch (error) {
-      console.error('❌ Error permanently deleting comment:', error);
-
-      return {
-        success: false,
-        message: null,
-        error: this.getErrorMessage(error)
-      };
-    }
-  },
-
-  /**
-   * Bulk delete multiple comments (admin)
-   * @param {Array} commentIds - Array of comment IDs to delete
-   * @param {string} reason - Optional reason for bulk deletion
-   * @returns {Object} - Bulk deletion result
-   */
-  async bulkDeleteComments(commentIds, reason = null) {
-    try {
-      console.log(`🗑️ Admin bulk deleting ${commentIds.length} comments`);
-
-      const response = await api.post('/AdminComments/BulkDeleteComments', {
-        commentIds,
-        reason
-      });
-
-      return {
-        success: true,
-        message: response.data.message || 'Comments deleted successfully',
-        data: response.data,
-        error: null
-      };
-    } catch (error) {
-      console.error('❌ Error bulk deleting comments:', error);
-
-      return {
-        success: false,
-        message: null,
-        data: null,
-        error: this.getErrorMessage(error)
-      };
-    }
-  },
-
-  // =============================================================================
-  // REGULAR USER COMMENT METHODS - Enhanced with DTO mapping
-  // =============================================================================
-
-  /**
-   * Get comments for a target (title, chapter, or chapter image)
-   * @param {number} targetId - ID of the target
-   * @param {number} targetType - Type: 1=Title, 2=Chapter, 3=ChapterImage
-   * @param {Object} options - Optional parameters
-   * @returns {Object} - Comments data with pagination info
-   */
-  async getComments(targetId, targetType, options = {}) {
-    try {
-      const { page = 1, pageSize = 20, sortBy = 'newest' } = options;
-
-      console.log(`📖 Loading comments for target ${targetType}:${targetId}`);
-
-      const response = await api.get('/Comments/GetComments', {
-        params: { targetId, targetType, page, pageSize, sortBy }
-      });
-
-      // Use enhanced DTO mapping
-      const mappedResponse = mapCommentsResponse(response);
-
-      return {
-        success: true,
-        data: mappedResponse,
-        error: null
-      };
-    } catch (error) {
-      console.error('❌ Error loading comments:', error);
-      return {
-        success: false,
         data: {
-          comments: [],
-          pagination: {
-            totalCount: 0, page: 1, pageSize: 20, totalPages: 0,
-            hasNext: false, hasPrevious: false
-          }
-        },
-        error: this.getErrorMessage(error)
+          comment: mapCommentFromDto(data.comment || data.Comment),
+          parentChain: (data.parentChain || data.ParentChain || []).map(parent => ({
+            id: parent.id || parent.Id,
+            userName: parent.userName || parent.UserName,
+            content: parent.content || parent.Content,
+            isDeleted: parent.isDeleted || parent.IsDeleted
+          })),
+          targetId: data.targetId || data.TargetId,
+          targetType: data.targetType || data.TargetType
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching comment thread:', error);
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Failed to load comment thread',
+        data: null
       };
     }
   },
 
   /**
-   * Add a new comment with enhanced validation
-   * @param {string} content - Comment content
-   * @param {number} targetId - ID of the target
-   * @param {number} targetType - Type: 1=Title, 2=Chapter, 3=ChapterImage
-   * @param {number|null} parentCommentId - Parent comment ID for replies
-   * @returns {Object} - Created comment data
+   * Get overall comment statistics for admin dashboard
+   * 
+   * @returns {Object} { totalComments, deletedComments, reportedComments, ... }
    */
-  async addComment(content, targetId, targetType, parentCommentId = null) {
+  async getCommentStatsForAdmin() {
     try {
-      // Enhanced validation
-      const validation = this.validateCommentContent(content);
-      if (!validation.isValid) {
-        throw new Error(validation.error);
-      }
+      const response = await api.get('/AdminComments/GetStats');
 
-      console.log(`➕ Adding comment to target ${targetType}:${targetId}`);
-
-      const response = await api.post('/Comments/AddComment', {
-        content: content.trim(),
-        targetId,
-        targetType,
-        parentCommentId
-      });
+      const data = response.data;
 
       return {
         success: true,
-        data: mapCommentFromDto(response.data),
-        message: parentCommentId ? 'Reply posted successfully!' : 'Comment posted successfully!',
-        error: null
+        data: {
+          totalComments: data.totalComments || data.TotalComments || 0,
+          deletedComments: data.deletedComments || data.DeletedComments || 0,
+          reportedComments: data.reportedComments || data.ReportedComments || 0,
+          activeComments: data.activeComments || data.ActiveComments || 0,
+          commentsToday: data.commentsToday || data.CommentsToday || 0,
+          commentsThisWeek: data.commentsThisWeek || data.CommentsThisWeek || 0,
+          commentsThisMonth: data.commentsThisMonth || data.CommentsThisMonth || 0
+        }
       };
     } catch (error) {
-      console.error('❌ Error adding comment:', error);
+      console.error('Error fetching admin comment stats:', error);
       return {
         success: false,
-        data: null,
-        message: null,
-        error: this.getErrorMessage(error)
+        error: error.response?.data?.message || 'Failed to load comment statistics',
+        data: {
+          totalComments: 0,
+          deletedComments: 0,
+          reportedComments: 0,
+          activeComments: 0,
+          commentsToday: 0,
+          commentsThisWeek: 0,
+          commentsThisMonth: 0
+        }
       };
     }
   },
 
   /**
-   * React to a comment (like or dislike) with enhanced response mapping
-   * @param {number} commentId - Comment ID
-   * @param {boolean} isLike - true for like, false for dislike
-   * @returns {Object} - Updated reaction data
+   * Get all comments for admin management (with filters)
+   * 
+   * @param {Object} params - Filter parameters
+   * @param {number} params.page - Page number
+   * @param {number} params.pageSize - Items per page
+   * @param {string} params.sortBy - Sort order
+   * @param {number} params.targetType - Filter by target type (1=Title, 2=Chapter, 3=Image)
+   * @param {boolean} params.showReported - Show only reported comments
+   * @param {boolean} params.showDeleted - Show deleted comments
+   * @param {string} params.search - Search query
    */
-  async reactToComment(commentId, isLike) {
+  async getAllCommentsForAdmin(params = {}) {
     try {
-      console.log(`👍 Reacting to comment ${commentId} with ${isLike ? 'like' : 'dislike'}`);
-
-      const response = await api.post('/Comments/ReactToComment', {
-        commentId,
-        isLike
-      });
-
-      // Use enhanced DTO mapping for reaction response
-      return {
-        success: true,
-        data: mapReactionResponse(response.data),
-        error: null
-      };
-    } catch (error) {
-      console.error('❌ Error reacting to comment:', error);
-      return {
-        success: false,
-        data: null,
-        error: this.getErrorMessage(error)
-      };
-    }
-  },
-
-  /**
-   * Delete a comment (regular user)
-   * @param {number} commentId - Comment ID to delete
-   * @returns {Object} - Deletion result
-   */
-  async deleteComment(commentId) {
-    try {
-      console.log(`🗑️ Deleting comment ${commentId}`);
-
-      await api.delete(`/Comments/DeleteComment/${commentId}`);
-
-      return {
-        success: true,
-        message: 'Comment deleted successfully!',
-        error: null
-      };
-    } catch (error) {
-      console.error('❌ Error deleting comment:', error);
-
-      let errorMessage = this.getErrorMessage(error);
-
-      // Handle specific error cases
-      if (error.response?.status === 400 && error.response?.data?.hasReplies) {
-        errorMessage = 'Cannot delete comment with replies. Contact an administrator if you need this comment removed.';
-      } else if (error.response?.status === 403) {
-        errorMessage = 'You can only delete your own comments.';
-      } else if (error.response?.status === 404) {
-        errorMessage = 'Comment not found or already deleted.';
-      }
-
-      return {
-        success: false,
-        message: null,
-        error: errorMessage
-      };
-    }
-  },
-
-  /**
-   * Get comment statistics for a target
-   * @param {number} targetId - ID of the target
-   * @param {number} targetType - Type: 1=Title, 2=Chapter, 3=ChapterImage
-   * @returns {Object} - Comment statistics
-   */
-  async getCommentStats(targetId, targetType) {
-    try {
-      console.log(`📊 Loading comment stats for target ${targetType}:${targetId}`);
-
-      const response = await api.get('/Comments/GetCommentStats', {
+      const response = await api.get('/AdminComments/GetAllComments', {
         params: {
-          targetId,
-          targetType
+          page: params.page || 1,
+          pageSize: params.pageSize || 20,
+          sortBy: params.sortBy || 'newest',
+          targetType: params.targetType,
+          showReported: params.showReported || false,
+          showDeleted: params.showDeleted || false,
+          search: params.search || ''
         }
       });
 
+      const data = response.data;
+
       return {
         success: true,
-        data: response.data,
-        error: null
+        data: {
+          comments: (data.comments || data.Comments || []).map(mapCommentFromDto),
+          pagination: mapPagination(data)
+        }
       };
     } catch (error) {
-      console.error('❌ Error loading comment stats:', error);
+      console.error('Error fetching admin comments:', error);
       return {
         success: false,
+        error: error.response?.data?.message || 'Failed to load comments',
         data: {
-          totalComments: 0,
-          topLevelComments: 0,
-          replies: 0,
-          lastCommentDate: null,
-          commentsEnabled: true
-        },
-        error: this.getErrorMessage(error)
+          comments: [],
+          pagination: {
+            totalCount: 0,
+            page: 1,
+            pageSize: 20,
+            totalPages: 0,
+            hasNext: false,
+            hasPrevious: false
+          }
+        }
       };
     }
   },
 
-  // =============================================================================
-  // REPORTING METHODS
-  // =============================================================================
-
   /**
-   * Report a comment for inappropriate content
-   * @param {number} commentId - Comment ID to report
-   * @param {string} reason - Reason for reporting
-   * @returns {Object} - Report result
+   * Add a new comment or reply (supports infinite nesting depth)
+   * 
+   * BACKWARDS COMPATIBLE: Supports both parameter orders
+   * - Recommended: addComment(targetId, targetType, content, parentCommentId)
+   * - Legacy: addComment(content, targetId, targetType, parentCommentId)
+   * 
+   * @param {number|string} param1 - targetId OR content (for backwards compat)
+   * @param {number|string} param2 - targetType OR targetId
+   * @param {string|number} param3 - content OR targetType
+   * @param {number|null} parentCommentId - Parent comment ID for replies
    */
-  async reportComment(commentId, reason) {
+  async addComment(param1, param2, param3, parentCommentId = null) {
     try {
-      console.log(`🚨 Reporting comment ${commentId} for: ${reason}`);
+      let targetId, targetType, content;
 
-      const response = await api.post('/Comments/ReportComment', {
-        commentId,
-        reason
+      // Auto-detect parameter order based on types
+      // If param1 is a string and param2/param3 are numbers, it's the old order
+      if (typeof param1 === 'string' && typeof param2 === 'number' && typeof param3 === 'number') {
+        // OLD ORDER: (content, targetId, targetType, parentCommentId)
+        content = param1;
+        targetId = param2;
+        targetType = param3;
+      } else {
+        // NEW ORDER: (targetId, targetType, content, parentCommentId)
+        targetId = param1;
+        targetType = param2;
+        content = param3;
+      }
+
+      // Validate content using validation helper
+      const validation = this.validateCommentContent(content);
+      if (!validation.isValid) {
+        return {
+          success: false,
+          error: validation.error
+        };
+      }
+
+      const response = await api.post('/Comments/AddComment', {
+        targetId: parseInt(targetId),
+        targetType: parseInt(targetType),
+        content: content.trim(),
+        parentCommentId: parentCommentId ? parseInt(parentCommentId) : null
       });
 
       return {
         success: true,
-        message: 'Comment reported successfully. Thank you for helping keep our community safe.',
-        data: response.data,
-        error: null
+        data: mapCommentFromDto(response.data),
+        message: 'Comment posted successfully'
       };
     } catch (error) {
-      console.error('❌ Error reporting comment:', error);
-
-      let errorMessage = this.getErrorMessage(error);
-
-      if (error.response?.status === 400 && error.response?.data?.message?.includes('already reported')) {
-        errorMessage = 'You have already reported this comment.';
-      } else if (error.response?.status === 404) {
-        errorMessage = 'Comment not found.';
-      }
-
+      console.error('Error adding comment:', error);
       return {
         success: false,
-        message: null,
-        data: null,
-        error: errorMessage
+        error: error.response?.data?.message || 'Failed to post comment'
       };
     }
   },
 
-  // =============================================================================
-  // UTILITY METHODS - Enhanced with better validation and formatting
-  // =============================================================================
-
   /**
-   * Extract error message from error object with enhanced error handling
-   * @param {Error} error - Error object
-   * @returns {string} - Human readable error message
-   */
-  getErrorMessage(error) {
-    // Check for structured error response
-    if (error.response?.data?.message) {
-      return error.response.data.message;
-    }
-    if (error.response?.data?.error) {
-      return error.response.data.error;
-    }
-    if (error.response?.data?.errors) {
-      // Handle validation errors array
-      const errors = error.response.data.errors;
-      if (Array.isArray(errors)) {
-        return errors.join(', ');
-      }
-      if (typeof errors === 'object') {
-        return Object.values(errors).flat().join(', ');
-      }
-    }
-
-    // Network/connection errors
-    if (error.code === 'ECONNABORTED') {
-      return 'Request timed out. Please try again.';
-    }
-    if (error.code === 'ERR_NETWORK') {
-      return 'Network error. Please check your connection.';
-    }
-
-    // General error message
-    if (error.message) {
-      return error.message;
-    }
-
-    return 'An unexpected error occurred';
-  },
-
-  /**
-   * Enhanced validation for comment content
-   * @param {string} content - Content to validate
-   * @returns {Object} - Validation result with detailed feedback
+   * Validate comment content before submission
+   * 
+   * @param {string} content - Comment text to validate
+   * @returns {Object} { isValid: boolean, error?: string }
    */
   validateCommentContent(content) {
     if (!content || typeof content !== 'string') {
@@ -768,202 +406,283 @@ export const commentsService = {
       };
     }
 
-    const trimmedContent = content.trim();
+    const trimmed = content.trim();
 
-    if (trimmedContent.length === 0) {
+    if (trimmed.length === 0) {
       return {
         isValid: false,
-        error: 'Comment cannot be empty'
+        error: 'Comment content cannot be empty'
       };
     }
 
-    if (trimmedContent.length < 3) {
+    if (trimmed.length > 2000) {
       return {
         isValid: false,
-        error: 'Comment must be at least 3 characters long'
+        error: `Comment cannot exceed 2000 characters (currently ${trimmed.length})`
       };
-    }
-
-    if (trimmedContent.length > 2000) {
-      return {
-        isValid: false,
-        error: `Comment is too long (${trimmedContent.length}/2000 characters)`
-      };
-    }
-
-    // Check for potentially harmful content patterns
-    const suspiciousPatterns = [
-      /(.)\1{20,}/g, // Excessive character repetition
-      /^[^a-zA-Z0-9]*$/g, // Only special characters
-    ];
-
-    for (const pattern of suspiciousPatterns) {
-      if (pattern.test(trimmedContent)) {
-        return {
-          isValid: false,
-          error: 'Comment contains invalid content patterns'
-        };
-      }
     }
 
     return {
-      isValid: true,
-      error: null,
-      stats: {
-        length: trimmedContent.length,
-        remainingChars: 2000 - trimmedContent.length
-      }
+      isValid: true
     };
   },
 
   /**
-   * Enhanced date formatting with more options
-   * @param {string|Date} date - Date to format
-   * @param {Object} options - Formatting options
-   * @returns {string} - Formatted date
+   * React to a comment (like/dislike toggle)
+   * 
+   * @param {number} commentId - The comment ID
+   * @param {boolean} isLike - true for like, false for dislike
    */
-  formatCommentDate(date, options = {}) {
+  async reactToComment(commentId, isLike) {
     try {
-      const {
-        relative = true,
-        includeTime = false,
-        shortFormat = false
-      } = options;
-
-      const commentDate = new Date(date);
-      const now = new Date();
-
-      if (!relative) {
-        return commentDate.toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: shortFormat ? 'short' : 'long',
-          day: 'numeric',
-          ...(includeTime && {
-            hour: '2-digit',
-            minute: '2-digit'
-          })
-        });
-      }
-
-      const diffInSeconds = Math.floor((now - commentDate) / 1000);
-
-      if (diffInSeconds < 30) {
-        return 'Just now';
-      }
-
-      if (diffInSeconds < 60) {
-        return `${diffInSeconds} seconds ago`;
-      }
-
-      const diffInMinutes = Math.floor(diffInSeconds / 60);
-      if (diffInMinutes < 60) {
-        return `${diffInMinutes} minute${diffInMinutes !== 1 ? 's' : ''} ago`;
-      }
-
-      const diffInHours = Math.floor(diffInMinutes / 60);
-      if (diffInHours < 24) {
-        return `${diffInHours} hour${diffInHours !== 1 ? 's' : ''} ago`;
-      }
-
-      const diffInDays = Math.floor(diffInHours / 24);
-      if (diffInDays < 7) {
-        return `${diffInDays} day${diffInDays !== 1 ? 's' : ''} ago`;
-      }
-
-      const diffInWeeks = Math.floor(diffInDays / 7);
-      if (diffInWeeks < 4) {
-        return `${diffInWeeks} week${diffInWeeks !== 1 ? 's' : ''} ago`;
-      }
-
-      return commentDate.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      });
-    } catch (error) {
-      console.error('❌ Error formatting date:', error);
-      return 'Unknown date';
-    }
-  },
-
-  /**
-   * Test API connectivity with enhanced diagnostics
-   * @returns {Object} - Detailed connection status
-   */
-  async testConnection() {
-    try {
-      const startTime = Date.now();
-
-      await api.get('/Comments/GetCommentStats', {
-        params: { targetId: 1, targetType: 1 }
+      const response = await api.post(`/Comments/${commentId}/React`, {
+        isLike
       });
 
-      const responseTime = Date.now() - startTime;
+      const data = response.data;
 
-      console.log('✅ Comments service connection successful');
       return {
         success: true,
-        responseTime,
-        status: 'Connected'
+        data: {
+          commentId: data.commentId || data.CommentId,
+          likesCount: data.likesCount || data.LikesCount || 0,
+          dislikesCount: data.dislikesCount || data.DislikesCount || 0,
+          userLiked: data.userLiked || data.UserLiked || false,
+          userDisliked: data.userDisliked || data.UserDisliked || false
+        }
       };
     } catch (error) {
-      console.error('❌ Comments service connection failed:', error);
+      console.error('Error reacting to comment:', error);
       return {
         success: false,
-        error: this.getErrorMessage(error),
-        status: 'Disconnected'
+        error: error.response?.data?.message || 'Failed to update reaction'
       };
     }
   },
 
   /**
-   * Sanitize comment content for display
-   * @param {string} content - Raw comment content
-   * @returns {string} - Sanitized content
+   * Delete a comment (owner hard delete or admin soft delete)
+   * 
+   * @param {number} commentId - The comment ID to delete
    */
-  sanitizeContent(content) {
-    if (!content) return '';
+  async deleteComment(commentId) {
+    try {
+      const response = await api.delete(`/Comments/${commentId}`);
 
-    return content
-      .trim()
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove scripts
-      .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '') // Remove iframes
-      .replace(/javascript:/gi, '') // Remove javascript protocols
-      .replace(/on\w+\s*=/gi, ''); // Remove event handlers
+      return {
+        success: true,
+        message: response.data.message || 'Comment deleted successfully'
+      };
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Failed to delete comment'
+      };
+    }
   },
 
   /**
-   * Get comment thread depth
-   * @param {Object} comment - Comment object
-   * @returns {number} - Thread depth
+   * Soft delete a comment as admin (with reason)
+   * 
+   * @param {number} commentId - The comment ID to delete
+   * @param {string} reason - Reason for deletion
    */
-  getCommentDepth(comment) {
-    let depth = 0;
-    let current = comment;
+  async deleteCommentAsAdmin(commentId, reason = 'Deleted by administrator') {
+    try {
+      const response = await api.delete(`/AdminComments/DeleteComment/${commentId}`, {
+        params: { reason }
+      });
 
-    while (current.parentCommentId) {
-      depth++;
-      // In a real implementation, you'd need to look up the parent
-      // This is a simplified version
-      break;
+      return {
+        success: true,
+        message: response.data.message || 'Comment deleted successfully'
+      };
+    } catch (error) {
+      console.error('Error deleting comment as admin:', error);
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Failed to delete comment'
+      };
+    }
+  },
+
+  /**
+   * Restore a soft-deleted comment (admin only)
+   * 
+   * @param {number} commentId - The comment ID to restore
+   */
+  async restoreCommentAsAdmin(commentId) {
+    try {
+      const response = await api.post(`/AdminComments/RestoreComment/${commentId}`);
+
+      return {
+        success: true,
+        message: response.data.message || 'Comment restored successfully'
+      };
+    } catch (error) {
+      console.error('Error restoring comment:', error);
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Failed to restore comment'
+      };
+    }
+  },
+
+  /**
+   * Permanently delete a comment (admin only - hard delete)
+   * WARNING: This is irreversible!
+   * 
+   * @param {number} commentId - The comment ID to permanently delete
+   */
+  async permanentlyDeleteComment(commentId) {
+    try {
+      const response = await api.delete(`/AdminComments/PermanentlyDeleteComment/${commentId}`);
+
+      return {
+        success: true,
+        message: response.data.message || 'Comment permanently deleted'
+      };
+    } catch (error) {
+      console.error('Error permanently deleting comment:', error);
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Failed to permanently delete comment'
+      };
+    }
+  },
+
+  /**
+   * Format comment date for display
+   * 
+   * @param {string} dateString - ISO date string
+   * @returns {string} Formatted relative time
+   */
+  formatCommentDate(dateString) {
+    if (!dateString) return '';
+
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+
+    // Less than a minute
+    if (diffInSeconds < 60) {
+      return 'just now';
     }
 
-    return depth;
+    // Less than an hour
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60) {
+      return `${diffInMinutes}m ago`;
+    }
+
+    // Less than a day
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) {
+      return `${diffInHours}h ago`;
+    }
+
+    // Less than a week
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7) {
+      return `${diffInDays}d ago`;
+    }
+
+    // Less than a month
+    if (diffInDays < 30) {
+      const weeks = Math.floor(diffInDays / 7);
+      return `${weeks}w ago`;
+    }
+
+    // Format as date
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+    });
   },
 
   /**
-   * Calculate reading time for comment
-   * @param {string} content - Comment content
-   * @returns {number} - Reading time in seconds
+   * Count total comments including all nested replies
+   * 
+   * @param {Array} comments - Array of comment objects
+   * @returns {number} Total count including all nested replies
    */
-  calculateReadingTime(content) {
-    if (!content) return 0;
+  countTotalComments(comments) {
+    if (!comments || comments.length === 0) return 0;
 
-    const wordsPerMinute = 200;
-    const wordCount = content.trim().split(/\s+/).length;
-    const readingTimeMinutes = wordCount / wordsPerMinute;
+    return comments.reduce((total, comment) => {
+      return total + 1 + this.countTotalComments(comment.replies || []);
+    }, 0);
+  },
 
-    return Math.max(Math.ceil(readingTimeMinutes * 60), 5); // Minimum 5 seconds
+  /**
+   * Find a comment by ID in a nested tree (supports infinite depth)
+   * 
+   * @param {Array} comments - Array of comment objects
+   * @param {number} commentId - ID to search for
+   * @returns {Object|null} Found comment or null
+   */
+  findCommentById(comments, commentId) {
+    for (const comment of comments) {
+      if (comment.id === commentId) {
+        return comment;
+      }
+
+      if (comment.replies && comment.replies.length > 0) {
+        const found = this.findCommentById(comment.replies, commentId);
+        if (found) return found;
+      }
+    }
+
+    return null;
+  },
+
+  /**
+   * Update a comment in the nested tree (supports infinite depth)
+   * 
+   * @param {Array} comments - Array of comment objects
+   * @param {number} commentId - ID of comment to update
+   * @param {Object} updates - Properties to update
+   * @returns {boolean} Whether comment was found and updated
+   */
+  updateCommentInTree(comments, commentId, updates) {
+    for (let i = 0; i < comments.length; i++) {
+      if (comments[i].id === commentId) {
+        comments[i] = { ...comments[i], ...updates };
+        return true;
+      }
+
+      if (comments[i].replies && comments[i].replies.length > 0) {
+        const updated = this.updateCommentInTree(comments[i].replies, commentId, updates);
+        if (updated) return true;
+      }
+    }
+
+    return false;
+  },
+
+  /**
+   * Remove a comment from the nested tree (supports infinite depth)
+   * 
+   * @param {Array} comments - Array of comment objects
+   * @param {number} commentId - ID of comment to remove
+   * @returns {boolean} Whether comment was found and removed
+   */
+  removeCommentFromTree(comments, commentId) {
+    for (let i = 0; i < comments.length; i++) {
+      if (comments[i].id === commentId) {
+        comments.splice(i, 1);
+        return true;
+      }
+
+      if (comments[i].replies && comments[i].replies.length > 0) {
+        const removed = this.removeCommentFromTree(comments[i].replies, commentId);
+        if (removed) return true;
+      }
+    }
+
+    return false;
   }
 };
 

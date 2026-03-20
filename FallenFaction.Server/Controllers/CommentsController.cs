@@ -1,4 +1,4 @@
-﻿// Controllers/CommentsController.cs - Fixed to show soft deleted comments as [Deleted]
+﻿// Controllers/CommentsController.cs - Fixed for Infinite Accordion with Correct Schema
 using FallenFaction.Server.Data;
 using FallenFaction.Server.Data.Models;
 using FallenFaction.Server.DTOs.Comment;
@@ -30,8 +30,14 @@ namespace FallenFaction.Server.Controllers
             _commentService = commentService;
         }
 
+        /// <summary>
+        /// Get comment statistics for a target
+        /// GET: api/Comments/GetCommentStats
+        /// </summary>
         [HttpGet("GetCommentStats")]
-        public async Task<ActionResult<CommentStatsDto>> GetCommentStats([FromQuery] int targetId, [FromQuery] int targetType)
+        public async Task<ActionResult<CommentStatsDto>> GetCommentStats(
+            [FromQuery] int targetId,
+            [FromQuery] int targetType)
         {
             try
             {
@@ -45,8 +51,9 @@ namespace FallenFaction.Server.Controllers
         }
 
         /// <summary>
-        /// Get comments for a target with pagination and sorting (includes soft deleted comments marked as [Deleted])
+        /// Get all comments for a target with infinite nesting support
         /// GET: api/Comments/GetComments
+        /// No depth limit - supports infinite accordion expansion on frontend
         /// </summary>
         [HttpGet("GetComments")]
         public async Task<ActionResult<CommentsResponseDto>> GetComments(
@@ -58,22 +65,31 @@ namespace FallenFaction.Server.Controllers
         {
             try
             {
-                _logger.LogInformation("Getting comments for target {TargetType}:{TargetId}, page {Page}", targetType, targetId, page);
+                _logger.LogInformation(
+                    "Getting comments for target {TargetType}:{TargetId}, page {Page}, sort {SortBy}",
+                    targetType, targetId, page, sortBy);
 
                 // Validate parameters
                 if (targetType < 1 || targetType > 3)
                 {
-                    return BadRequest(new { message = "Invalid target type" });
+                    return BadRequest(new { message = "Invalid target type. Must be 1 (Title), 2 (Chapter), or 3 (ChapterImage)" });
                 }
 
                 if (page < 1) page = 1;
                 if (pageSize < 1 || pageSize > 100) pageSize = 20;
 
+                // Validate sort option
+                var validSortOptions = new[] { "newest", "oldest", "likes" };
+                if (!validSortOptions.Contains(sortBy.ToLower()))
+                {
+                    sortBy = "newest";
+                }
+
                 // Check if target exists and comments are enabled
                 var statsResult = await GetCommentStats(targetId, targetType);
                 if (statsResult.Result is not OkObjectResult statsOk)
                 {
-                    return statsResult.Result ?? NotFound();
+                    return statsResult.Result ?? NotFound(new { message = "Target not found" });
                 }
 
                 var stats = (CommentStatsDto)statsOk.Value!;
@@ -96,39 +112,47 @@ namespace FallenFaction.Server.Controllers
 
                 // Get current user for permission checks and reaction status
                 var currentUser = await _userManager.GetUserAsync(User);
+                var currentUserId = currentUser?.Id;
                 var isAdmin = currentUser != null && await _userManager.IsInRoleAsync(currentUser, "Admin");
 
-                // Get comments with pagination - ALWAYS include soft deleted comments
-                var query = GetCommentsQuery(targetId, targetType);
+                // Build query based on target type (TitleId, ChapterId, or ChapterImageId)
+                IQueryable<Comment> query = targetType switch
+                {
+                    1 => _context.Comments.Where(c => c.TitleId == targetId && c.ParentCommentId == null),
+                    2 => _context.Comments.Where(c => c.ChapterId == targetId && c.ParentCommentId == null),
+                    3 => _context.Comments.Where(c => c.ChapterImageId == targetId && c.ParentCommentId == null),
+                    _ => throw new ArgumentException("Invalid target type")
+                };
+
+                query = query.Include(c => c.User);
 
                 // Apply sorting
                 query = sortBy.ToLower() switch
                 {
                     "oldest" => query.OrderBy(c => c.PostedDate),
-                    "likes" => query.OrderByDescending(c => c.LikesCount).ThenByDescending(c => c.PostedDate),
+                    "likes" => query.OrderByDescending(c => c.Reactions.Count(r => r.IsLike)),
                     _ => query.OrderByDescending(c => c.PostedDate) // newest (default)
                 };
 
+                // Get total count
                 var totalCount = await query.CountAsync();
                 var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
 
-                var comments = await query
+                // Get paginated top-level comments
+                var topLevelComments = await query
                     .Skip((page - 1) * pageSize)
                     .Take(pageSize)
-                    .Include(c => c.DeletedByUser)
-                    .Include(c => c.Replies).ThenInclude(r => r.DeletedByUser)
-                    .Include(c => c.Reactions) // Include reactions for current user status
-                    .Include(c => c.Replies).ThenInclude(r => r.Reactions)
                     .ToListAsync();
 
-                var commentDtos = comments.Select(c => MapToCommentDto(c, currentUser?.Id, isAdmin)).ToList();
+                // Recursively load ALL nested replies (no depth limit)
+                var commentDtos = new List<CommentDto>();
+                foreach (var comment in topLevelComments)
+                {
+                    var dto = await BuildCommentDtoRecursive(comment, currentUserId, isAdmin);
+                    commentDtos.Add(dto);
+                }
 
-                // Set pagination headers
-                Response.Headers.Add("X-Total-Count", totalCount.ToString());
-                Response.Headers.Add("X-Page", page.ToString());
-                Response.Headers.Add("X-Page-Size", pageSize.ToString());
-
-                var result = new CommentsResponseDto
+                return Ok(new CommentsResponseDto
                 {
                     Comments = commentDtos,
                     Pagination = new PaginationDto
@@ -140,54 +164,110 @@ namespace FallenFaction.Server.Controllers
                         HasNext = page < totalPages,
                         HasPrevious = page > 1
                     }
-                };
-
-                return Ok(result);
+                });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting comments for target {TargetType}:{TargetId}", targetType, targetId);
-                return StatusCode(500, new { message = "Error retrieving comments", error = ex.Message });
+                return StatusCode(500, new { message = "An error occurred while loading comments" });
             }
         }
 
         /// <summary>
-        /// Add a new comment
+        /// Recursively build comment DTO with all nested replies (infinite depth)
+        /// </summary>
+        private async Task<CommentDto> BuildCommentDtoRecursive(
+            Comment comment,
+            string? currentUserId,
+            bool isAdmin)
+        {
+            // Get user reactions for this comment
+            var userReaction = currentUserId != null
+                ? await _context.CommentReactions
+                    .FirstOrDefaultAsync(r => r.CommentId == comment.Id && r.UserId == currentUserId)
+                : null;
+
+            var dto = new CommentDto
+            {
+                Id = comment.Id,
+                Content = comment.Content,
+                UserId = comment.UserId,
+                UserName = comment.IsDeleted ? null : comment.User?.UserName ?? "Unknown",
+                UserAvatarUrl = comment.IsDeleted ? null : comment.User?.ProfilePicturePath, // Using ProfilePicturePath
+                PostedDate = comment.PostedDate,
+                LikesCount = comment.Reactions.Count(r => r.IsLike),
+                DislikesCount = comment.Reactions.Count(r => !r.IsLike),
+                CurrentUserLiked = userReaction?.IsLike ?? false,
+                CurrentUserDisliked = userReaction != null && !userReaction.IsLike,
+                IsDeleted = comment.IsDeleted,
+                DeletedAt = comment.DeletedAt,
+                DeletedByUserName = isAdmin ? comment.DeletedByUser?.UserName : null,
+                DeletionReason = isAdmin ? comment.DeletionReason : null,
+                ParentCommentId = comment.ParentCommentId,
+                TitleId = comment.TitleId,
+                ChapterId = comment.ChapterId,
+                ChapterImageId = comment.ChapterImageId,
+                Replies = new List<CommentDto>()
+            };
+
+            // Load all child comments (replies to this comment)
+            var childComments = await _context.Comments
+                .Where(c => c.ParentCommentId == comment.Id)
+                .Include(c => c.User)
+                .Include(c => c.Reactions)
+                .Include(c => c.DeletedByUser)
+                .OrderBy(c => c.PostedDate) // Replies sorted by oldest first (like Reddit)
+                .ToListAsync();
+
+            // Recursively build DTOs for each child comment (infinite nesting!)
+            foreach (var child in childComments)
+            {
+                var childDto = await BuildCommentDtoRecursive(child, currentUserId, isAdmin);
+                dto.Replies.Add(childDto);
+            }
+
+            return dto;
+        }
+
+        /// <summary>
+        /// Add a new comment or reply (supports infinite nesting)
         /// POST: api/Comments/AddComment
         /// </summary>
-        [HttpPost("AddComment")]
         [Authorize]
-        public async Task<ActionResult<CommentDto>> AddComment([FromBody] AddCommentRequestDto request)
+        [HttpPost("AddComment")]
+        public async Task<ActionResult<CommentDto>> AddComment([FromBody] AddCommentRequestDto dto)
         {
             try
             {
-                var user = await _userManager.GetUserAsync(User);
-                if (user == null)
+                // Get current user
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
                 {
-                    return Unauthorized();
+                    return Unauthorized(new { message = "You must be logged in to comment" });
                 }
 
-                // Validate request
-                if (string.IsNullOrWhiteSpace(request.Content))
-                {
-                    return BadRequest(new { message = "Comment content is required" });
-                }
-
-                if (request.Content.Length > 2000)
-                {
-                    return BadRequest(new { message = "Comment is too long (maximum 2000 characters)" });
-                }
-
-                if (request.TargetType < 1 || request.TargetType > 3)
+                // Validate target type
+                if (dto.TargetType < 1 || dto.TargetType > 3)
                 {
                     return BadRequest(new { message = "Invalid target type" });
                 }
 
+                // Validate content
+                if (string.IsNullOrWhiteSpace(dto.Content))
+                {
+                    return BadRequest(new { message = "Comment content cannot be empty" });
+                }
+
+                if (dto.Content.Length > 2000)
+                {
+                    return BadRequest(new { message = "Comment cannot exceed 2000 characters" });
+                }
+
                 // Check if target exists and comments are enabled
-                var statsResult = await GetCommentStats(request.TargetId, request.TargetType);
+                var statsResult = await GetCommentStats(dto.TargetId, dto.TargetType);
                 if (statsResult.Result is not OkObjectResult statsOk)
                 {
-                    return BadRequest(new { message = "Invalid target or comments disabled" });
+                    return BadRequest(new { message = "Target not found or comments are disabled" });
                 }
 
                 var stats = (CommentStatsDto)statsOk.Value!;
@@ -196,231 +276,113 @@ namespace FallenFaction.Server.Controllers
                     return BadRequest(new { message = "Comments are disabled for this content" });
                 }
 
-                // Validate parent comment if this is a reply
-                if (request.ParentCommentId.HasValue)
+                // If this is a reply, verify parent comment exists
+                if (dto.ParentCommentId.HasValue)
                 {
-                    var parentComment = await _context.Comments
-                        .FirstOrDefaultAsync(c => c.Id == request.ParentCommentId.Value);
+                    var parentExists = await _context.Comments
+                        .AnyAsync(c => c.Id == dto.ParentCommentId.Value);
 
-                    if (parentComment == null)
+                    if (!parentExists)
                     {
                         return BadRequest(new { message = "Parent comment not found" });
                     }
 
-                    // Allow replies to soft deleted comments (they'll show under [Deleted] parent)
-
-                    // Ensure parent comment belongs to the same target
-                    bool parentMatches = request.TargetType switch
-                    {
-                        1 => parentComment.TitleId == request.TargetId,
-                        2 => parentComment.ChapterId == request.TargetId,
-                        3 => parentComment.ChapterImageId == request.TargetId,
-                        _ => false
-                    };
-
-                    if (!parentMatches)
-                    {
-                        return BadRequest(new { message = "Parent comment does not belong to the same target" });
-                    }
+                    // No depth limit check! Infinite nesting is allowed
                 }
 
-                // Create new comment
+                // Create new comment with correct foreign key based on target type
                 var comment = new Comment
                 {
-                    Content = request.Content.Trim(),
-                    UserId = user.Id,
-                    User = user,
+                    Content = dto.Content.Trim(),
+                    UserId = currentUser.Id,
+                    ParentCommentId = dto.ParentCommentId,
                     PostedDate = DateTime.UtcNow,
-                    ParentCommentId = request.ParentCommentId,
-                    LikesCount = 0,
-                    DislikesCount = 0,
                     IsDeleted = false
                 };
 
-                // Set target based on type
-                switch (request.TargetType)
+                // Set the correct foreign key based on target type
+                switch (dto.TargetType)
                 {
-                    case 1:
-                        comment.TitleId = request.TargetId;
+                    case 1: // Title
+                        comment.TitleId = dto.TargetId;
                         break;
-                    case 2:
-                        comment.ChapterId = request.TargetId;
+                    case 2: // Chapter
+                        comment.ChapterId = dto.TargetId;
                         break;
-                    case 3:
-                        comment.ChapterImageId = request.TargetId;
+                    case 3: // ChapterImage
+                        comment.ChapterImageId = dto.TargetId;
                         break;
                 }
 
                 _context.Comments.Add(comment);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("User {UserId} added comment {CommentId} to target {TargetType}:{TargetId}",
-                    user.Id, comment.Id, request.TargetType, request.TargetId);
+                // Reload comment with user info
+                var createdComment = await _context.Comments
+                    .Include(c => c.User)
+                    .Include(c => c.Reactions)
+                    .FirstOrDefaultAsync(c => c.Id == comment.Id);
 
-                // Return the created comment as DTO
+                if (createdComment == null)
+                {
+                    return StatusCode(500, new { message = "Failed to retrieve created comment" });
+                }
+
+                // Build DTO (no replies for new comment)
                 var commentDto = new CommentDto
                 {
-                    Id = comment.Id,
-                    Content = comment.Content,
-                    PostedDate = comment.PostedDate,
-                    UserId = comment.UserId,
-                    UserName = user.UserName ?? "Unknown User",
-                    UserAvatarUrl = user.ProfilePicturePath,
-                    LikesCount = comment.LikesCount,
-                    DislikesCount = comment.DislikesCount,
+                    Id = createdComment.Id,
+                    Content = createdComment.Content,
+                    UserId = createdComment.UserId,
+                    UserName = createdComment.User?.UserName ?? "Unknown",
+                    UserAvatarUrl = createdComment.User?.ProfilePicturePath,
+                    PostedDate = createdComment.PostedDate,
+                    LikesCount = 0,
+                    DislikesCount = 0,
                     CurrentUserLiked = false,
                     CurrentUserDisliked = false,
-                    ParentCommentId = comment.ParentCommentId,
-                    TitleId = comment.TitleId,
-                    ChapterId = comment.ChapterId,
-                    ChapterImageId = comment.ChapterImageId,
                     IsDeleted = false,
+                    ParentCommentId = createdComment.ParentCommentId,
+                    TitleId = createdComment.TitleId,
+                    ChapterId = createdComment.ChapterId,
+                    ChapterImageId = createdComment.ChapterImageId,
                     Replies = new List<CommentDto>()
                 };
 
-                return CreatedAtAction(nameof(GetComments),
-                    new { targetId = request.TargetId, targetType = request.TargetType },
-                    commentDto);
+                _logger.LogInformation(
+                    "User {UserId} added comment {CommentId} on {TargetType}:{TargetId}",
+                    currentUser.Id, comment.Id, dto.TargetType, dto.TargetId);
+
+                return CreatedAtAction(nameof(AddComment), new { id = commentDto.Id }, commentDto);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error adding comment");
-                return StatusCode(500, new { message = "Error adding comment", error = ex.Message });
+                return StatusCode(500, new { message = "An error occurred while adding the comment" });
             }
         }
 
         /// <summary>
-        /// React to a comment (like or dislike)
-        /// POST: api/Comments/ReactToComment
+        /// Toggle like/dislike on a comment
+        /// POST: api/Comments/{commentId}/React
         /// </summary>
-        [HttpPost("ReactToComment")]
         [Authorize]
-        public async Task<ActionResult<CommentReactionResponseDto>> ReactToComment([FromBody] CommentReactionRequestDto request)
+        [HttpPost("{commentId}/React")]
+        public async Task<ActionResult<CommentReactionResponseDto>> ReactToComment(
+            int commentId,
+            [FromBody] CommentReactionRequestDto request)
         {
             try
             {
-                var user = await _userManager.GetUserAsync(User);
-                if (user == null)
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
                 {
-                    return Unauthorized();
+                    return Unauthorized(new { message = "You must be logged in to react to comments" });
                 }
 
                 var comment = await _context.Comments
                     .Include(c => c.Reactions)
-                    .FirstOrDefaultAsync(c => c.Id == request.CommentId && !c.IsDeleted);
-
-                if (comment == null)
-                {
-                    return NotFound(new { message = "Comment not found or deleted" });
-                }
-
-                // Check if user already has a reaction for this comment
-                var existingReaction = comment.Reactions?.FirstOrDefault(r => r.UserId == user.Id);
-
-                if (existingReaction != null)
-                {
-                    // Update existing reaction
-                    if (existingReaction.IsLike == request.IsLike)
-                    {
-                        // Same reaction - remove it (toggle off)
-                        _context.CommentReactions.Remove(existingReaction);
-
-                        if (request.IsLike)
-                            comment.LikesCount = Math.Max(0, comment.LikesCount - 1);
-                        else
-                            comment.DislikesCount = Math.Max(0, comment.DislikesCount - 1);
-                    }
-                    else
-                    {
-                        // Different reaction - update it
-                        existingReaction.IsLike = request.IsLike;
-                        existingReaction.CreatedAt = DateTime.UtcNow; // Use CreatedAt instead of ReactedAt
-
-                        if (request.IsLike)
-                        {
-                            comment.LikesCount += 1;
-                            comment.DislikesCount = Math.Max(0, comment.DislikesCount - 1);
-                        }
-                        else
-                        {
-                            comment.DislikesCount += 1;
-                            comment.LikesCount = Math.Max(0, comment.LikesCount - 1);
-                        }
-                    }
-                }
-                else
-                {
-                    // Create new reaction
-                    var newReaction = new CommentReaction
-                    {
-                        CommentId = request.CommentId,
-                        UserId = user.Id,
-                        IsLike = request.IsLike,
-                        CreatedAt = DateTime.UtcNow // Use CreatedAt instead of ReactedAt
-                    };
-
-                    _context.CommentReactions.Add(newReaction);
-
-                    if (request.IsLike)
-                        comment.LikesCount += 1;
-                    else
-                        comment.DislikesCount += 1;
-                }
-
-                await _context.SaveChangesAsync();
-
-                // Get updated reaction status
-                var userReaction = await _context.CommentReactions
-                    .FirstOrDefaultAsync(r => r.CommentId == request.CommentId && r.UserId == user.Id);
-
-                var result = new CommentReactionResponseDto
-                {
-                    CommentId = request.CommentId,
-                    LikesCount = comment.LikesCount,
-                    DislikesCount = comment.DislikesCount,
-                    UserLiked = userReaction?.IsLike == true,
-                    UserDisliked = userReaction?.IsLike == false,
-                    Success = true
-                };
-
-                _logger.LogInformation("User {UserId} reacted to comment {CommentId} with {Reaction}",
-                    user.Id, request.CommentId, request.IsLike ? "like" : "dislike");
-
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error reacting to comment {CommentId}", request.CommentId);
-
-                var errorResult = new CommentReactionResponseDto
-                {
-                    CommentId = request.CommentId,
-                    Success = false,
-                    Error = "Error processing reaction"
-                };
-
-                return StatusCode(500, errorResult);
-            }
-        }
-
-        /// <summary>
-        /// Soft delete a comment - marks as deleted instead of removing
-        /// DELETE: api/Comments/DeleteComment/{id}
-        /// </summary>
-        [HttpDelete("DeleteComment/{id}")]
-        [Authorize]
-        public async Task<ActionResult> DeleteComment(int id, [FromQuery] string reason = null)
-        {
-            try
-            {
-                var user = await _userManager.GetUserAsync(User);
-                if (user == null)
-                {
-                    return Unauthorized();
-                }
-
-                var comment = await _context.Comments
-                    .FirstOrDefaultAsync(c => c.Id == id);
+                    .FirstOrDefaultAsync(c => c.Id == commentId);
 
                 if (comment == null)
                 {
@@ -429,57 +391,192 @@ namespace FallenFaction.Server.Controllers
 
                 if (comment.IsDeleted)
                 {
-                    return BadRequest(new { message = "Comment is already deleted" });
+                    return BadRequest(new { message = "Cannot react to deleted comments" });
                 }
 
-                // Check if user can delete (own comment or admin/moderator)
-                var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
-                var isModerator = await _userManager.IsInRoleAsync(user, "Moderator");
+                // Find existing reaction
+                var existingReaction = await _context.CommentReactions
+                    .FirstOrDefaultAsync(r => r.CommentId == commentId && r.UserId == currentUser.Id);
 
-                if (comment.UserId != user.Id && !isAdmin && !isModerator)
+                bool userLiked = false;
+                bool userDisliked = false;
+
+                if (existingReaction != null)
                 {
-                    return Forbid("You can only delete your own comments");
+                    // If clicking the same reaction, remove it (toggle off)
+                    if (existingReaction.IsLike == request.IsLike)
+                    {
+                        _context.CommentReactions.Remove(existingReaction);
+                    }
+                    else
+                    {
+                        // Switch to opposite reaction
+                        existingReaction.IsLike = request.IsLike;
+                        userLiked = request.IsLike;
+                        userDisliked = !request.IsLike;
+                    }
                 }
-
-                // Soft delete the comment
-                comment.SoftDelete(user.Id, reason ?? "Deleted by user");
+                else
+                {
+                    // Add new reaction
+                    var reaction = new CommentReaction
+                    {
+                        CommentId = commentId,
+                        UserId = currentUser.Id,
+                        IsLike = request.IsLike
+                    };
+                    _context.CommentReactions.Add(reaction);
+                    userLiked = request.IsLike;
+                    userDisliked = !request.IsLike;
+                }
 
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("User {UserId} soft-deleted comment {CommentId}", user.Id, id);
+                // Reload to get updated counts
+                var updatedComment = await _context.Comments
+                    .Include(c => c.Reactions)
+                    .FirstOrDefaultAsync(c => c.Id == commentId);
 
-                return Ok(new
+                return Ok(new CommentReactionResponseDto
                 {
-                    message = "Comment deleted successfully",
-                    isDeleted = true,
-                    deletedAt = comment.DeletedAt
+                    CommentId = commentId,
+                    LikesCount = updatedComment!.Reactions.Count(r => r.IsLike),
+                    DislikesCount = updatedComment.Reactions.Count(r => !r.IsLike),
+                    UserLiked = userLiked,
+                    UserDisliked = userDisliked,
+                    Success = true
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error soft-deleting comment {CommentId}", id);
-                return StatusCode(500, new { message = "Error deleting comment", error = ex.Message });
+                _logger.LogError(ex, "Error reacting to comment {CommentId}", commentId);
+                return StatusCode(500, new { message = "An error occurred while processing your reaction" });
             }
         }
 
         /// <summary>
-        /// Restore a soft-deleted comment (Admin/Moderator only)
-        /// POST: api/Comments/RestoreComment/{id}
+        /// Delete own comment (hard delete) or soft delete as admin
+        /// DELETE: api/Comments/{commentId}
         /// </summary>
-        [HttpPost("RestoreComment/{id}")]
-        [Authorize(Roles = "Admin,Moderator")]
-        public async Task<ActionResult> RestoreComment(int id)
+        [Authorize]
+        [HttpDelete("{commentId}")]
+        public async Task<IActionResult> DeleteComment(int commentId)
         {
             try
             {
-                var user = await _userManager.GetUserAsync(User);
-                if (user == null)
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
+                {
+                    return Unauthorized(new { message = "You must be logged in to delete comments" });
+                }
+
+                var comment = await _context.Comments
+                    .Include(c => c.Replies)
+                    .FirstOrDefaultAsync(c => c.Id == commentId);
+
+                if (comment == null)
+                {
+                    return NotFound(new { message = "Comment not found" });
+                }
+
+                var isAdmin = await _userManager.IsInRoleAsync(currentUser, "Admin");
+                var isOwner = comment.UserId == currentUser.Id;
+
+                if (!isOwner && !isAdmin)
+                {
+                    return Forbid();
+                }
+
+                if (isAdmin)
+                {
+                    // Admin performs soft delete using helper method
+                    comment.SoftDelete(currentUser.Id, "Deleted by administrator");
+
+                    // Recursively soft delete all replies
+                    await SoftDeleteRepliesRecursive(comment, currentUser.Id);
+
+                    await _context.SaveChangesAsync();
+
+                    _logger.LogInformation(
+                        "Admin {UserId} soft deleted comment {CommentId}",
+                        currentUser.Id, commentId);
+
+                    return Ok(new { message = "Comment deleted successfully (soft delete)" });
+                }
+                else
+                {
+                    // Owner performs hard delete (only if no replies exist)
+                    if (comment.Replies.Any())
+                    {
+                        return BadRequest(new
+                        {
+                            message = "Cannot delete comment with replies. Please contact an administrator."
+                        });
+                    }
+
+                    // Remove reactions first
+                    var reactions = await _context.CommentReactions
+                        .Where(r => r.CommentId == commentId)
+                        .ToListAsync();
+                    _context.CommentReactions.RemoveRange(reactions);
+
+                    // Delete comment
+                    _context.Comments.Remove(comment);
+                    await _context.SaveChangesAsync();
+
+                    _logger.LogInformation(
+                        "User {UserId} deleted own comment {CommentId}",
+                        currentUser.Id, commentId);
+
+                    return Ok(new { message = "Comment deleted successfully" });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting comment {CommentId}", commentId);
+                return StatusCode(500, new { message = "An error occurred while deleting the comment" });
+            }
+        }
+
+        /// <summary>
+        /// Recursively soft delete all replies to a comment
+        /// </summary>
+        private async Task SoftDeleteRepliesRecursive(Comment parentComment, string deletedByUserId)
+        {
+            var replies = await _context.Comments
+                .Where(c => c.ParentCommentId == parentComment.Id)
+                .ToListAsync();
+
+            foreach (var reply in replies)
+            {
+                if (!reply.IsDeleted)
+                {
+                    reply.SoftDelete(deletedByUserId, "Parent comment was deleted");
+
+                    // Recursively delete this reply's replies
+                    await SoftDeleteRepliesRecursive(reply, deletedByUserId);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Restore soft-deleted comment (Admin only)
+        /// POST: api/Comments/{commentId}/Restore
+        /// </summary>
+        [Authorize(Roles = "Admin")]
+        [HttpPost("{commentId}/Restore")]
+        public async Task<IActionResult> RestoreComment(int commentId)
+        {
+            try
+            {
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
                 {
                     return Unauthorized();
                 }
 
                 var comment = await _context.Comments
-                    .FirstOrDefaultAsync(c => c.Id == id);
+                    .FirstOrDefaultAsync(c => c.Id == commentId);
 
                 if (comment == null)
                 {
@@ -491,97 +588,106 @@ namespace FallenFaction.Server.Controllers
                     return BadRequest(new { message = "Comment is not deleted" });
                 }
 
-                // Restore the comment
+                // Use helper method to restore
                 comment.Restore();
 
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("User {UserId} restored comment {CommentId}", user.Id, id);
+                _logger.LogInformation(
+                    "Admin {UserId} restored comment {CommentId}",
+                    currentUser.Id, commentId);
 
-                return Ok(new
+                return Ok(new { message = "Comment restored successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error restoring comment {CommentId}", commentId);
+                return StatusCode(500, new { message = "An error occurred while restoring the comment" });
+            }
+        }
+
+
+
+
+        [HttpGet("GetCommentThread/{commentId}")]
+        public async Task<ActionResult<CommentThreadResponseDto>> GetCommentThread(int commentId)
+        {
+            try
+            {
+                _logger.LogInformation("Getting comment thread for comment {CommentId}", commentId);
+
+                // Get current user for permission checks
+                var currentUser = await _userManager.GetUserAsync(User);
+                var currentUserId = currentUser?.Id;
+                var isAdmin = currentUser != null && await _userManager.IsInRoleAsync(currentUser, "Admin");
+
+                // Get the requested comment
+                var comment = await _context.Comments
+                    .Include(c => c.User)
+                    .Include(c => c.Reactions)
+                    .FirstOrDefaultAsync(c => c.Id == commentId);
+
+                if (comment == null)
                 {
-                    message = "Comment restored successfully",
-                    isDeleted = false
+                    return NotFound(new { message = "Comment not found" });
+                }
+
+                // Build the comment DTO with all its replies recursively
+                var commentDto = await BuildCommentDtoRecursive(comment, currentUserId, isAdmin);
+
+                // Get parent comments chain for breadcrumb navigation
+                var parentChain = new List<CommentBreadcrumbDto>();
+                var currentParentId = comment.ParentCommentId;
+
+                while (currentParentId.HasValue)
+                {
+                    var parentComment = await _context.Comments
+                        .Include(c => c.User)
+                        .FirstOrDefaultAsync(c => c.Id == currentParentId.Value);
+
+                    if (parentComment == null) break;
+
+                    parentChain.Insert(0, new CommentBreadcrumbDto
+                    {
+                        Id = parentComment.Id,
+                        UserName = parentComment.User?.UserName ?? "Unknown",
+                        Content = parentComment.Content.Length > 100
+                            ? parentComment.Content.Substring(0, 100) + "..."
+                            : parentComment.Content,
+                        IsDeleted = parentComment.IsDeleted
+                    });
+
+                    currentParentId = parentComment.ParentCommentId;
+                }
+
+                return Ok(new CommentThreadResponseDto
+                {
+                    Comment = commentDto,
+                    ParentChain = parentChain,
+                    TargetId = comment.TitleId ?? comment.ChapterId ?? comment.ChapterImageId ?? 0,
+                    TargetType = comment.TitleId.HasValue ? 1 : comment.ChapterId.HasValue ? 2 : 3
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error restoring comment {CommentId}", id);
-                return StatusCode(500, new { message = "Error restoring comment", error = ex.Message });
+                _logger.LogError(ex, "Error getting comment thread for comment {CommentId}", commentId);
+                return StatusCode(500, new { message = "An error occurred while loading the comment thread" });
             }
         }
+    }
+    public class CommentThreadResponseDto
+    {
+        public CommentDto Comment { get; set; }
+        public List<CommentBreadcrumbDto> ParentChain { get; set; }
+        public int TargetId { get; set; }
+        public int TargetType { get; set; }
+    }
 
-        #region Helper Methods
-
-        /// <summary>
-        /// Map Comment entity to CommentDto with user reaction status and proper soft delete handling
-        /// </summary>
-        private CommentDto MapToCommentDto(Comment comment, string currentUserId, bool isAdmin)
-        {
-            // Get user's reaction status (only for non-deleted comments)
-            var userReaction = !comment.IsDeleted ? comment.Reactions?.FirstOrDefault(r => r.UserId == currentUserId) : null;
-
-            var dto = new CommentDto
-            {
-                Id = comment.Id,
-                Content = comment.Content, // Always include original content
-                PostedDate = comment.PostedDate,
-                UserId = comment.UserId,
-                UserName = comment.User.UserName ?? "Unknown User",
-                UserAvatarUrl = comment.User.ProfilePicturePath,
-                LikesCount = comment.LikesCount,
-                DislikesCount = comment.DislikesCount,
-                CurrentUserLiked = userReaction?.IsLike == true,
-                CurrentUserDisliked = userReaction?.IsLike == false,
-                ParentCommentId = comment.ParentCommentId,
-                TitleId = comment.TitleId,
-                ChapterId = comment.ChapterId,
-                ChapterImageId = comment.ChapterImageId,
-
-                // ✅ NEW: Include soft delete information
-                IsDeleted = comment.IsDeleted,
-                DeletedAt = comment.DeletedAt,
-                DeletedByUserName = comment.DeletedByUser?.UserName,
-                DeletionReason = comment.DeletionReason,
-
-                // Always include replies (both deleted and non-deleted)
-                Replies = comment.Replies
-                    ?.Select(r => MapToCommentDto(r, currentUserId, isAdmin))
-                    ?.ToList() ?? new List<CommentDto>()
-            };
-
-            return dto;
-        }
-
-        /// <summary>
-        /// Get comments query - ALWAYS includes soft deleted comments (they'll be marked as deleted in UI)
-        /// </summary>
-        private IQueryable<Comment> GetCommentsQuery(int targetId, int targetType)
-        {
-            var query = _context.Comments
-                .Include(c => c.User)
-                .Include(c => c.DeletedByUser)
-                .Include(c => c.Replies) // Include ALL replies (deleted and non-deleted)
-                .ThenInclude(r => r.User)
-                .Include(c => c.Replies)
-                .ThenInclude(r => r.DeletedByUser)
-                .Where(c => c.ParentCommentId == null); // Only top-level comments
-
-            // ✅ REMOVED: No longer filter out deleted comments - they'll be shown as [Deleted]
-            // The frontend will handle displaying them appropriately
-
-            // Filter by target type
-            query = targetType switch
-            {
-                1 => query.Where(c => c.TitleId == targetId),
-                2 => query.Where(c => c.ChapterId == targetId),
-                3 => query.Where(c => c.ChapterImageId == targetId),
-                _ => query.Where(c => false) // No matches for invalid type
-            };
-
-            return query;
-        }
-
-        #endregion
+    public class CommentBreadcrumbDto
+    {
+        public int Id { get; set; }
+        public string UserName { get; set; }
+        public string Content { get; set; }
+        public bool IsDeleted { get; set; }
     }
 }
