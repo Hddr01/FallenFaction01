@@ -1,1036 +1,892 @@
-<!-- Enhanced CommentItem.vue with Thread Integration after 3 levels -->
 <template>
-  <article class="relative"
-           :class="{ 'comment-deleted': comment.isDeleted }"
-           :aria-label="`Comment by ${comment.userName}`"
-           role="article">
-
-    <!-- Loading Screen for Delete Operation -->
-    <LoadingScreen v-if="deletingComment"
-                   loading-text="Deleting comment..."
-                   @loading-complete="deletingComment = false" />
-
-    <!-- Loading Screen for Restore Operation -->
-    <LoadingScreen v-else-if="restoringComment"
-                   loading-text="Restoring comment..."
-                   @loading-complete="restoringComment = false" />
-
-    <!-- Main Comment Content -->
-    <div v-else class="flex gap-3">
-      <!-- Avatar -->
-      <div class="flex-shrink-0">
-        <div class="comment-avatar"
-             :class="{ 'comment-avatar-deleted': comment.isDeleted }">
-          <img v-if="comment.userAvatarUrl && !comment.isDeleted"
-               :src="comment.userAvatarUrl"
-               :alt="`${comment.userName}'s avatar`"
-               class="w-full h-full object-cover" />
-          <svg v-else
-               class="w-5 h-5 text-gray-400"
-               fill="none"
-               stroke="currentColor"
-               viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-          </svg>
-        </div>
+  <div class="comment-item">
+    <!-- Comment content wrapper with vertical line for nested comments -->
+    <div class="comment-wrapper" :class="{ 'has-line': depth > 0 }">
+      <!-- Clickable vertical line for collapse (only shown for nested comments) -->
+      <div v-if="depth > 0"
+           class="vertical-line"
+           :class="{ collapsed: isCollapsed }"
+           @click="toggleCollapse"
+           :title="isCollapsed ? 'Expand thread' : 'Collapse thread'">
       </div>
 
-      <!-- Comment Content -->
-      <div class="flex-1 min-w-0">
-        <!-- Header -->
-        <header class="flex items-center gap-2 mb-2">
-          <h4 class="comment-username"
-              :class="{ 'comment-username-deleted': comment.isDeleted }">
-            {{ comment.isDeleted && !showDeletedContent ? '[Deleted]' : comment.userName }}
-          </h4>
-          <time :datetime="comment.postedDate"
-                class="comment-timestamp"
-                :title="formatFullDate(comment.postedDate)">
-            {{ formatDate(comment.postedDate) }}
-          </time>
-
-          <!-- Status Badges -->
-          <span v-if="comment.isDeleted" class="status-badge status-badge-deleted">
-            Deleted
+      <!-- Main comment content -->
+      <div class="comment-main">
+        <!-- Show collapsed indicator if collapsed -->
+        <div v-if="isCollapsed" class="collapsed-indicator" @click="toggleCollapse">
+          <span class="collapsed-info">
+            [+] {{ comment.userName }} ({{ getTotalRepliesCount() }} {{ getTotalRepliesCount() === 1 ? 'reply' : 'replies' }})
           </span>
-          <span v-if="isUserAdmin(comment.userId) && !comment.isDeleted"
-                class="status-badge status-badge-admin">
-            Admin
-          </span>
-        </header>
+        </div>
 
-        <!-- Comment Text -->
-        <div class="comment-content">
-          <!-- Deleted Comment Display -->
-          <div v-if="comment.isDeleted">
-            <p v-if="!showDeletedContent" class="deleted-message">
-              [This comment has been deleted]
-            </p>
-            <details v-else class="deleted-details">
-              <summary class="deleted-summary">
-                Original Content
-                <span v-if="canSeeDeletedDetails">
-                  - Deleted {{ formatDate(comment.deletedAt) }}
-                  <span v-if="comment.deletedByUserName">by {{ comment.deletedByUserName }}</span>
-                  <span v-if="comment.deletionReason" class="block mt-1">Reason: {{ comment.deletionReason }}</span>
-                </span>
-              </summary>
-              <p class="whitespace-pre-wrap break-words opacity-70">{{ comment.content }}</p>
-            </details>
+        <!-- Full comment (hidden when collapsed) -->
+        <div v-show="!isCollapsed" class="comment-content">
+          <!-- Comment header -->
+          <div class="comment-header">
+            <div class="user-info">
+              <a :href="`/user/${comment.userId}`" class="avatar-link">
+                <img :src="comment.userAvatarUrl || '/img/default-avatar.png'"
+                     :alt="comment.userName"
+                     class="avatar" />
+              </a>
+              <a :href="`/user/${comment.userId}`" class="username">
+                {{ comment.userName }}
+              </a>
+              <time class="timestamp" :datetime="comment.postedDate">
+                {{ formatTimeAgo(comment.postedDate) }}
+              </time>
+              <span v-if="comment.isDeleted" class="deleted-badge">deleted</span>
+            </div>
+
+            <div class="vote-controls">
+              <button @click="handleVote(true)"
+                      class="vote-btn"
+                      :class="{ active: comment.currentUserLiked }"
+                      :disabled="isVoting || comment.isDeleted">
+                <ChevronUp :size="16" />
+              </button>
+              <span class="vote-count" :class="voteClass">
+                {{ netVotes }}
+              </span>
+              <button @click="handleVote(false)"
+                      class="vote-btn"
+                      :class="{ active: comment.currentUserDisliked }"
+                      :disabled="isVoting || comment.isDeleted">
+                <ChevronDown :size="16" />
+              </button>
+            </div>
           </div>
 
-          <!-- Regular Comment -->
-          <p v-else class="whitespace-pre-wrap break-words">{{ comment.content }}</p>
-        </div>
+          <!-- Comment body -->
+          <div class="comment-body">
+            <div v-if="!comment.isDeleted"
+                 class="comment-text"
+                 :class="{ 'is-collapsed-text': isTextCollapsed }"
+                 v-html="comment.content" />
+            <div v-else class="deleted-content">
+              [This comment has been deleted]
+              <span v-if="comment.deletionReason" class="deletion-reason">
+                Reason: {{ comment.deletionReason }}
+              </span>
+            </div>
 
-        <!-- Actions -->
-        <div v-if="!comment.isDeleted || isAdmin"
-             class="flex items-center gap-4 mb-3">
-
-          <!-- Upvote Button -->
-          <button @click="toggleLike"
-                  :disabled="!isAuthenticated || reactingToComment || comment.isDeleted"
-                  class="reaction-button"
-                  :class="[
-                    'reaction-upvote',
-                    comment.currentUserLiked ? 'reaction-upvote-active' : ''
-                  ]">
-            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M7 14l5-5 5 5z" />
-            </svg>
-            <span>{{ comment.likesCount || 0 }}</span>
-          </button>
-
-          <!-- Downvote Button -->
-          <button @click="toggleDislike"
-                  :disabled="!isAuthenticated || reactingToComment || comment.isDeleted"
-                  class="reaction-button"
-                  :class="[
-                    'reaction-downvote',
-                    comment.currentUserDisliked ? 'reaction-downvote-active' : ''
-                  ]">
-            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M7 10l5 5 5-5z" />
-            </svg>
-            <span>{{ comment.dislikesCount || 0 }}</span>
-          </button>
-
-          <!-- Reply Button -->
-          <button v-if="canReply && !comment.isDeleted"
-                  @click="toggleReplyForm"
-                  :disabled="!isAuthenticated"
-                  class="action-button action-button-reply">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path>
-            </svg>
-            <span>Reply</span>
-          </button>
-
-          <!-- Delete Button -->
-          <button v-if="canDelete && !comment.isDeleted"
-                  @click="deleteComment"
-                  :disabled="deletingComment"
-                  class="action-button action-button-delete">
-            <svg v-if="deletingComment" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-            </svg>
-            <span>{{ deletingComment ? 'Deleting...' : 'Delete' }}</span>
-          </button>
-
-          <!-- Restore Button -->
-          <button v-if="isAdmin && comment.isDeleted"
-                  @click="restoreComment"
-                  :disabled="restoringComment"
-                  class="action-button action-button-restore">
-            <svg v-if="restoringComment" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-            </svg>
-            <span>{{ restoringComment ? 'Restoring...' : 'Restore' }}</span>
-          </button>
-        </div>
-
-        <!-- Reply Form -->
-        <ReplyForm v-if="showReplyForm && !comment.isDeleted"
-                   :target-id="targetId"
-                   :target-type="targetType"
-                   :parent-comment-id="comment.id"
-                   :submitting="submittingReply"
-                   @reply-submitted="onReplySubmitted"
-                   @reply-cancelled="cancelReply"
-                   class="reply-form" />
-
-        <!-- Collapsed State Message -->
-        <div v-if="repliesCollapsed && comment.replies?.length > 0" class="mb-4">
-          <button @click="toggleRepliesCollapsed"
-                  class="collapsed-replies-button">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-            </svg>
-            <span>Show {{ comment.replies.length }} hidden {{ comment.replies.length === 1 ? 'reply' : 'replies' }}</span>
-          </button>
-        </div>
-
-        <!-- Replies Section -->
-        <div v-if="!repliesCollapsed && comment.replies?.length > 0" class="space-y-4">
-
-          <!-- Thread System: After depth 2 (3rd level), show thread button instead of nested comments -->
-          <div v-if="depth >= 2" class="thread-transition">
-            <button @click="openThreadModal"
-                    class="thread-button">
-              <div class="thread-button-content">
-                <div class="flex items-center gap-2">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-                  </svg>
-                  <span class="font-medium">Continue in Thread</span>
-                </div>
-                <div class="thread-stats">
-                  <span>{{ getTotalNestedRepliesCount }} • {{ uniqueParticipantsCount }} {{ uniqueParticipantsCount === 1 ? 'participant' : 'participants' }}</span>
-                </div>
-              </div>
-              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-              </svg>
+            <button v-if="isTextTooLong && !comment.isDeleted"
+                    @click="isTextCollapsed = !isTextCollapsed"
+                    class="expand-btn">
+              {{ isTextCollapsed ? 'Show more' : 'Show less' }}
             </button>
           </div>
 
-          <!-- Regular nested replies (depth < 2) -->
-          <div v-else class="relative">
+          <!-- Comment actions -->
+          <div class="comment-actions">
+            <button @click="toggleReply" class="action-btn" :disabled="comment.isDeleted || !canReply">
+              <MessageSquare :size="14" />
+              Reply
+            </button>
+            <button @click="handleReport" class="action-btn" v-if="isAuthenticated && !comment.isDeleted">
+              <Flag :size="14" />
+              Report
+            </button>
+            <button @click="handleDelete" class="action-btn" v-if="canDelete">
+              <Trash2 :size="14" />
+              Delete
+            </button>
+          </div>
 
-            <!-- MAIN THREAD (depth === 0) -->
-            <div v-if="hasNestedReplies && depth === 0">
-              <!-- Expanded: Show unified thread line -->
-              <button v-if="!mainThreadCollapsed"
-                      @click="toggleMainThreadCollapse"
-                      :title="getMainThreadTitle"
-                      class="thread-line-button thread-line-main"
-                      :style="{ height: mainThreadHeight + 'px' }">
-                <div class="thread-line thread-line-main-visual"></div>
+          <!-- Reply form -->
+          <div v-if="showReplyForm" class="reply-form">
+            <textarea v-model="replyContent"
+                      placeholder="Write a reply..."
+                      class="reply-input"
+                      rows="3"
+                      @keydown.ctrl.enter="submitReply"
+                      @keydown.meta.enter="submitReply" />
+            <div class="reply-actions">
+              <button @click="submitReply" class="btn-primary" :disabled="!replyContent.trim() || submittingReply">
+                {{ submittingReply ? 'Posting...' : 'Submit' }}
               </button>
-
-              <!-- Collapsed: Show "See hidden replies" button -->
-              <div v-else class="mb-4 pb-2">
-                <button @click="toggleMainThreadCollapse"
-                        class="expand-button"
-                        :title="'Click to expand ' + getTotalNestedRepliesCount">
-                  <span>See {{ getTotalNestedRepliesCount }}</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- INDIVIDUAL THREADS (depth > 0) -->
-            <div v-else-if="depth > 0">
-              <!-- Expanded: Show individual thread line -->
-              <button v-if="!isThreadCollapsed(comment.id)"
-                      @click="toggleThreadCollapse(comment.id)"
-                      :title="getThreadLineTitle(comment.id)"
-                      class="thread-line-button thread-line-individual"
-                      :style="{ left: getThreadLineButtonOffset(depth) }">
-                <div class="thread-line thread-line-individual-visual"></div>
+              <button @click="cancelReply" class="btn-secondary">
+                Cancel
               </button>
+            </div>
+          </div>
 
-              <!-- Collapsed: Show "See hidden replies" button -->
-              <div v-else class="mb-4 pb-2 flex">
-                <div :class="getCollapsedButtonContainerClasses(depth)">
-                  <button @click="toggleThreadCollapse(comment.id)"
-                          class="expand-button"
-                          :title="'Click to expand ' + getThreadReplyCount(comment)">
-                    <span>See {{ getThreadReplyCount(comment) }}</span>
-                  </button>
-                </div>
-              </div>
+          <!-- Nested replies -->
+          <div v-if="hasReplies && !isCollapsed" class="replies-container">
+            <!-- Show "Continue thread" button if we've reached max depth -->
+            <div v-if="depth >= maxDepth" class="continue-thread">
+              <a :href="getContinueThreadUrl(comment.replies[0].id)"
+                 class="continue-thread-btn"
+                 @click.prevent="navigateToThread(comment.replies[0].id)">
+                <span class="continue-arrow">→</span>
+                Continue this thread ({{ getTotalRepliesCount() }} more {{ getTotalRepliesCount() === 1 ? 'reply' : 'replies' }})
+              </a>
             </div>
 
-            <!-- Reply Content Container - Only show when not collapsed -->
-            <div v-if="!mainThreadCollapsed && !isThreadCollapsed(comment.id)"
-                 :class="getReplyContainerClasses"
-                 :style="getReplyContainerStyles">
+            <!-- Regular nested replies (below max depth) -->
+            <CommentItem v-else
+                         v-for="reply in comment.replies"
+                         :key="reply.id"
+                         :comment="reply"
+                         :target-id="targetId"
+                         :target-type="targetType"
+                         :is-authenticated="isAuthenticated"
+                         :current-user-id="currentUserId"
+                         :is-admin="isAdmin"
+                         :can-reply="canReply"
+                         :depth="depth + 1"
+                         :max-depth="maxDepth"
+                         :parent-active="!isCollapsed"
+                         :active-sibling="openChildId"
+                         @reply-added="$emit('reply-added', $event)"
+                         @comment-updated="$emit('comment-updated', $event)"
+                         @comment-deleted="$emit('comment-deleted', $event)"
+                         @sibling-open="handleSiblingOpen" />
+          </div>
 
-              <div v-for="(reply, index) in comment.replies"
-                   :key="reply.id"
-                   :class="getReplyClasses(depth)">
-
-                <div class="transition-all duration-300">
-                  <CommentItem :comment="reply"
-                               :target-id="targetId"
-                               :target-type="targetType"
-                               :is-authenticated="isAuthenticated"
-                               :current-user-id="currentUserId"
-                               :is-admin="isAdmin"
-                               :can-reply="canReply"
-                               :depth="depth + 1"
-                               @comment-updated="$emit('comment-updated', $event)"
-                               @comment-deleted="$emit('comment-deleted', $event)"
-                               @comment-restored="$emit('comment-restored', $event)"
-                               @reply-added="$emit('reply-added', $event)" />
-                </div>
-
-              </div>
-            </div>
-
+          <!-- Load more replies button (deprecated - replaced by continue thread) -->
+          <div v-if="comment.replies && comment.replies.length > 0 && depth >= maxDepth && false" class="load-more">
+            <button class="load-more-btn">
+              Continue this thread →
+            </button>
           </div>
         </div>
       </div>
     </div>
-
-    <!-- Thread View Modal -->
-    <ThreadViewModal v-if="showThreadModal"
-                     :root-comment="comment"
-                     :target-id="targetId"
-                     :target-type="targetType"
-                     :is-authenticated="isAuthenticated"
-                     :current-user-id="currentUserId"
-                     :is-admin="isAdmin"
-                     :can-reply="canReply"
-                     @close="closeThreadModal"
-                     @comment-updated="$emit('comment-updated', $event)"
-                     @comment-deleted="$emit('comment-deleted', $event)"
-                     @comment-restored="$emit('comment-restored', $event)"
-                     @reply-added="$emit('reply-added', $event)" />
-  </article>
+  </div>
 </template>
 
-<script>
+<script setup>
+  import { ref, computed, watch } from 'vue'
+  import { ChevronUp, ChevronDown, MessageSquare, Flag, Trash2 } from 'lucide-vue-next'
   import { commentsService } from '../../services/commentsService'
-  import { useToast } from '../../utils/toastService'
-  import LoadingScreen from '../../LoadingScreen.vue'
-  import ReplyForm from './ReplyForm.vue'
-  import ThreadViewModal from './ThreadViewModal.vue'
 
-  export default {
-    name: 'CommentItem',
-    components: {
-      LoadingScreen,
-      ReplyForm,
-      ThreadViewModal
+  const props = defineProps({
+    comment: {
+      type: Object,
+      required: true
     },
-    props: {
-      comment: {
-        type: Object,
-        required: true
-      },
-      isAuthenticated: {
-        type: Boolean,
-        default: false
-      },
-      currentUserId: {
-        type: String,
-        default: ''
-      },
-      isAdmin: {
-        type: Boolean,
-        default: false
-      },
-      canReply: {
-        type: Boolean,
-        default: true
-      },
-      targetId: {
-        type: [Number, String],
-        required: true
-      },
-      targetType: {
-        type: [Number, String],
-        required: true
-      },
-      depth: {
-        type: Number,
-        default: 0
-      }
+    targetId: {
+      type: [Number, String],
+      required: true
     },
-    emits: ['reply-added', 'comment-updated', 'comment-deleted', 'comment-restored'],
-    setup() {
-      const { success, error } = useToast();
-      return { showSuccessToast: success, showErrorToast: error };
+    targetType: {
+      type: [Number, String],
+      required: true
     },
-    data() {
-      return {
-        showReplyForm: false,
-        submittingReply: false,
-        reactingToComment: false,
-        deletingComment: false,
-        restoringComment: false,
-        repliesCollapsed: false,
-        collapsedThreads: new Set(),
-        mainThreadCollapsed: false,
-        mainThreadHeight: 0,
-        showThreadModal: false
-      }
+    isAuthenticated: {
+      type: Boolean,
+      default: false
     },
-    computed: {
-      canDelete() {
-        if (!this.isAuthenticated || this.comment.isDeleted) return false
-        return this.comment.userId === this.currentUserId || this.isAdmin
-      },
-
-      showDeletedContent() {
-        if (!this.comment.isDeleted) return false
-        return this.isAdmin || this.comment.userId === this.currentUserId
-      },
-
-      canSeeDeletedDetails() {
-        return this.isAdmin
-      },
-
-      hasNestedReplies() {
-        return this.comment.replies && this.comment.replies.length > 0
-      },
-
-      getMainThreadTitle() {
-        return this.mainThreadCollapsed ? 'Click to expand entire thread' : 'Click to collapse entire thread'
-      },
-
-      getTotalNestedRepliesCount() {
-        const count = this.countAllNestedReplies(this.comment)
-        return count === 1 ? '1 reply' : `${count} replies`
-      },
-
-      uniqueParticipantsCount() {
-        const participants = new Set()
-        participants.add(this.comment.userName)
-
-        const addParticipants = (replies) => {
-          replies.forEach(reply => {
-            participants.add(reply.userName)
-            if (reply.replies && reply.replies.length > 0) {
-              addParticipants(reply.replies)
-            }
-          })
-        }
-
-        if (this.comment.replies) {
-          addParticipants(this.comment.replies)
-        }
-
-        return participants.size
-      },
-
-      getReplyContainerClasses() {
-        if (this.depth === 0) return 'relative'
-        return this.getReplyClasses(this.depth)
-      },
-
-      getReplyContainerStyles() {
-        if (this.depth === 0 && this.hasNestedReplies) {
-          return { marginLeft: '20px' }
-        }
-        return {}
-      }
+    currentUserId: {
+      type: String,
+      default: ''
     },
-    mounted() {
-      this.calculateMainThreadHeight()
+    isAdmin: {
+      type: Boolean,
+      default: false
     },
-    updated() {
-      this.calculateMainThreadHeight()
+    canReply: {
+      type: Boolean,
+      default: true
     },
-    methods: {
-      openThreadModal() {
-        this.showThreadModal = true
-        // Prevent body scroll when modal is open
-        document.body.style.overflow = 'hidden'
-      },
-
-      closeThreadModal() {
-        this.showThreadModal = false
-        // Restore body scroll
-        document.body.style.overflow = ''
-      },
-
-      calculateMainThreadHeight() {
-        if (this.depth === 0 && this.hasNestedReplies && !this.mainThreadCollapsed) {
-          this.$nextTick(() => {
-            const repliesContainer = this.$el.querySelector('.space-y-4')
-            if (repliesContainer) {
-              this.mainThreadHeight = repliesContainer.offsetHeight
-            }
-          })
-        }
-      },
-
-      countAllNestedReplies(comment) {
-        let count = 0
-        if (comment.replies && comment.replies.length > 0) {
-          count += comment.replies.length
-          comment.replies.forEach(reply => {
-            count += this.countAllNestedReplies(reply)
-          })
-        }
-        return count
-      },
-
-      toggleMainThreadCollapse() {
-        this.mainThreadCollapsed = !this.mainThreadCollapsed
-      },
-
-      getReplyClasses(depth) {
-        const baseMargin = 'ml-6'
-        if (depth === 0) return baseMargin
-        if (depth === 1) return `${baseMargin} pl-4`
-        if (depth === 2) return `${baseMargin} pl-2`
-        return `${baseMargin} pl-1`
-      },
-
-      getThreadLineButtonOffset(depth) {
-        if (depth === 1) return '-12px'
-        if (depth === 2) return '-12px'
-        return '-10px'
-      },
-
-      getCollapsedButtonContainerClasses(depth) {
-        if (depth === 1) return 'ml-2'
-        if (depth === 2) return 'ml-4'
-        return 'ml-6'
-      },
-
-      getThreadLineTitle(replyId) {
-        const isCollapsed = this.isThreadCollapsed(replyId)
-        return isCollapsed ? 'Click to expand this thread' : 'Click to collapse this thread'
-      },
-
-      toggleThreadCollapse(replyId) {
-        if (this.collapsedThreads.has(replyId)) {
-          this.collapsedThreads.delete(replyId)
-        } else {
-          this.collapsedThreads.add(replyId)
-        }
-        this.collapsedThreads = new Set(this.collapsedThreads)
-      },
-
-      isThreadCollapsed(replyId) {
-        return this.collapsedThreads.has(replyId)
-      },
-
-      getThreadReplyCount(reply) {
-        const count = reply.replies?.length || 0
-        return count === 1 ? '1 reply' : `${count} replies`
-      },
-
-      async toggleLike() {
-        if (!this.isAuthenticated || this.reactingToComment || this.comment.isDeleted) return
-        await this.reactToComment(true)
-      },
-
-      async toggleDislike() {
-        if (!this.isAuthenticated || this.reactingToComment || this.comment.isDeleted) return
-        await this.reactToComment(false)
-      },
-
-      async reactToComment(isLike) {
-        if (this.reactingToComment) return
-
-        this.reactingToComment = true
-
-        try {
-          const result = await commentsService.reactToComment(this.comment.id, isLike)
-
-          if (result.success) {
-            this.comment.likesCount = result.data.likesCount
-            this.comment.dislikesCount = result.data.dislikesCount
-            this.comment.currentUserLiked = result.data.userLiked
-            this.comment.currentUserDisliked = result.data.userDisliked
-
-            this.$emit('comment-updated', this.comment)
-          } else {
-            this.showErrorToast(result.error)
-          }
-        } catch (error) {
-          console.error('Error reacting to comment:', error)
-          this.showErrorToast('Failed to update reaction')
-        } finally {
-          this.reactingToComment = false
-        }
-      },
-
-      toggleReplyForm() {
-        if (!this.isAuthenticated || this.comment.isDeleted) return
-        this.showReplyForm = !this.showReplyForm
-      },
-
-      toggleRepliesCollapsed() {
-        this.repliesCollapsed = !this.repliesCollapsed
-      },
-
-      async onReplySubmitted(replyData) {
-        this.$emit('reply-added', replyData)
-        this.showReplyForm = false
-        this.showSuccessToast('Reply posted successfully!')
-      },
-
-      cancelReply() {
-        this.showReplyForm = false
-      },
-
-      async deleteComment() {
-        if (!this.canDelete || this.deletingComment) return
-
-        const confirmMessage = this.isAdmin
-          ? 'Are you sure you want to soft-delete this comment? It can be restored later.'
-          : 'Are you sure you want to delete this comment? This action cannot be undone.'
-
-        if (!confirm(confirmMessage)) return
-
-        this.deletingComment = true
-
-        try {
-          const result = this.isAdmin
-            ? await commentsService.deleteCommentAsAdmin(this.comment.id, 'Deleted by administrator')
-            : await commentsService.deleteComment(this.comment.id)
-
-          if (result.success) {
-            this.comment.isDeleted = true
-            this.comment.deletedAt = new Date().toISOString()
-
-            this.$emit('comment-deleted', this.comment.id)
-            this.showSuccessToast(result.message)
-          } else {
-            this.showErrorToast(result.error)
-          }
-        } catch (error) {
-          console.error('Error deleting comment:', error)
-          this.showErrorToast('Failed to delete comment')
-        }
-      },
-
-      async restoreComment() {
-        if (!this.isAdmin || this.restoringComment) return
-
-        if (!confirm('Are you sure you want to restore this comment?')) return
-
-        this.restoringComment = true
-
-        try {
-          const result = await commentsService.restoreCommentAsAdmin(this.comment.id)
-
-          if (result.success) {
-            this.comment.isDeleted = false
-            this.comment.deletedAt = null
-            this.comment.deletedByUserName = null
-            this.comment.deletionReason = null
-
-            this.$emit('comment-restored', this.comment.id)
-            this.showSuccessToast('Comment restored successfully')
-          } else {
-            this.showErrorToast(result.error)
-          }
-        } catch (error) {
-          console.error('Error restoring comment:', error)
-          this.showErrorToast('Failed to restore comment')
-        }
-      },
-
-      formatDate(dateString) {
-        if (!dateString) return ''
-        return commentsService.formatCommentDate(dateString)
-      },
-
-      formatFullDate(dateString) {
-        if (!dateString) return ''
-        return new Date(dateString).toLocaleString()
-      },
-
-      isUserAdmin(userId) {
-        return this.isAdmin && userId === this.currentUserId
-      }
+    depth: {
+      type: Number,
+      default: 0
+    },
+    maxDepth: {
+      type: Number,
+      default: 8
+    },
+    parentActive: {
+      type: Boolean,
+      default: true
+    },
+    activeSibling: {
+      type: [String, Number, null],
+      default: null
     }
+  })
+
+  const emit = defineEmits(['reply-added', 'comment-updated', 'comment-deleted', 'sibling-open'])
+
+  // State
+  const isCollapsed = ref(false)
+  const isTextCollapsed = ref(true)
+  const showReplyForm = ref(false)
+  const replyContent = ref('')
+  const isVoting = ref(false)
+  const submittingReply = ref(false)
+  const openChildId = ref(null) // Track which child comment is currently open
+
+  // Computed
+  const netVotes = computed(() => {
+    return props.comment.likesCount - props.comment.dislikesCount
+  })
+
+  const voteClass = computed(() => {
+    if (props.comment.currentUserLiked) return 'upvoted'
+    if (props.comment.currentUserDisliked) return 'downvoted'
+    return ''
+  })
+
+  const hasReplies = computed(() => {
+    return props.comment.replies && props.comment.replies.length > 0
+  })
+
+  const isTextTooLong = computed(() => {
+    return props.comment.content && props.comment.content.length > 500
+  })
+
+  const canDelete = computed(() => {
+    if (!props.isAuthenticated) return false
+    if (props.comment.isDeleted) return false
+    // User can delete their own comment, or admin can delete any comment
+    return props.comment.userId === props.currentUserId || props.isAdmin
+  })
+
+  // Watch for parent collapse - auto collapse this comment if parent collapses
+  watch(() => props.parentActive, (newVal) => {
+    if (!newVal && props.depth > 0) {
+      isCollapsed.value = true
+      openChildId.value = null // Also close any open children
+    }
+  })
+
+  // Watch for sibling activation - auto collapse if a sibling is opened
+  watch(() => props.activeSibling, (newVal) => {
+    if (newVal && newVal !== props.comment.id) {
+      isCollapsed.value = true
+      openChildId.value = null // Also close any open children
+    }
+  })
+
+  // Methods
+  const toggleCollapse = () => {
+    const wasCollapsed = isCollapsed.value
+    isCollapsed.value = !isCollapsed.value
+
+    // If we're opening this comment, notify parent to close siblings
+    if (wasCollapsed) {
+      emit('sibling-open', props.comment.id)
+    }
+
+    // If we're closing, reset the open child
+    if (!wasCollapsed) {
+      openChildId.value = null
+    }
+  }
+
+  const handleSiblingOpen = (childId) => {
+    // Update which child is currently open
+    openChildId.value = childId
+  }
+
+  const toggleReply = () => {
+    if (!props.isAuthenticated) {
+      alert('You must be logged in to reply')
+      return
+    }
+    showReplyForm.value = !showReplyForm.value
+    if (!showReplyForm.value) {
+      replyContent.value = ''
+    }
+  }
+
+  const handleVote = async (isLike) => {
+    if (!props.isAuthenticated) {
+      alert('You must be logged in to vote')
+      return
+    }
+
+    if (isVoting.value || props.comment.isDeleted) return
+
+    isVoting.value = true
+
+    try {
+      const result = await commentsService.reactToComment(props.comment.id, isLike)
+
+      if (result.success) {
+        // Update the comment with new vote counts and user reaction status
+        const updatedComment = {
+          ...props.comment,
+          likesCount: result.data.likesCount,
+          dislikesCount: result.data.dislikesCount,
+          currentUserLiked: result.data.userLiked,
+          currentUserDisliked: result.data.userDisliked
+        }
+
+        emit('comment-updated', updatedComment)
+      } else {
+        console.error('Failed to vote:', result.error)
+        alert(result.error || 'Failed to vote on comment')
+      }
+    } catch (error) {
+      console.error('Error voting:', error)
+      alert('Failed to vote on comment')
+    } finally {
+      isVoting.value = false
+    }
+  }
+
+  const submitReply = async () => {
+    if (!replyContent.value.trim() || submittingReply.value) return
+
+    if (!props.isAuthenticated) {
+      alert('You must be logged in to reply')
+      return
+    }
+
+    submittingReply.value = true
+
+    try {
+      const result = await commentsService.addComment(
+        parseInt(props.targetId),
+        parseInt(props.targetType),
+        replyContent.value.trim(),
+        props.comment.id // parentCommentId
+      )
+
+      if (result.success) {
+        // Emit the new reply to parent
+        emit('reply-added', result.data)
+
+        // Clear form
+        replyContent.value = ''
+        showReplyForm.value = false
+      } else {
+        console.error('Failed to post reply:', result.error)
+        alert(result.error || 'Failed to post reply')
+      }
+    } catch (error) {
+      console.error('Error posting reply:', error)
+      alert('Failed to post reply')
+    } finally {
+      submittingReply.value = false
+    }
+  }
+
+  const cancelReply = () => {
+    replyContent.value = ''
+    showReplyForm.value = false
+  }
+
+  const handleReport = () => {
+    if (!props.isAuthenticated) {
+      alert('You must be logged in to report comments')
+      return
+    }
+
+    // TODO: Implement report functionality
+    alert('Report functionality not yet implemented')
+  }
+
+  const handleDelete = async () => {
+    if (!canDelete.value) return
+
+    const confirmed = confirm('Are you sure you want to delete this comment?')
+    if (!confirmed) return
+
+    try {
+      const result = await commentsService.deleteComment(props.comment.id)
+
+      if (result.success) {
+        // Emit delete event
+        emit('comment-deleted', props.comment.id)
+      } else {
+        console.error('Failed to delete comment:', result.error)
+        alert(result.error || 'Failed to delete comment')
+      }
+    } catch (error) {
+      console.error('Error deleting comment:', error)
+      alert('Failed to delete comment')
+    }
+  }
+
+  const getTotalRepliesCount = () => {
+    const countReplies = (replies) => {
+      if (!replies || replies.length === 0) return 0
+      return replies.reduce((count, reply) => {
+        return count + 1 + countReplies(reply.replies || [])
+      }, 0)
+    }
+    return countReplies(props.comment.replies || [])
+  }
+
+  const formatTimeAgo = (date) => {
+    const now = new Date()
+    const posted = new Date(date)
+    const diffMs = now - posted
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+
+    if (diffMins < 1) return 'just now'
+    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
+    if (diffDays < 30) {
+      const weeks = Math.floor(diffDays / 7)
+      return `${weeks} week${weeks > 1 ? 's' : ''} ago`
+    }
+    const months = Math.floor(diffDays / 30)
+    if (months < 12) return `${months} month${months > 1 ? 's' : ''} ago`
+    const years = Math.floor(months / 12)
+    return `${years} year${years > 1 ? 's' : ''} ago`
+  }
+
+  const getContinueThreadUrl = (commentId) => {
+    // Build URL with comment_id parameter
+    const currentUrl = new URL(window.location.href)
+    currentUrl.searchParams.set('comment_id', commentId)
+    return currentUrl.toString()
+  }
+
+  const navigateToThread = (commentId) => {
+    // Navigate to the isolated thread view
+    const url = getContinueThreadUrl(commentId)
+    window.location.href = url
   }
 </script>
 
 <style scoped>
-  /* Comment Styling with CSS Variables */
-  .comment-deleted {
-    opacity: 0.8;
+  /* ... (keep all your existing CSS, it's fine) ... */
+  .comment-item {
+    position: relative;
   }
 
-  .comment-avatar {
-    width: 2.5rem;
-    height: 2.5rem;
-    background: var(--color-background-soft);
-    border: 1px solid var(--color-border);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
+  .comment-wrapper {
+    position: relative;
   }
 
-  .comment-avatar-deleted {
-    opacity: 0.5;
-  }
-
-  .comment-username {
-    font-weight: 500;
-    color: var(--color-heading);
-    font-size: 0.875rem;
-  }
-
-  .comment-username-deleted {
-    opacity: 0.5;
-  }
-
-  .comment-timestamp {
-    font-size: 0.75rem;
-    color: var(--vt-c-text-light-2);
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .comment-timestamp {
-      color: var(--vt-c-text-dark-2);
+    .comment-wrapper.has-line {
+      padding-left: 20px;
     }
-  }
 
-  .comment-content {
-    color: var(--color-text);
-    margin-bottom: 0.75rem;
-    max-width: none;
-  }
-
-  .status-badge {
-    font-size: 0.75rem;
-    padding: 0.125rem 0.5rem;
-    border-radius: 1rem;
-    font-weight: 500;
-  }
-
-  .status-badge-deleted {
-    background: var(--color-background-mute);
-    color: var(--vt-c-text-light-2);
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .status-badge-deleted {
-      background: var(--vt-c-black-mute);
-      color: var(--vt-c-text-dark-2);
-    }
-  }
-
-  .status-badge-admin {
-    background: rgba(239, 68, 68, 0.1);
-    color: rgb(185, 28, 28);
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .status-badge-admin {
-      background: rgba(127, 29, 29, 0.3);
-      color: rgb(248, 113, 113);
-    }
-  }
-
-  .deleted-message {
-    font-style: italic;
-    color: var(--vt-c-text-light-2);
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .deleted-message {
-      color: var(--vt-c-text-dark-2);
-    }
-  }
-
-  .deleted-details {
-    background: var(--color-background-mute);
-    border: 1px solid var(--color-border);
-    border-radius: 0.5rem;
-    padding: 0.75rem;
-  }
-
-  .deleted-summary {
-    font-size: 0.75rem;
-    color: var(--vt-c-text-light-2);
-    margin-bottom: 0.5rem;
+  /* Vertical collapsible line for nested comments */
+  .vertical-line {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 20px;
     cursor: pointer;
+    z-index: 1;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .deleted-summary {
-      color: var(--vt-c-text-dark-2);
+    .vertical-line::before {
+      content: '';
+      position: absolute;
+      left: 8px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #e5e5e5;
+      transition: background 0.2s ease;
     }
-  }
 
-  /* Action Buttons */
-  .reaction-button {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    transition: colors 0.2s;
-    cursor: pointer;
-    border: none;
-    background: transparent;
-  }
+    .vertical-line:hover::before {
+      background: #ff6d00;
+    }
 
-    .reaction-button:disabled {
+    .vertical-line.collapsed::before {
+      background: #e5e5e5;
       opacity: 0.5;
-      cursor: not-allowed;
     }
 
-  .reaction-upvote {
-    color: var(--vt-c-text-light-2);
-  }
-
-    .reaction-upvote:hover:not(:disabled) {
-      color: #059669;
-    }
-
-  .reaction-upvote-active {
-    color: #059669;
-  }
-
-  .reaction-downvote {
-    color: var(--vt-c-text-light-2);
-  }
-
-    .reaction-downvote:hover:not(:disabled) {
-      color: #dc2626;
-    }
-
-  .reaction-downvote-active {
-    color: #dc2626;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .reaction-upvote {
-      color: var(--vt-c-text-dark-2);
-    }
-
-      .reaction-upvote:hover:not(:disabled) {
-        color: #10b981;
-      }
-
-    .reaction-upvote-active {
-      color: #10b981;
-    }
-
-    .reaction-downvote {
-      color: var(--vt-c-text-dark-2);
-    }
-
-      .reaction-downvote:hover:not(:disabled) {
-        color: #f87171;
-      }
-
-    .reaction-downvote-active {
-      color: #f87171;
-    }
-  }
-
-  .action-button {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    transition: colors 0.2s;
-    cursor: pointer;
-    border: none;
-    background: transparent;
-  }
-
-    .action-button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-  .action-button-reply {
-    color: var(--vt-c-text-light-2);
-  }
-
-    .action-button-reply:hover:not(:disabled) {
-      color: var(--color-heading);
-    }
-
-  .action-button-delete {
-    color: #dc2626;
-  }
-
-    .action-button-delete:hover:not(:disabled) {
-      color: #b91c1c;
-    }
-
-  .action-button-restore {
-    color: #059669;
-  }
-
-    .action-button-restore:hover:not(:disabled) {
-      color: #047857;
-    }
-
-  @media (prefers-color-scheme: dark) {
-    .action-button-reply {
-      color: var(--vt-c-text-dark-2);
-    }
-
-      .action-button-reply:hover:not(:disabled) {
-        color: var(--color-heading);
-      }
-
-    .action-button-delete {
-      color: #f87171;
-    }
-
-      .action-button-delete:hover:not(:disabled) {
-        color: #ef4444;
-      }
-
-    .action-button-restore {
-      color: #10b981;
-    }
-
-      .action-button-restore:hover:not(:disabled) {
-        color: #059669;
-      }
-  }
-
-  .reply-form {
-    margin-bottom: 1rem;
-  }
-
-  /* Collapsed Replies */
-  .collapsed-replies-button {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    background: var(--color-background-soft);
-    border: 1px solid var(--color-border);
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--color-heading);
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-    .collapsed-replies-button:hover {
-      background: var(--color-background-mute);
-      border-color: var(--color-border-hover);
-    }
-
-  .expand-button {
-    color: var(--color-heading);
-    font-weight: 500;
-    cursor: pointer;
-    border: none;
-    background: transparent;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    transition: background-color 0.2s;
-  }
-
-    .expand-button:hover {
-      background: var(--color-background-soft);
-    }
-
-  /* Thread System */
-  .thread-transition {
-    margin: 1rem 0;
-    padding: 0.5rem 0;
-    border-top: 1px solid var(--color-border);
-  }
-
-  .thread-button {
+  .comment-main {
     width: 100%;
+  }
+
+  /* Collapsed indicator */
+  .collapsed-indicator {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.2s ease;
+  }
+
+    .collapsed-indicator:hover {
+      background: rgba(0, 0, 0, 0.03);
+    }
+
+  .collapsed-info {
+    font-size: 13px;
+    color: var(--color-text-muted, #8a8a8e);
+    font-weight: 500;
+  }
+
+  /* Comment content */
+  .comment-content {
+    width: 100%;
+  }
+
+  /* Comment header */
+  .comment-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1rem;
-    background: var(--color-background-soft);
-    border: 2px solid var(--color-border);
-    border-radius: 0.75rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    color: var(--color-text);
+    gap: 12px;
+    margin-bottom: 6px;
   }
 
-    .thread-button:hover {
-      background: var(--color-background-mute);
-      border-color: var(--vt-c-indigo);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    }
-
-  @media (prefers-color-scheme: dark) {
-    .thread-button:hover {
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    }
-  }
-
-  .thread-button-content {
+  .user-info {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.25rem;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
   }
 
-  .thread-stats {
-    font-size: 0.75rem;
-    color: var(--vt-c-text-light-2);
+  .avatar-link {
+    flex-shrink: 0;
+    line-height: 0;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .thread-stats {
-      color: var(--vt-c-text-dark-2);
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--color-background-mute, #f8f9fa);
+    border: 1px solid var(--color-border, #e5e5e5);
+  }
+
+  .username {
+    font-weight: 600;
+    color: var(--color-text, #212529);
+    font-size: 13px;
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+  }
+
+    .username:hover {
+      text-decoration: underline;
     }
+
+  .timestamp {
+    font-size: 12px;
+    color: var(--color-text-muted, #8a8a8e);
+    white-space: nowrap;
   }
 
-  /* Thread Lines */
-  .thread-line-button {
-    position: absolute;
-    top: 0;
+  .deleted-badge {
+    font-size: 11px;
+    padding: 2px 6px;
+    background: #f44336;
+    color: white;
+    border-radius: 3px;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  /* Vote controls */
+  .vote-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .vote-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    z-index: 10;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    background: none;
     border: none;
+    border-radius: 4px;
+    color: var(--color-text-muted, #8a8a8e);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+    .vote-btn:hover:not(:disabled) {
+      background: rgba(0, 0, 0, 0.05);
+    }
+
+    .vote-btn.active {
+      color: #3cce7b;
+    }
+
+    .vote-btn:last-child.active {
+      color: #f44336;
+    }
+
+    .vote-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+  .vote-count {
+    min-width: 30px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-muted, #8a8a8e);
+  }
+
+    .vote-count.upvoted {
+      color: #3cce7b;
+    }
+
+    .vote-count.downvoted {
+      color: #f44336;
+    }
+
+  /* Comment body */
+  .comment-body {
+    margin-top: 6px;
+    line-height: 1.6;
+    color: var(--color-text, #212529);
+    font-size: 14px;
+  }
+
+  .comment-text {
+    word-wrap: break-word;
+    word-break: break-word;
+  }
+
+    .comment-text.is-collapsed-text {
+      display: -webkit-box;
+      -webkit-line-clamp: 6;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      position: relative;
+    }
+
+  .deleted-content {
+    color: var(--color-text-muted, #8a8a8e);
+    font-style: italic;
+  }
+
+  .deletion-reason {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+  }
+
+  .expand-btn {
+    margin-top: 8px;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--color-accent, #ff6d00);
+    font-size: 13px;
+    cursor: pointer;
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+    .expand-btn:hover {
+      text-decoration: underline;
+    }
+
+  /* Comment actions */
+  .comment-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+  }
+
+  .action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--color-text-muted, #8a8a8e);
+    font-size: 13px;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    font-weight: 500;
+  }
+
+    .action-btn:hover:not(:disabled) {
+      color: var(--color-accent, #ff6d00);
+    }
+
+    .action-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+  /* Reply form */
+  .reply-form {
+    margin-top: 12px;
+    padding: 12px;
+    background: var(--color-background-mute, #f8f9fa);
+    border-radius: 6px;
+    border: 1px solid var(--color-border, #e5e5e5);
+  }
+
+  .reply-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--color-border, #e5e5e5);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.4;
+    resize: vertical;
+    min-height: 60px;
+    background: var(--color-background, white);
+    color: var(--color-text, #212529);
+  }
+
+    .reply-input:focus {
+      outline: none;
+      border-color: var(--color-accent, #ff9100);
+      box-shadow: 0 0 0 3px rgba(255, 145, 0, 0.1);
+    }
+
+  .reply-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    padding: 6px 16px;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn-primary {
+    background: var(--color-accent, #ff9100);
+    color: white;
+  }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #ff9f1a;
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+  .btn-secondary {
     background: transparent;
-    outline: none;
+    color: var(--color-text-muted, #8a8a8e);
+    border: 1px solid var(--color-border, #e5e5e5);
   }
 
-  .thread-line-main {
-    left: 0;
-    width: 1rem;
+    .btn-secondary:hover {
+      background: var(--color-background-mute, #f8f9fa);
+    }
+
+  /* Replies container */
+  .replies-container {
+    margin-top: 12px;
   }
 
-  .thread-line-individual {
-    width: 0.75rem;
+  /* Continue thread button (Reddit-style) */
+  .continue-thread {
+    margin-top: 12px;
+    padding-left: 8px;
   }
 
-  .thread-line {
-    transition: all 0.2s;
+  .continue-thread-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--color-background-mute, #f8f9fa);
+    border: 1px solid var(--color-border, #e5e5e5);
+    border-radius: 6px;
+    color: var(--color-accent, #ff6d00);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
   }
 
-  .thread-line-main-visual {
-    position: absolute;
-    left: 0.5rem;
-    top: 0;
-    width: 1px;
-    height: 100%;
-    background: var(--color-border);
+    .continue-thread-btn:hover {
+      background: var(--color-background-soft, #f0f0f0);
+      border-color: var(--color-accent, #ff6d00);
+      transform: translateX(2px);
+    }
+
+  .continue-arrow {
+    font-size: 16px;
+    font-weight: bold;
+    transition: transform 0.2s ease;
   }
 
-  .thread-line-button:hover .thread-line-main-visual {
-    background: var(--vt-c-indigo);
-    opacity: 0.8;
+  .continue-thread-btn:hover .continue-arrow {
+    transform: translateX(3px);
   }
 
-  .thread-line-individual-visual {
-    width: 1px;
-    height: 100%;
-    background: var(--color-border);
+  /* Load more */
+  .load-more {
+    margin-top: 12px;
   }
 
-  .thread-line-button:hover .thread-line-individual-visual {
-    background: var(--vt-c-indigo);
-    opacity: 0.8;
+  .load-more-btn {
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--color-accent, #ff6d00);
+    font-size: 13px;
+    cursor: pointer;
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+    .load-more-btn:hover {
+      text-decoration: underline;
+    }
+
+  /* Dark mode support */
+  @media (prefers-color-scheme: dark) {
+    .vertical-line::before {
+      background: #6b7280 /* Blue for dark mode */
+    }
+
+    .vertical-line:hover::before {
+      background: #f7fee7;
+    }
+
+    .avatar {
+      background: #2c2c2e;
+    }
+  }
+
+  /* Mobile responsive */
+  @media screen and (max-width: 768px) {
+    .comment-wrapper.has-line {
+      padding-left: 24px; /* Increased from 12px to 24px for better spacing */
+    }
+
+    .vertical-line {
+      width: 24px; /* Increased from 12px to 24px to match padding */
+    }
+
+    .username {
+      max-width: 100px;
+    }
+
+    .vote-controls {
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .vote-count {
+      min-width: 20px;
+    }
   }
 </style>

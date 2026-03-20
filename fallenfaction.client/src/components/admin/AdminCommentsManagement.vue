@@ -19,7 +19,7 @@
             </div>
             <div class="ml-4">
               <p class="text-sm font-medium text-[var(--color-text)] opacity-60">Active Comments</p>
-              <p class="text-2xl font-bold text-[var(--color-text)]">{{ stats.totalComments.toLocaleString() }}</p>
+              <p class="text-2xl font-bold text-[var(--color-text)]">{{ (stats.totalComments || 0).toLocaleString() }}</p>
             </div>
           </div>
         </div>
@@ -33,7 +33,7 @@
             </div>
             <div class="ml-4">
               <p class="text-sm font-medium text-[var(--color-text)] opacity-60">Deleted Comments</p>
-              <p class="text-2xl font-bold text-[var(--color-text)]">{{ stats.deletedComments.toLocaleString() }}</p>
+              <p class="text-2xl font-bold text-[var(--color-text)]">{{ (stats.deletedComments || 0).toLocaleString() }}</p>
             </div>
           </div>
         </div>
@@ -47,7 +47,7 @@
             </div>
             <div class="ml-4">
               <p class="text-sm font-medium text-[var(--color-text)] opacity-60">Today's Comments</p>
-              <p class="text-2xl font-bold text-[var(--color-text)]">{{ stats.todayComments.toLocaleString() }}</p>
+              <p class="text-2xl font-bold text-[var(--color-text)]">{{ (stats.commentsToday || 0).toLocaleString() }}</p>
             </div>
           </div>
         </div>
@@ -61,7 +61,7 @@
             </div>
             <div class="ml-4">
               <p class="text-sm font-medium text-[var(--color-text)] opacity-60">Reported</p>
-              <p class="text-2xl font-bold text-[var(--color-text)]">{{ stats.reportedComments.toLocaleString() }}</p>
+              <p class="text-2xl font-bold text-[var(--color-text)]">{{ (stats.reportedComments || 0).toLocaleString() }}</p>
             </div>
           </div>
         </div>
@@ -75,7 +75,7 @@
             </div>
             <div class="ml-4">
               <p class="text-sm font-medium text-[var(--color-text)] opacity-60">Active Users</p>
-              <p class="text-2xl font-bold text-[var(--color-text)]">{{ stats.activeCommenters.toLocaleString() }}</p>
+              <p class="text-2xl font-bold text-[var(--color-text)]">{{ (stats.activeComments || 0).toLocaleString() }}</p>
             </div>
           </div>
         </div>
@@ -502,10 +502,11 @@
         stats: {
           totalComments: 0,
           deletedComments: 0,
-          todayComments: 0,
-          todayDeleted: 0,
+          commentsToday: 0,
           reportedComments: 0,
-          activeCommenters: 0
+          activeComments: 0,
+          commentsThisWeek: 0,
+          commentsThisMonth: 0
         },
         pagination: {
           page: 1,

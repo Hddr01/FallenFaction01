@@ -99,7 +99,7 @@
           <div class="text-center">
             <!-- English Title with Rating Button -->
             <div class="flex items-center justify-center gap-2">
-              <h1 class="text-2xl font-bold text-[var(--color-text)] leading-tight">{{ titleData.englishTitle }}</h1>
+              <h1 class="text-2xl font-bold text-gray-200 leading-tight">{{ titleData.englishTitle }}</h1>
 
               <!-- Rating Button -->
               <button v-if="isAuthenticated"
@@ -297,15 +297,15 @@
         <div class="hidden lg:block">
           <div class="flex justify-center items-start min-h-screen py-8">
             <div class="w-full max-w-7xl px-4">
-              <!-- New Grid Layout: 5 columns, 10 rows -->
-              <div class="grid grid-cols-5 grid-rows-10 gap-4">
+              <!-- New Grid Layout: 5 columns, auto rows -->
+              <div class="grid grid-cols-5 auto-rows-min gap-4">
 
                 <!-- Block 9: Quick Actions / Stats (Top Left) -->
                 <div class="row-span-1 col-start-1 row-start-1">
                 </div>
 
                 <!-- Block 1: Cover Image & Action Buttons -->
-                <div class="row-span-4 col-start-1 row-start-2">
+                <div class="col-start-1 row-start-2">
                   <div class="sticky top-8 space-y-3">
                     <div class="relative">
                       <div class="w-full rounded-xl overflow-hidden shadow-2xl border border-[var(--color-border)]">
@@ -444,7 +444,7 @@
                   <div class="grid grid-cols-7 gap-6 w-full">
                     <!-- Left side: Titles (3 columns) -->
                     <div class="col-span-3">
-                      <h1 class="text-4xl font-bold text-[var(--color-text)] mb-2 leading-tight">
+                      <h1 class="text-4xl font-bold text-[var(--color-text)] mb-2 text-gray-300">
                         {{ titleData.englishTitle }}
                       </h1>
                       <h2 v-if="titleData.originalTitle !== titleData.englishTitle"
@@ -552,24 +552,25 @@
                         </div>
                       </button>
                     </div>
+                    <!-- Block 5: Main Tabs Content -->
+                    <div class="col-span-7 col-start-0 row-start-2 bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl overflow-hidden items-end">
+                      <TitleDetailsTabs :title-id="titleData.id"
+                                        :title-data="titleData"
+                                        :initial-tab="initialTab"
+                                        :is-authenticated="isAuthenticated"
+                                        @tab-changed="onTabChanged" />
+                    </div>
                   </div>
                 </div>
 
-                <!-- Block 5: Main Tabs Content -->
-                <div class="col-span-3 row-span-6 col-start-2 row-start-3 bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl overflow-hidden self-start">
-                  <TitleDetailsTabs :title-id="titleData.id"
-                                    :title-data="titleData"
-                                    :initial-tab="initialTab"
-                                    :is-authenticated="isAuthenticated"
-                                    @tab-changed="onTabChanged" />
-                </div>
+
 
                 <!-- Block 3: Stats Overview (Top Right) -->
                 <div class="row-span-1 col-start-5 row-start-1">
                 </div>
 
                 <!-- Block 8: Information Sidebar (aligned with cover image) -->
-                <div class="col-start-5 row-start-2 row-span-4">
+                <div class="col-start-5 row-start-2">
                   <div class="sticky top-8">
                     <div class="bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl p-4">
                       <div class="text-sm font-semibold text-[var(--color-text)] mb-4">Information</div>

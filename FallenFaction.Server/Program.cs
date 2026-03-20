@@ -28,6 +28,10 @@ builder.Services.AddControllers(options =>
     options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
     options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+
+    // CRITICAL: Increase max depth for deeply nested comment threads
+    // Default is 32, but we support infinite comment nesting
+    options.JsonSerializerOptions.MaxDepth = 128; // Supports up to 128 levels of nesting
 });
 
 // Explicitly add MVC services to ensure controller discovery

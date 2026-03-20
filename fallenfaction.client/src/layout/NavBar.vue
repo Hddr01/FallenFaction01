@@ -20,12 +20,6 @@
               <span class="nav-text">Catalog</span>
             </router-link>
           </div>
-          <div class="nav-item">
-            <router-link to="/home/search" class="nav-link">
-              <Search class="nav-icon-lucide" :size="20" />
-              <span class="nav-text">Search</span>
-            </router-link>
-          </div>
 
           <!-- More Dropdown -->
           <DropdownMenu :modal="false">
@@ -56,6 +50,13 @@
         </div>
 
         <div class="navbar-right">
+          <!-- ============================================ -->
+          <!-- GLOBAL SEARCH -->
+          <!-- ============================================ -->
+          <div class="nav-item">
+            <GlobalSearch ref="globalSearchRef" />
+          </div>
+
           <!-- For authenticated users -->
           <template v-if="authStore.isAuthenticated">
             <!-- Teams Dropdown -->
@@ -217,10 +218,12 @@
       <!-- Mobile Layout -->
       <div class="mobile-navbar">
         <div class="mobile-nav-left">
-          <Button variant="ghost" size="icon" as-child class="mobile-search-btn">
-            <router-link to="/home/search">
-              <Search :size="20" />
-            </router-link>
+          <!-- Mobile Search Button - Opens GlobalSearch Dialog -->
+          <Button variant="ghost"
+                  size="icon"
+                  class="mobile-search-btn"
+                  @click="openGlobalSearch">
+            <Search :size="20" />
           </Button>
         </div>
 
@@ -263,6 +266,7 @@
 
         <!-- Sidebar Content -->
         <div class="sidebar-content">
+
           <!-- Main Navigation -->
           <div class="sidebar-section">
             <Button variant="ghost" as-child class="sidebar-item">
@@ -275,12 +279,6 @@
               <router-link to="/catalog" @click="closeMobileSidebar">
                 <BookOpen :size="20" class="mr-3" />
                 <span>Catalog</span>
-              </router-link>
-            </Button>
-            <Button variant="ghost" as-child class="sidebar-item">
-              <router-link to="/home/search" @click="closeMobileSidebar">
-                <Search :size="20" class="mr-3" />
-                <span>Search</span>
               </router-link>
             </Button>
 
@@ -495,6 +493,11 @@
     Palette,
   } from 'lucide-vue-next';
 
+  // ============================================
+  // IMPORT GLOBAL SEARCH COMPONENT
+  // ============================================
+  import GlobalSearch from '@/components/search/GlobalSearch.vue';
+
   const router = useRouter();
   const authStore = useAuthStore();
 
@@ -505,6 +508,7 @@
   const showMobileAddContent = ref(false);
   const teams = ref([]);
   const loadingTeams = ref(false);
+  const globalSearchRef = ref(null);
 
   // Helper to get initials for avatar fallback
   const getInitials = (name) => {
@@ -515,6 +519,13 @@
       .join('')
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  // Open GlobalSearch dialog (for mobile search button)
+  const openGlobalSearch = () => {
+    if (globalSearchRef.value) {
+      globalSearchRef.value.open();
+    }
   };
 
   const toggleMobileSidebar = () => {
