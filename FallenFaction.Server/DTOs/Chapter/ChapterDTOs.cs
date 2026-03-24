@@ -57,7 +57,7 @@ namespace FallenFaction.Server.DTOs.Chapter
                 VolumeNumber = chapter.VolumeNumber,
                 ChapterNumber = chapter.ChapterNumber,
                 TitleId = chapter.TitleId,
-                TitleName = chapter.Title?.EnglishTitle ?? chapter.Title?.OriginalTitle ?? string.Empty,
+                TitleName = chapter.Title?.OriginalTitle ?? chapter.Title?.EnglishTitle ?? string.Empty,
                 TeamId = chapter.TeamId,
                 Team = chapter.Team != null ? new NameIdDTO
                 {

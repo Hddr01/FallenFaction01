@@ -1066,6 +1066,8 @@ namespace FallenFaction.Server.Controllers
                 var featuredTitles = await _context.Titles
                     .Where(t => t.IsAvailable)
                     .Include(t => t.Chapters)
+                        .ThenInclude(c => c.Views)
+                    .Include(t => t.Ratings)
                     .Select(t => new TitleFeaturedDto
                     {
                         Id = t.Id,
@@ -1081,7 +1083,12 @@ namespace FallenFaction.Server.Controllers
                         ChapterCount = t.Chapters.Count(),
                         LastUpdated = t.Chapters.Any() ?
                             t.Chapters.OrderByDescending(c => c.ReleaseDate).First().ReleaseDate :
-                            (DateTime?)null
+                            (DateTime?)null,
+                        AverageRating = t.Ratings.Any() ? t.Ratings.Average(r => (double)r.Value) : 0.0,
+                        ViewCount = t.Chapters.SelectMany(c => c.Views).Count(),
+                        StatusTitle = t.StatusTitle ?? "inproces",
+                        StatusTranslation = t.StatusTranslation ?? "",
+                        AgeRestriction = t.AgeRestriction
                     })
                     .OrderBy(x => Guid.NewGuid()) // Better randomization
                     .Take(14)

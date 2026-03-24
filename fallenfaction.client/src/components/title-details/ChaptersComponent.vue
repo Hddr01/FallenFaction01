@@ -171,7 +171,7 @@
   const getImageUrl = (path) => {
     if (!path) return ''
     if (path.startsWith('http')) return path
-    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5064'
+    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') ?? ''
     return `${baseUrl}${path}`
   }
 

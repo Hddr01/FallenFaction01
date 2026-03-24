@@ -948,7 +948,7 @@
   const enhancedGoToNextPage = () => {
     if (currentPage.value < totalPages.value) {
       const newPage = currentPage.value + 1
-      const targetKey = `${props.titleName}/${props.chapterName}/v${props.volumeNumber}/t${props.teamId}/${viewMode.value}/${newPage}`
+      const targetKey = `${props.titleName.trim()}/${props.chapterName}/v${props.volumeNumber}/t${props.teamId}/${viewMode.value}/${newPage}`
 
       // Always save current position before navigating
       saveScrollPosition()
@@ -977,7 +977,7 @@
   const enhancedGoToPrevPage = () => {
     if (currentPage.value > 1) {
       const newPage = currentPage.value - 1
-      const targetKey = `${props.titleName}/${props.chapterName}/v${props.volumeNumber}/t${props.teamId}/${viewMode.value}/${newPage}`
+      const targetKey = `${props.titleName.trim()}/${props.chapterName}/v${props.volumeNumber}/t${props.teamId}/${viewMode.value}/${newPage}`
 
       // Always save current position before navigating
       saveScrollPosition()
@@ -1009,7 +1009,7 @@
       return
     }
 
-    const targetKey = `${chapterData.value.titleName}/${chapterData.value.nextChapterName}/v${chapterData.value.nextChapterVolume}/t${chapterData.value.nextChapterTeamId}/${viewMode.value}/1`
+    const targetKey = `${chapterData.value.titleName.trim()}/${chapterData.value.nextChapterName}/v${chapterData.value.nextChapterVolume}/t${chapterData.value.nextChapterTeamId}/${viewMode.value}/1`
 
     // Save current position before navigating
     saveScrollPosition()
@@ -1018,7 +1018,7 @@
     addToNavigationHistory('forward', targetKey)
 
     const url = buildChapterUrl(
-      chapterData.value.titleName,
+      chapterData.value.titleName.trim(),
       chapterData.value.nextChapterName,
       chapterData.value.nextChapterVolume,
       chapterData.value.nextChapterTeamId,
@@ -1044,7 +1044,7 @@
       return
     }
 
-    const targetKey = `${chapterData.value.titleName}/${chapterData.value.previousChapterName}/v${chapterData.value.previousChapterVolume}/t${chapterData.value.previousChapterTeamId}/${viewMode.value}/${chapterData.value.previousChapterPageCount || 1}`
+    const targetKey = `${chapterData.value.titleName.trim()}/${chapterData.value.previousChapterName}/v${chapterData.value.previousChapterVolume}/t${chapterData.value.previousChapterTeamId}/${viewMode.value}/${chapterData.value.previousChapterPageCount || 1}`
 
     // Save current position before navigating
     saveScrollPosition()
@@ -1053,7 +1053,7 @@
     addToNavigationHistory('backward', targetKey)
 
     const url = buildChapterUrl(
-      chapterData.value.titleName,
+      chapterData.value.titleName.trim(),
       chapterData.value.previousChapterName,
       chapterData.value.previousChapterVolume,
       chapterData.value.previousChapterTeamId,
@@ -1084,7 +1084,7 @@
 
     if (newPage === oldPage) return
 
-    const targetKey = `${props.titleName}/${props.chapterName}/v${props.volumeNumber}/t${props.teamId}/${viewMode.value}/${newPage}`
+    const targetKey = `${props.titleName.trim()}/${props.chapterName}/v${props.volumeNumber}/t${props.teamId}/${viewMode.value}/${newPage}`
 
     // Save current position before changing page
     saveScrollPosition()
@@ -1286,13 +1286,13 @@
 
   // FIXED: Navigation to title details page - use correct router path
   const goToTitleDetails = () => {
-    const titleName = chapterData.value?.titleName || props.titleName
-    router.push(`/${encodeURIComponent(titleName)}`)
+    const titleName = (chapterData.value?.titleName || props.titleName).trim()
+    router.push({ path: `/${encodeURIComponent(titleName)}`, query: { section: 'chapters' } })
   }
 
   const goToChapter = (chapter) => {
     const url = buildChapterUrl(
-      chapterData.value.titleName,
+      chapterData.value.titleName.trim(),
       chapter.name || chapter.chapterNumber,
       chapter.volumeNumber,
       chapter.teamId,
@@ -1369,7 +1369,7 @@
 
   // FIXED: Enhanced URL builder with scroll behavior
   const buildChapterUrl = (titleName, chapterName, volume, teamId, options = {}) => {
-    const baseUrl = `/${encodeURIComponent(titleName)}/chapter/${chapterName}/v${volume}/t${teamId}`
+    const baseUrl = `/${encodeURIComponent(titleName.trim())}/chapter/${encodeURIComponent(chapterName)}/v${volume}/t${teamId}`
     const params = new URLSearchParams()
 
     // Include current user preferences
@@ -2549,5 +2549,4 @@
       padding: 0.25rem;
     }
   }
-
 </style>

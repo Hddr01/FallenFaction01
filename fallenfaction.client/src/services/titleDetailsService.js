@@ -4,7 +4,7 @@ import axios from 'axios';
 class TitleDetailsService {
   constructor() {
     // Configure the base URL to use environment variable
-    const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5064/api';
+    const baseURL = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
     this.apiClient = axios.create({
       baseURL: baseURL,
@@ -666,7 +666,7 @@ class TitleDetailsService {
 
   // Get the base URL for images
   getImageBaseUrl() {
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5064/api';
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '/api';
     return apiBaseUrl.replace('/api', ''); // Remove /api to get base server URL
   }
 

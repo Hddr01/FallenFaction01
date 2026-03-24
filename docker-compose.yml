@@ -1,0 +1,51 @@
+services:
+ 
+  # ── ASP.NET Core backend ────────────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    restart: always
+    environment:
+      # Points to your existing SQL Server on the host machine.
+      # host.docker.internal resolves to your PC from inside the container.
+      # Change the password to match your local sa password (or use Windows Auth — see note below).
+      ConnectionStrings__DefaultConnection: >
+        Server=host.docker.internal,1433;Database=FallenFactionDB;
+        User Id=sa;Password=FallenStr0ng!Pass;
+        TrustServerCertificate=True;
+ 
+      ASPNETCORE_ENVIRONMENT: Production
+ 
+      JwtSettings__Secret: "LQcuCVVBbGQgTNncVWIvogrBzbP8nrbj9/ltE+xSfzI="
+      JwtSettings__Issuer: "FallenFaction"
+      JwtSettings__Audience: "FallenFactionUsers"
+      JwtSettings__ExpirationInHours: "24"
+ 
+      # Google / Facebook OAuth — paste your real keys here if you use social login
+      # Authentication__Google__ClientId: "your-google-client-id"
+      # Authentication__Google__ClientSecret: "your-google-client-secret"
+      # Authentication__Facebook__AppId: "your-facebook-app-id"
+      # Authentication__Facebook__AppSecret: "your-facebook-app-secret"
+ 
+      StaticAssets__BaseUrl: "http://localhost"
+ 
+    ports:
+      - "7217:7217"   # optional: direct backend/Swagger access if needed
+    volumes:
+      - uploads_data:/app/wwwroot/uploads   # cover art, avatars, chapter images persist
+ 
+  # ── Vue.js frontend (nginx) ─────────────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "80:80"     # http://localhost  ← open this in your browser
+ 
+volumes:
+  uploads_data:     # user-uploaded media (covers, avatars, chapter pages)
+ 

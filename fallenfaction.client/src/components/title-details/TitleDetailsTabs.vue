@@ -498,7 +498,7 @@
   const emit = defineEmits(['tab-changed', 'comments-updated', 'show-rating-modal', 'go-to-login'])
 
   // Helper function to get correct image URLs
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5064'
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
 
   const getImageUrl = (path) => {
     if (!path) return ''

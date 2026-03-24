@@ -1,0 +1,28 @@
+# ── Stage 1: Build ────────────────────────────────────────────────────────────
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+
+# Copy csproj and restore (cached layer — only reruns if .csproj changes)
+COPY FallenFaction.Server/*.csproj ./FallenFaction.Server/
+RUN dotnet restore ./FallenFaction.Server/FallenFaction.Server.csproj
+
+# Copy everything else and build
+COPY FallenFaction.Server/. ./FallenFaction.Server/
+WORKDIR /src/FallenFaction.Server
+RUN dotnet publish -c Release -o /app/publish
+
+# ── Stage 2: Runtime (much smaller image) ─────────────────────────────────────
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+WORKDIR /app
+
+COPY --from=build /app/publish .
+
+# Create uploads directory for user-uploaded content (cover images, avatars, chapters)
+RUN mkdir -p /app/wwwroot/uploads
+
+# Env vars — sensitive values (JWT secret, OAuth keys) come from docker-compose
+ENV ASPNETCORE_URLS=http://+:7217
+ENV ASPNETCORE_ENVIRONMENT=Production
+
+EXPOSE 7217
+ENTRYPOINT ["dotnet", "FallenFaction.Server.dll"]

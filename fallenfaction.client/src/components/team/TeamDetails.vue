@@ -366,7 +366,7 @@
     description: ''
   });
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5064';
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
   const canEdit = computed(() => {
     return team.value?.userRole === 0 || team.value?.isCreator;

@@ -16,7 +16,7 @@
       <CarouselContent class="-ml-4">
         <CarouselItem v-for="manga in topTitles"
                       :key="'carousel-' + manga.id"
-                      class="pl-4 basis-1/4 md:basis-1/4 lg:basis-1/5 xl:basis-1/11">
+                      class="pl-4 basis-2/5 sm:basis-1/3 md:basis-1/4 lg:basis-1/5 xl:basis-1/11">
           <router-link :to="getTitleUrl(manga.originalTitle)" class="manga-link">
             <div class="manga-cover-container">
               <img :src="getImageUrl(manga.coverImagePath)"
@@ -42,175 +42,147 @@
   </section>
   <div class="home-page">
 
-    <Card class="main-container">
-      <CardContent class="pt-6">
+    <div class="main-container">
 
 
-        <!-- Weekly Featured Section -->
-        <section class="content-section">
-          <h2 class="section-title">Weekly Featured</h2>
-          <div v-if="loading.featured" class="loading-container">
-            <Spinner class="size-10 text-primary" />
-          </div>
-          <div v-else-if="error.featured" class="error-container">
-            <p>{{ error.featured }}</p>
-            <button @click="fetchFeaturedManga" class="retry-button">Try Again</button>
-          </div>
-          <div v-else class="manga-grid">
-            <div v-for="manga in featuredManga" :key="'featured-' + manga.id" class="manga-card">
-              <router-link :to="getTitleUrl(manga.originalTitle)" class="manga-link">
-                <div class="manga-cover">
-                  <img :src="getImageUrl(manga.coverImagePath)"
-                       :alt="manga.originalTitle"
-                       @load="onImageLoad(manga.originalTitle, manga.coverImagePath)"
-                       @error="onImageError(manga.originalTitle, manga.coverImagePath)" />
-                  <div v-if="manga.latestChapter" class="chapter-badge">
-                    {{ manga.latestChapter }}
+      <!-- Weekly Featured Section -->
+      <section class="content-section">
+        <h2 class="section-title">Weekly Featured</h2>
+        <div v-if="loading.featured" class="loading-container">
+          <Spinner class="size-10 text-primary" />
+        </div>
+        <div v-else-if="error.featured" class="error-container">
+          <p>{{ error.featured }}</p>
+          <button @click="fetchFeaturedManga" class="retry-button">Try Again</button>
+        </div>
+        <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 2xl:grid-cols-9 gap-4">
+          <TitleCard v-for="manga in featuredManga"
+                     :key="'featured-' + manga.id"
+                     :title="manga"
+                     view-mode="grid" />
+        </div>
+      </section>
+
+      <!-- Top Users and Top Teams Row -->
+      <div class="dual-section-container">
+        <div class="dual-section-row">
+          <!-- Top Users Section -->
+          <div class="section-wrapper">
+            <h2 class="section-title">Top Users</h2>
+            <section class="sub-section users-section">
+              <div v-if="loading.users" class="loading-container-small">
+                <Spinner class="size-6 text-primary" />
+              </div>
+              <div v-else-if="error.users" class="error-container-small">
+                <p>{{ error.users }}</p>
+                <button @click="fetchTopUsers" class="retry-button-small">Retry</button>
+              </div>
+              <div v-else class="users-grid">
+                <div v-for="user in topUsers" :key="user.id" class="user-card">
+                  <div class="user-avatar">
+                    <img :src="getImageUrl(user.avatar)"
+                         :alt="user.name"
+                         @load="onImageLoad(user.name, user.avatar)"
+                         @error="onImageError(user.name, user.avatar)" />
                   </div>
+                  <div class="user-info">
+                    <div class="user-name">{{ user.name }}</div>
+                    <div class="user-level">lvl {{ user.level }}</div>
+                  </div>
+                  <div class="user-score">{{ user.score }}</div>
                 </div>
-                <div class="manga-info-below">
-                  <h3 class="manga-title">{{ manga.originalTitle }}</h3>
-                  <div class="manga-type">{{ getMangaType(manga.type) }}</div>
-                </div>
-              </router-link>
-            </div>
+              </div>
+            </section>
           </div>
-        </section>
 
-        <!-- Top Users and Top Teams Row -->
-        <div class="dual-section-container">
-          <div class="dual-section-row">
-            <!-- Top Users Section -->
-            <div class="section-wrapper">
-              <h2 class="section-title">Top Users</h2>
-              <section class="sub-section users-section">
-                <div v-if="loading.users" class="loading-container-small">
-                  <Spinner class="size-6 text-primary" />
-                </div>
-                <div v-else-if="error.users" class="error-container-small">
-                  <p>{{ error.users }}</p>
-                  <button @click="fetchTopUsers" class="retry-button-small">Retry</button>
-                </div>
-                <div v-else class="users-grid">
-                  <div v-for="user in topUsers" :key="user.id" class="user-card">
-                    <div class="user-avatar">
-                      <img :src="getImageUrl(user.avatar)"
-                           :alt="user.name"
-                           @load="onImageLoad(user.name, user.avatar)"
-                           @error="onImageError(user.name, user.avatar)" />
-                    </div>
-                    <div class="user-info">
-                      <div class="user-name">{{ user.name }}</div>
-                      <div class="user-level">lvl {{ user.level }}</div>
-                    </div>
-                    <div class="user-score">{{ user.score }}</div>
+          <!-- Top Teams Section -->
+          <div class="section-wrapper">
+            <h2 class="section-title">Top Teams</h2>
+            <section class="sub-section teams-section">
+              <div v-if="loading.teams" class="loading-container-small">
+                <Spinner class="size-6 text-primary" />
+              </div>
+              <div v-else-if="error.teams" class="error-container-small">
+                <p>{{ error.teams }}</p>
+                <button @click="fetchTopTeams" class="retry-button-small">Retry</button>
+              </div>
+              <div v-else-if="topTeams && topTeams.length > 0" class="teams-grid">
+                <div v-for="team in topTeams" :key="team.id" class="team-card">
+                  <div class="team-rank">#{{ team.id }}</div>
+                  <div class="team-avatar">
+                    <img :src="getImageUrl(team.avatar)"
+                         :alt="team.name"
+                         @load="onImageLoad(team.name, team.avatar)"
+                         @error="onImageError(team.name, team.avatar)" />
                   </div>
-                </div>
-              </section>
-            </div>
-
-            <!-- Top Teams Section -->
-            <div class="section-wrapper">
-              <h2 class="section-title">Top Teams</h2>
-              <section class="sub-section teams-section">
-                <div v-if="loading.teams" class="loading-container-small">
-                  <Spinner class="size-6 text-primary" />
-                </div>
-                <div v-else-if="error.teams" class="error-container-small">
-                  <p>{{ error.teams }}</p>
-                  <button @click="fetchTopTeams" class="retry-button-small">Retry</button>
-                </div>
-                <div v-else-if="topTeams && topTeams.length > 0" class="teams-grid">
-                  <div v-for="team in topTeams" :key="team.id" class="team-card">
-                    <div class="team-rank">#{{ team.id }}</div>
-                    <div class="team-avatar">
-                      <img :src="getImageUrl(team.avatar)"
-                           :alt="team.name"
-                           @load="onImageLoad(team.name, team.avatar)"
-                           @error="onImageError(team.name, team.avatar)" />
-                    </div>
-                    <div class="team-info">
-                      <div class="team-name">{{ team.name }}</div>
-                      <div class="team-level">lvl {{ team.level }}</div>
-                    </div>
-                    <div class="team-progress-container">
-                      <div class="team-progress">
-                        <div class="progress-bar" :style="{ width: team.progress + '%' }"></div>
-                      </div>
-                    </div>
-                    <div class="team-score">{{ team.score }}</div>
+                  <div class="team-info">
+                    <div class="team-name">{{ team.name }}</div>
+                    <div class="team-level">lvl {{ team.level }}</div>
                   </div>
+                  <div class="team-progress-container">
+                    <div class="team-progress">
+                      <div class="progress-bar" :style="{ width: team.progress + '%' }"></div>
+                    </div>
+                  </div>
+                  <div class="team-score">{{ team.score }}</div>
                 </div>
-                <div v-else class="empty-state">
-                  <p>No teams yet</p>
-                </div>
-              </section>
-            </div>
+              </div>
+              <div v-else class="empty-state">
+                <p>No teams yet</p>
+              </div>
+            </section>
           </div>
         </div>
+      </div>
 
-        <!-- Top Titles Section -->
-        <section class="content-section">
-          <h2 class="section-title">Top Titles</h2>
-          <div v-if="loading.topTitles" class="loading-container">
-            <Spinner class="size-10 text-primary" />
-          </div>
-          <div v-else-if="error.topTitles" class="error-container">
-            <p>{{ error.topTitles }}</p>
-            <button @click="fetchTopTitles" class="retry-button">Try Again</button>
-          </div>
-          <div v-else class="manga-grid large-grid">
-            <div v-for="manga in topTitles" :key="'top-' + manga.id" class="manga-card">
-              <router-link :to="getTitleUrl(manga.originalTitle)" class="manga-link">
-                <div class="manga-cover">
-                  <img :src="getImageUrl(manga.coverImagePath)"
-                       :alt="manga.originalTitle"
-                       @load="onImageLoad(manga.originalTitle, manga.coverImagePath)"
-                       @error="onImageError(manga.originalTitle, manga.coverImagePath)" />
-                  <div v-if="manga.latestChapter" class="chapter-badge">
-                    {{ manga.latestChapter }}
-                  </div>
-                </div>
-                <div class="manga-info-below">
-                  <h3 class="manga-title">{{ manga.originalTitle }}</h3>
-                  <div class="manga-type">{{ getMangaType(manga.type) }}</div>
-                </div>
-              </router-link>
-            </div>
-          </div>
-        </section>
+      <!-- Top Titles Section -->
+      <section class="content-section">
+        <h2 class="section-title">Top Titles</h2>
+        <div v-if="loading.topTitles" class="loading-container">
+          <Spinner class="size-10 text-primary" />
+        </div>
+        <div v-else-if="error.topTitles" class="error-container">
+          <p>{{ error.topTitles }}</p>
+          <button @click="fetchTopTitles" class="retry-button">Try Again</button>
+        </div>
+        <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 2xl:grid-cols-9 gap-4">
+          <TitleCard v-for="manga in topTitles"
+                     :key="'top-' + manga.id"
+                     :title="manga"
+                     view-mode="grid" />
+        </div>
+      </section>
 
-        <!-- Last Updates Section -->
-        <section class="content-section">
-          <h2 class="section-title">Last Updates</h2>
-          <div v-if="loading.updates" class="loading-container">
-            <Spinner class="size-10 text-primary" />
-          </div>
-          <div v-else-if="error.updates" class="error-container">
-            <p>{{ error.updates }}</p>
-            <button @click="fetchLastUpdates" class="retry-button">Try Again</button>
-          </div>
-          <div v-else class="updates-list">
-            <div v-for="update in lastUpdates" :key="update.id" class="update-card">
-              <div class="update-cover">
-                <img :src="getImageUrl(update.coverImagePath)"
-                     :alt="update.originalTitle"
-                     @load="onImageLoad(update.originalTitle, update.coverImagePath)"
-                     @error="onImageError(update.originalTitle, update.coverImagePath)" />
-              </div>
-              <div class="update-info">
-                <h4 class="update-title">{{ update.originalTitle }}</h4>
-                <p class="update-description">{{ update.description }}</p>
-                <div class="update-meta">
-                  <span class="update-team">{{ update.teamName }}</span>
-                </div>
-              </div>
-              <div class="update-time">{{ update.timeAgo }}</div>
+      <!-- Last Updates Section -->
+      <section class="content-section">
+        <h2 class="section-title">Last Updates</h2>
+        <div v-if="loading.updates" class="loading-container">
+          <Spinner class="size-10 text-primary" />
+        </div>
+        <div v-else-if="error.updates" class="error-container">
+          <p>{{ error.updates }}</p>
+          <button @click="fetchLastUpdates" class="retry-button">Try Again</button>
+        </div>
+        <div v-else class="updates-list">
+          <div v-for="update in lastUpdates" :key="update.id" class="update-card">
+            <div class="update-cover">
+              <img :src="getImageUrl(update.coverImagePath)"
+                   :alt="update.originalTitle"
+                   @load="onImageLoad(update.originalTitle, update.coverImagePath)"
+                   @error="onImageError(update.originalTitle, update.coverImagePath)" />
             </div>
+            <div class="update-info">
+              <h4 class="update-title">{{ update.originalTitle }}</h4>
+              <p class="update-description">{{ update.description }}</p>
+              <div class="update-meta">
+                <span class="update-team">{{ update.teamName }}</span>
+              </div>
+            </div>
+            <div class="update-time">{{ update.timeAgo }}</div>
           </div>
-        </section>
-      </CardContent>
-    </Card>
+        </div>
+      </section>
+    </div>
   </div>
 </template>
 
@@ -224,8 +196,9 @@
     CarouselNext,
     CarouselPrevious,
   } from '@/components/ui/carousel';
-  import { Card, CardContent } from '@/components/ui/card';
+
   import { Spinner } from '@/components/ui/spinner';
+  import TitleCard from '@/components/catalog/TitleCard.vue';
 
   export default {
     name: 'HomePage',
@@ -235,9 +208,8 @@
       CarouselItem,
       CarouselNext,
       CarouselPrevious,
-      Card,
-      CardContent,
       Spinner,
+      TitleCard,
     },
     setup() {
       // Reactive data
@@ -427,7 +399,7 @@
   .home-page {
     width: 100%;
     max-width: 100vw;
-    padding: 2rem 1rem 0 1rem;
+    padding: 0.5rem 0 0 0;
     background-color: var(--color-background);
     overflow-x: hidden;
   }
@@ -439,8 +411,8 @@
 
   /* Content sections inside the main card */
   .content-section {
-    margin-bottom: 2rem;
-    padding-bottom: 2rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
     border-bottom: 1px solid hsl(240 3.7% 15.9%);
   }
 
@@ -452,10 +424,9 @@
 
   /* Sub-sections for users/teams */
   .sub-section {
-    background-color: hsl(0 0% 15%);
-    border-radius: 8px;
-    padding: 1rem;
-    border: 1px solid hsl(240 3.7% 15.9%);
+    padding: 0;
+    border: none;
+    background: transparent;
   }
 
   .section-title {
@@ -466,8 +437,8 @@
   }
 
   .carousel-section {
-    margin-bottom: 2rem;
-    padding: 2rem 0 2rem 0; 
+    margin-bottom: 0.5rem;
+    padding: 1rem 0 0.5rem 0;
     overflow: visible;
   }
 
@@ -648,15 +619,15 @@
   /* Dual Section Container */
   .dual-section-container {
     width: 100%;
-    margin-bottom: 2rem;
-    padding-bottom: 2rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
     border-bottom: 1px solid hsl(240 3.7% 15.9%);
   }
 
   .dual-section-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 2rem;
+    gap: 1rem;
   }
 
   .section-wrapper {
@@ -813,15 +784,14 @@
 
   .update-card {
     display: flex;
-    padding: 1rem;
-    margin-bottom: 1rem;
-    background-color: hsl(0 0% 15%);
-    border-radius: 10px;
+    padding: 0.75rem 0;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid hsl(240 3.7% 15.9%);
     transition: background-color 0.2s;
   }
 
     .update-card:hover {
-      background-color: hsl(0 0% 18%);
+      background-color: transparent;
     }
 
   .update-cover {

@@ -1,0 +1,23 @@
+# ── Stage 1: Build Vue app ────────────────────────────────────────────────────
+FROM node:20-alpine AS build
+WORKDIR /app
+
+COPY fallenfaction.client/package*.json ./
+RUN npm ci
+
+COPY fallenfaction.client/. .
+
+# vite.config.js tries to read SSL certs for the dev server — not needed for prod build.
+# We stub the cert paths so the config doesn't blow up during `npm run build`.
+RUN mkdir -p /root/.aspnet/https && \
+    touch /root/.aspnet/https/fallenfaction.client.pem && \
+    touch /root/.aspnet/https/fallenfaction.client.key
+
+RUN npm run build
+# Output goes to /app/dist
+
+# ── Stage 2: Serve with nginx ─────────────────────────────────────────────────
+FROM nginx:alpine AS runtime
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
