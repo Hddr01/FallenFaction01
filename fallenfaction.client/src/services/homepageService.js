@@ -4,7 +4,7 @@ import axios from 'axios';
 class HomepageService {
   constructor() {
     // Configure the base URL to use environment variable
-    const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5064/api';
+    const baseURL = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
     this.apiClient = axios.create({
       baseURL: baseURL,

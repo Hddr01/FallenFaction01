@@ -3,7 +3,7 @@ import axios from 'axios';
 
 // Create axios instance with base configuration (same pattern as authApi.js)
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5064/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',
   headers: {
     'Accept': 'application/json',
   },

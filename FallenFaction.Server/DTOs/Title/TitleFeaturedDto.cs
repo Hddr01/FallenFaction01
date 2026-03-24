@@ -15,5 +15,14 @@ namespace FallenFaction.Server.DTOs.Title
         public string ReleaseDate { get; set; } = string.Empty;
         public int ChapterCount { get; set; }
         public DateTime? LastUpdated { get; set; }
+
+        // Stats
+        public double AverageRating { get; set; }
+        public int ViewCount { get; set; }
+
+        // Status & flags (needed for TitleCard display)
+        public string StatusTitle { get; set; } = string.Empty;
+        public string StatusTranslation { get; set; } = string.Empty;
+        public int AgeRestriction { get; set; }
     }
 }

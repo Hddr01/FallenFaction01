@@ -3,7 +3,7 @@ import axios from 'axios';
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5064/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',
   headers: {
     'Accept': 'application/json',
   },
@@ -572,7 +572,7 @@ export const chapterService = {
     }
 
     // Get base URL from environment or default
-    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5064';
+    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') ?? '';
 
     // Ensure the path starts with /
     const fullUrl = imagePath.startsWith('/')

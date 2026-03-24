@@ -1,7 +1,7 @@
 // services/teamService.js - Updated with image upload functionality
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5064/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
 const teamApi = axios.create({
   baseURL: `${API_BASE_URL}/team`,
