@@ -381,7 +381,7 @@
                            :alt="bm.titleName"
                            class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
                            loading="lazy"
-                           @error="$event.target.src='/img/no-cover.png'" />
+                           @error="$event.target.src='/img/default-cover.png'" />
 
                       <!-- Overlay gradient -->
                       <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -440,7 +440,7 @@
                              :alt="bm.titleName"
                              class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
                              loading="lazy"
-                             @error="$event.target.src='/img/no-cover.png'" />
+                             @error="$event.target.src='/img/default-cover.png'" />
                       </div>
 
                       <!-- Info -->
@@ -879,7 +879,7 @@
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
 
   const getImageUrl = (path) => {
-    if (!path) return '/img/no-cover.png'
+    if (!path) return '/img/default-cover.png'
     // Already absolute — return as-is (external CDN etc.)
     if (path.startsWith('http')) return path
     // Relative path (e.g. /uploads/avatars/...) — let the browser resolve it

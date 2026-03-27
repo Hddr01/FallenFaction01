@@ -23,7 +23,7 @@
                    :alt="manga.originalTitle"
                    class="manga-cover-img"
                    @load="onImageLoad(manga.originalTitle, manga.coverImagePath)"
-                   @error="onImageError(manga.originalTitle, manga.coverImagePath)" />
+                   @error="onImageError($event, manga.originalTitle, manga.coverImagePath)" />
               <div v-if="manga.latestChapter" class="chapter-badge">
                 Chapter {{ manga.latestChapter }}
               </div>
@@ -83,7 +83,7 @@
                     <img :src="getImageUrl(user.avatar)"
                          :alt="user.name"
                          @load="onImageLoad(user.name, user.avatar)"
-                         @error="onImageError(user.name, user.avatar)" />
+                         @error="onImageError($event, user.name, user.avatar)" />
                   </div>
                   <div class="user-info">
                     <div class="user-name">{{ user.name }}</div>
@@ -113,7 +113,7 @@
                     <img :src="getImageUrl(team.avatar)"
                          :alt="team.name"
                          @load="onImageLoad(team.name, team.avatar)"
-                         @error="onImageError(team.name, team.avatar)" />
+                         @error="onImageError($event, team.name, team.avatar)" />
                   </div>
                   <div class="team-info">
                     <div class="team-name">{{ team.name }}</div>
@@ -169,7 +169,7 @@
               <img :src="getImageUrl(update.coverImagePath)"
                    :alt="update.originalTitle"
                    @load="onImageLoad(update.originalTitle, update.coverImagePath)"
-                   @error="onImageError(update.originalTitle, update.coverImagePath)" />
+                   @error="onImageError($event, update.originalTitle, update.coverImagePath)" />
             </div>
             <div class="update-info">
               <h4 class="update-title">{{ update.originalTitle }}</h4>
@@ -250,7 +250,7 @@
       };
 
       const getImageUrl = (path) => {
-        if (!path) return '/img/default-cover.jpg';
+        if (!path) return '/img/default-cover.png';
         if (path.startsWith('http://') || path.startsWith('https://')) {
           return path;
         }
@@ -265,8 +265,14 @@
         console.log(`Image loaded successfully: ${title}`);
       };
 
-      const onImageError = (title, path) => {
+      const onImageError = (event, title, path) => {
         console.error(`Failed to load image for: ${title}`, path);
+        const target = event.target;
+        // Avoid infinite loop if the fallback itself fails
+        if (!target.src.includes("default-cover.png") && !target.src.includes("default-avatar.png")) {
+          const isCover = !path || path.includes("/covers/") || path.includes("coverImage");
+          target.src = isCover ? "/img/default-cover.png" : "/img/default-avatar.png";
+        }
       };
 
       // Data fetching functions

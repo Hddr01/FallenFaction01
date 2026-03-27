@@ -305,7 +305,7 @@ export const catalogService = {
    * Helper: Build image URL
    */
   getImageUrl(path) {
-    if (!path) return '/img/no-cover.png';
+    if (!path) return '/img/default-cover.png';
     // Already absolute (external CDN etc.) — return as-is
     if (path.startsWith('http')) return path;
     // Relative path — return as-is so the browser resolves it against the

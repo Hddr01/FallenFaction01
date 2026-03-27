@@ -239,7 +239,7 @@
 
   // Computed
   const coverUrl = computed(() => {
-    if (imageError.value) return '/img/no-cover.png';
+    if (imageError.value) return '/img/default-cover.png';
     return catalogService.getImageUrl(props.title.coverImagePath);
   });
 
