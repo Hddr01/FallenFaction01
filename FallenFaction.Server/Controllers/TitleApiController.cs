@@ -6,6 +6,7 @@ using FallenFaction.Server.Data;
 using FallenFaction.Server.Data.Models;
 using System.ComponentModel.DataAnnotations;
 using static FallenFaction.Server.Controllers.Api.AdminTitleController;
+using FallenFaction.Server.Services.Interfaces;
 
 namespace FallenFaction.Server.Controllers
 {
@@ -18,16 +19,19 @@ namespace FallenFaction.Server.Controllers
         private readonly UserManager<AppUser> _userManager;
         private readonly IWebHostEnvironment _hostingEnvironment;
         private readonly ILogger<TitleApiController> _logger;
+        private readonly ITrustService _trustService;
 
         public TitleApiController(
             ApplicationDbContext context,
             UserManager<AppUser> userManager,
             IWebHostEnvironment hostingEnvironment,
-            ILogger<TitleApiController> logger)
+            ILogger<TitleApiController> logger,
+            ITrustService trustService)
         {
             _context = context;
             _userManager = userManager;
             _hostingEnvironment = hostingEnvironment;
+            _trustService = trustService;
             _logger = logger;
         }
 
@@ -165,7 +169,69 @@ namespace FallenFaction.Server.Controllers
                     }
                 }
 
-                // Add to context
+                // ── Trust auto-approve check ────────────────────────────────────────
+                bool isTrustedForTitle = await _trustService.IsTrustedAsync(user.Id, TrustActionType.AddTitle);
+                bool hasDuplicate = await _context.Titles
+                    .AnyAsync(t => t.OriginalTitle.ToLower() == (request.OriginalTitle ?? "").ToLower()
+                               || t.EnglishTitle.ToLower() == request.EnglishTitle.ToLower());
+
+                if (isTrustedForTitle && !hasDuplicate)
+                {
+                    // Auto-approve: create Title directly
+                    var autoTitle = new Title
+                    {
+                        OriginalTitle = pendingTitle.OriginalTitle,
+                        EnglishTitle = pendingTitle.EnglishTitle,
+                        AlternativeNames = pendingTitle.AlternativeNames,
+                        ReleaseDate = pendingTitle.ReleaseDate,
+                        Description = pendingTitle.Description,
+                        StatusTitle = pendingTitle.StatusTitle,
+                        StatusTranslation = pendingTitle.StatusTranslation,
+                        Type = pendingTitle.Type,
+                        AgeRestriction = pendingTitle.AgeRestriction,
+                        CoverImagePath = pendingTitle.CoverImagePath,
+                        BackgroundImagePath = pendingTitle.BackgroundImagePath,
+                        ExternalLinksSerialized = pendingTitle.ExternalLinksSerialized,
+                        CreatedByUserId = pendingTitle.CreatedByUserId,
+                        CreatedAt = DateTime.UtcNow,
+                    };
+                    _context.Titles.Add(autoTitle);
+                    await _context.SaveChangesAsync();
+
+                    // Attach many-to-many via PendingTitle helper then copy
+                    pendingTitle.Id = autoTitle.Id; // temporary for collection helper
+                    await UpdatePendingTitleCollections(pendingTitle, request);
+                    // Transfer collections directly to the real title
+                    autoTitle.Authors = pendingTitle.Authors;
+                    autoTitle.Artists = pendingTitle.Artists;
+                    autoTitle.Publishers = pendingTitle.Publishers;
+                    autoTitle.Teams = pendingTitle.Teams;
+                    autoTitle.Categories = pendingTitle.Categories;
+                    autoTitle.Tags = pendingTitle.Tags;
+                    autoTitle.Formats = pendingTitle.Formats;
+
+                    // Write change log entry: reviewer = System (null userId)
+                    var autoLog = new TitleChangeLog
+                    {
+                        TitleId = autoTitle.Id,
+                        UpdatedByUserId = user.Id,
+                        ReviewedByUserId = null,
+                        CreatedAt = DateTime.UtcNow,
+                        ReviewedAt = DateTime.UtcNow,
+                        ChangeType = "Add Title",
+                        OldValue = "",
+                        NewValue = autoTitle.OriginalTitle,
+                        AdminComment = "Auto-approved by system (trusted user)",
+                        Status = ChangeLogStatus.AutoApproved,
+                    };
+                    _context.TitleChangeLogs.Add(autoLog);
+                    await _context.SaveChangesAsync();
+
+                    _logger.LogInformation("Title auto-approved for trusted user {User}: {Title}", user.UserName, autoTitle.EnglishTitle);
+                    return Ok(new { message = "Title auto-approved and published!", titleId = autoTitle.Id, autoApproved = true });
+                }
+
+                // ── Standard pending flow ────────────────────────────────────────────
                 _context.Set<PendingTitle>().Add(pendingTitle);
                 await _context.SaveChangesAsync();
 
@@ -174,13 +240,18 @@ namespace FallenFaction.Server.Controllers
 
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation($"Pending title created successfully: {pendingTitle.EnglishTitle} by user {user.UserName} for teams: {string.Join(", ", selectedTeams.Select(t => t.Name))}");
+                string submissionMsg = isTrustedForTitle && hasDuplicate
+                    ? "Title submitted for review (duplicate detected — manual review required)."
+                    : "Title submitted for review successfully!";
+
+                _logger.LogInformation($"Pending title created: {pendingTitle.EnglishTitle} by {user.UserName}");
 
                 return Ok(new
                 {
-                    message = "Title submitted for review successfully!",
+                    message = submissionMsg,
                     titleId = pendingTitle.Id,
-                    englishTitle = pendingTitle.EnglishTitle
+                    englishTitle = pendingTitle.EnglishTitle,
+                    autoApproved = false
                 });
             }
             catch (Exception ex)
@@ -583,6 +654,55 @@ namespace FallenFaction.Server.Controllers
                     return BadRequest(new { error = "No changes detected" });
                 }
 
+                // ── Trust auto-approve for edit ──────────────────────────────────
+                bool isTrustedForEditTitle = await _trustService.IsTrustedAsync(user.Id, TrustActionType.EditTitle);
+                if (isTrustedForEditTitle)
+                {
+                    // Apply all changes directly — mirror what ApproveAllChanges does
+                    var editTitle = await _context.Titles
+                        .Include(t => t.Authors).Include(t => t.Artists)
+                        .Include(t => t.Publishers).Include(t => t.Teams)
+                        .Include(t => t.Categories).Include(t => t.Tags).Include(t => t.Formats)
+                        .FirstOrDefaultAsync(t => t.Id == id);
+
+                    if (editTitle != null)
+                    {
+                        foreach (var cl in changeLogs)
+                        {
+                            cl.Status = ChangeLogStatus.AutoApproved;
+                            cl.ReviewedByUserId = null;
+                            cl.ReviewedAt = DateTime.UtcNow;
+                            cl.AdminComment = "Auto-approved by system (trusted user)";
+                        }
+                        // The AdminTitleController ApproveAllChanges pattern applies field changes:
+                        // we replicate the same switch for simple scalar fields here
+                        foreach (var cl in changeLogs)
+                        {
+                            switch (cl.ChangeType)
+                            {
+                                case "Original Title": editTitle.OriginalTitle = cl.NewValue; break;
+                                case "English Title": editTitle.EnglishTitle = cl.NewValue; break;
+                                case "Description": editTitle.Description = cl.NewValue; break;
+                                case "Alternative Names": editTitle.AlternativeNames = cl.NewValue; break;
+                                case "Release Date": editTitle.ReleaseDate = cl.NewValue; break;
+                                case "Status": editTitle.StatusTitle = cl.NewValue; break;
+                                case "Translation Status": editTitle.StatusTranslation = cl.NewValue; break;
+                                case "Age Restriction":
+                                    if (int.TryParse(cl.NewValue, out var ar)) editTitle.AgeRestriction = ar; break;
+                                case "Cover Image": editTitle.CoverImagePath = cl.NewValue; break;
+                                case "Background Image": editTitle.BackgroundImagePath = cl.NewValue; break;
+                            }
+                        }
+                        _context.Titles.Update(editTitle);
+                        _context.TitleChangeLogs.AddRange(changeLogs);
+                        await _context.SaveChangesAsync();
+
+                        _logger.LogInformation("Title edit auto-approved for trusted user {User}: {TitleId}", user.Id, id);
+                        return Ok(new { message = "Changes auto-approved by system (trusted user)!", changeCount = changeLogs.Count, autoApproved = true, titleId = id });
+                    }
+                }
+
+                // ── Standard pending flow ────────────────────────────────────────────
                 // Save all change logs with Pending status
                 _context.TitleChangeLogs.AddRange(changeLogs);
                 await _context.SaveChangesAsync();
@@ -594,7 +714,8 @@ namespace FallenFaction.Server.Controllers
                 {
                     message = "Changes submitted for admin approval!",
                     changeCount = changeLogs.Count,
-                    titleId = id
+                    titleId = id,
+                    autoApproved = false
                 });
             }
             catch (Exception ex)
@@ -917,7 +1038,27 @@ namespace FallenFaction.Server.Controllers
 
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation($"Pending title approved and converted to title: {title.EnglishTitle}");
+                // Write change log
+                var approveLog = new TitleChangeLog
+                {
+                    TitleId = title.Id,
+                    UpdatedByUserId = pendingTitle.CreatedByUserId,
+                    ReviewedByUserId = (await _userManager.GetUserAsync(User))?.Id,
+                    CreatedAt = pendingTitle.CreatedAt,
+                    ReviewedAt = DateTime.UtcNow,
+                    ChangeType = "Add Title",
+                    OldValue = "",
+                    NewValue = title.OriginalTitle,
+                    AdminComment = "Approved by admin",
+                    Status = ChangeLogStatus.Approved,
+                };
+                _context.TitleChangeLogs.Add(approveLog);
+                await _context.SaveChangesAsync();
+
+                // Record admin approval → may promote user to trusted
+                await _trustService.RecordApprovalAsync(pendingTitle.CreatedByUserId, TrustActionType.AddTitle);
+
+                _logger.LogInformation($"Pending title approved: {title.EnglishTitle}");
 
                 return Ok(new
                 {
@@ -989,6 +1130,10 @@ namespace FallenFaction.Server.Controllers
                 _context.Set<PendingTitle>().Remove(pendingTitle);
 
                 await _context.SaveChangesAsync();
+
+                // Record rejection → resets trust counter
+                if (!string.IsNullOrEmpty(pendingTitle.CreatedByUserId))
+                    await _trustService.RecordRejectionAsync(pendingTitle.CreatedByUserId, TrustActionType.AddTitle);
 
                 _logger.LogInformation($"Pending title rejected: {rejectedTitle.EnglishTitle}, Reason: {request.Reason}");
 

@@ -612,10 +612,41 @@
     });
   }
 
+  // Resolves name-based URL params (sent by TitleDetails tags/categories)
+  // e.g. ?category=Adventure&tag=Action&ageRestriction=18
+  // Must be called AFTER filterOptions are loaded so names can be resolved to IDs.
+  function resolveNameBasedURLParams() {
+    const query = route.query;
+
+    // ?category=Name  (singular, name-based) → resolve to ID → push into categories[]
+    if (query.category) {
+      const names = String(query.category).split(',').map(n => decodeURIComponent(n).trim().toLowerCase());
+      const ids = names
+        .map(name => filterOptions.value.Categories.find(c => c.name.toLowerCase() === name)?.id)
+        .filter(id => id != null);
+      if (ids.length) filters.value.categories = [...new Set([...filters.value.categories, ...ids])];
+    }
+
+    // ?tag=Name  (singular, name-based) → resolve to ID → push into tags[]
+    if (query.tag) {
+      const names = String(query.tag).split(',').map(n => decodeURIComponent(n).trim().toLowerCase());
+      const ids = names
+        .map(name => filterOptions.value.Tags.find(t => t.name.toLowerCase() === name)?.id)
+        .filter(id => id != null);
+      if (ids.length) filters.value.tags = [...new Set([...filters.value.tags, ...ids])];
+    }
+
+    // ?ageRestriction=18 — comes in as string, coerce to number
+    if (query.ageRestriction && !filters.value.ageRestriction) {
+      filters.value.ageRestriction = parseInt(query.ageRestriction) || null;
+    }
+  }
+
   // Lifecycle
   onMounted(async () => {
     loadFromURLParams();
     await loadFilterOptions();
+    resolveNameBasedURLParams(); // must run after filterOptions — resolves ?category=Name → ID
     await loadCatalog();
 
     // Scroll listener for "scroll to top" button

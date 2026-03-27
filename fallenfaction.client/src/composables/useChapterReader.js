@@ -3,6 +3,7 @@ import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from
 import { useRouter, useRoute } from 'vue-router'
 import { titleDetailsService } from '@/services/titleDetailsService'
 import { chapterService } from '@/services/chapterService'
+import { buildTitleSlug } from '@/utils/titleSlug.js'
 
 export function useChapterReader(props) {
   const router = useRouter()
@@ -486,7 +487,7 @@ export function useChapterReader(props) {
     saveScrollPosition()
     addToNavigationHistory('forward')
 
-    const url = `/${chapterData.value.titleName}/chapter/${chapterData.value.previousChapterName}/v${chapterData.value.previousChapterVolume}/t${chapterData.value.previousChapterTeamId}`
+    const url = `/${buildTitleSlug(chapterData.value.titleName, chapterData.value.titleId)}/chapter/${chapterData.value.previousChapterName}/v${chapterData.value.previousChapterVolume}/t${chapterData.value.previousChapterTeamId}`
     const query = {
       viewMode: settings.viewMode,
       page: chapterData.value.previousChapterPageCount || 1,
@@ -505,7 +506,7 @@ export function useChapterReader(props) {
     saveScrollPosition()
     addToNavigationHistory('forward')
 
-    const url = `/${chapterData.value.titleName}/chapter/${chapterData.value.nextChapterName}/v${chapterData.value.nextChapterVolume}/t${chapterData.value.nextChapterTeamId}`
+    const url = `/${buildTitleSlug(chapterData.value.titleName, chapterData.value.titleId)}/chapter/${chapterData.value.nextChapterName}/v${chapterData.value.nextChapterVolume}/t${chapterData.value.nextChapterTeamId}`
     const query = {
       viewMode: settings.viewMode,
       page: 1,
@@ -517,11 +518,13 @@ export function useChapterReader(props) {
 
   const goToTitleDetails = () => {
     const titleName = chapterData.value?.titleName || props.titleName
-    router.push(`/${encodeURIComponent(titleName)}`)
+    const titleId = chapterData.value?.titleId
+    const slug = titleId ? buildTitleSlug(titleName, titleId) : encodeURIComponent(titleName)
+    router.push(`/${slug}`)
   }
 
   const goToChapter = (chapter) => {
-    const url = `/${chapterData.value.titleName}/chapter/${chapter.name || chapter.chapterNumber}/v${chapter.volumeNumber}/t${chapter.teamId}`
+    const url = `/${buildTitleSlug(chapterData.value.titleName, chapterData.value.titleId)}/chapter/${chapter.name || chapter.chapterNumber}/v${chapter.volumeNumber}/t${chapter.teamId}`
     const query = {
       viewMode: settings.viewMode,
       page: 1,

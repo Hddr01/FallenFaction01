@@ -2,28 +2,30 @@
   <div class="space-y-6">
     <!-- Section Navigation -->
     <div class="border-b border-[var(--color-border)]">
-      <nav class="flex space-x-8" aria-label="Title sections">
-        <button v-for="section in sections"
-                :key="section.id"
-                @click="activeSection = section.id"
-                :class="[
-                  'whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200',
+      <div class="overflow-x-auto scrollbar-hide">
+        <nav class="flex min-w-max" aria-label="Title sections">
+          <button v-for="section in sections"
+                  :key="section.id"
+                  @click="activeSection = section.id"
+                  :class="[
+                  'whitespace-nowrap py-2 px-1 mr-8 border-b-2 font-medium text-sm transition-colors duration-200 shrink-0',
                   activeSection === section.id
                     ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
                     : 'border-transparent text-[var(--color-text)] opacity-70 hover:opacity-100 hover:border-[var(--color-border-hover)]'
                 ]">
-          {{ section.label }}
-          <span v-if="section.count !== undefined"
-                :class="[
+            {{ section.label }}
+            <span v-if="section.count !== undefined"
+                  :class="[
                   'ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
                   activeSection === section.id
                     ? 'bg-[var(--color-accent)] text-white'
                     : 'bg-[var(--color-background-mute)] text-[var(--color-text)]'
                 ]">
-            {{ section.count }}
-          </span>
-        </button>
-      </nav>
+              {{ section.count }}
+            </span>
+          </button>
+        </nav>
+      </div>
     </div>
 
     <!-- Approved Titles Section -->
@@ -307,107 +309,116 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import contentService from '../../services/contentService'
+  import { ref, computed } from 'vue'
+  import contentService from '../../services/contentService'
 
-// Props
-const props = defineProps({
-  titles: {
-    type: Array,
-    default: () => []
-  },
-  pendingTitles: {
-    type: Array,
-    default: () => []
-  },
-  rejectedTitles: {
-    type: Array,
-    default: () => []
-  }
-})
-
-// Emits
-const emit = defineEmits(['refresh'])
-
-// Reactive data
-const activeSection = ref('approved')
-const showDetailsModal = ref(false)
-const selectedTitle = ref(null)
-
-// Computed properties
-const sections = computed(() => [
-  { id: 'approved', label: 'Published', count: props.titles.length },
-  { id: 'pending', label: 'Pending Review', count: props.pendingTitles.length },
-  { id: 'rejected', label: 'Rejected', count: props.rejectedTitles.length }
-])
-
-// Methods
-const getImageUrl = (imagePath) => {
-  if (!imagePath) return '/img/logo.png'
-  if (imagePath.startsWith('http')) return imagePath
-  return imagePath.startsWith('/') ? imagePath : `/${imagePath}`
-}
-
-const getStatusColor = (status) => {
-  switch (status?.toLowerCase()) {
-    case 'completed':
-      return 'bg-green-100 text-green-800'
-    case 'ongoing':
-      return 'bg-blue-100 text-blue-800'
-    case 'hiatus':
-      return 'bg-yellow-100 text-yellow-800'
-    case 'cancelled':
-      return 'bg-red-100 text-red-800'
-    default:
-      return 'bg-gray-100 text-gray-800'
-  }
-}
-
-const getMangaType = (type) => {
-  const types = {
-    0: 'Manga',
-    1: 'Manhwa',
-    2: 'Manhua',
-    3: 'Comic',
-    4: 'Novel'
-  }
-  return types[type] || 'Manga'
-}
-
-const formatDate = (date) => {
-  if (!date) return 'Unknown'
-  return new Date(date).toLocaleDateString()
-}
-
-const viewTitleDetails = (title) => {
-  selectedTitle.value = title
-  showDetailsModal.value = true
-}
-
-const closeDetailsModal = () => {
-  showDetailsModal.value = false
-  selectedTitle.value = null
-}
-
-const deleteTitle = async (titleId) => {
-  if (!confirm('Are you sure you want to delete this title? This action cannot be undone.')) {
-    return
-  }
-
-  try {
-    const result = await contentService.deleteTitle(titleId)
-    if (result.success) {
-      emit('refresh')
-    } else {
-      alert(result.error || 'Failed to delete title')
+  // Props
+  const props = defineProps({
+    titles: {
+      type: Array,
+      default: () => []
+    },
+    pendingTitles: {
+      type: Array,
+      default: () => []
+    },
+    rejectedTitles: {
+      type: Array,
+      default: () => []
     }
-  } catch (error) {
-    console.error('Error deleting title:', error)
-    alert('Failed to delete title')
+  })
+
+  // Emits
+  const emit = defineEmits(['refresh'])
+
+  // Reactive data
+  const activeSection = ref('approved')
+  const showDetailsModal = ref(false)
+  const selectedTitle = ref(null)
+
+  // Computed properties
+  const sections = computed(() => [
+    { id: 'approved', label: 'Published', count: props.titles.length },
+    { id: 'pending', label: 'Pending Review', count: props.pendingTitles.length },
+    { id: 'rejected', label: 'Rejected', count: props.rejectedTitles.length }
+  ])
+
+  // Methods
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return '/img/logo.png'
+    if (imagePath.startsWith('http')) return imagePath
+    return imagePath.startsWith('/') ? imagePath : `/${imagePath}`
   }
-}
+
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'completed':
+        return 'bg-green-100 text-green-800'
+      case 'ongoing':
+        return 'bg-blue-100 text-blue-800'
+      case 'hiatus':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'cancelled':
+        return 'bg-red-100 text-red-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getMangaType = (type) => {
+    const types = {
+      0: 'Manga',
+      1: 'Manhwa',
+      2: 'Manhua',
+      3: 'Comic',
+      4: 'Novel'
+    }
+    return types[type] || 'Manga'
+  }
+
+  const formatDate = (date) => {
+    if (!date) return 'Unknown'
+    return new Date(date).toLocaleDateString()
+  }
+
+  const viewTitleDetails = (title) => {
+    selectedTitle.value = title
+    showDetailsModal.value = true
+  }
+
+  const closeDetailsModal = () => {
+    showDetailsModal.value = false
+    selectedTitle.value = null
+  }
+
+  const deleteTitle = async (titleId) => {
+    if (!confirm('Are you sure you want to delete this title? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      const result = await contentService.deleteTitle(titleId)
+      if (result.success) {
+        emit('refresh')
+      } else {
+        alert(result.error || 'Failed to delete title')
+      }
+    } catch (error) {
+      console.error('Error deleting title:', error)
+      alert('Failed to delete title')
+    }
+  }
 </script>
 
 <style scoped>
   /* Add any component-specific styles here */
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+    .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+    }
 </style>

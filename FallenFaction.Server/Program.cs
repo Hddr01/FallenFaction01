@@ -37,6 +37,7 @@ builder.Services.AddControllers(options =>
 // Explicitly add MVC services to ensure controller discovery
 builder.Services.AddMvc();
 builder.Services.AddScoped<ICommentService, CommentService>();
+builder.Services.AddScoped<FallenFaction.Server.Services.Interfaces.ITrustService, FallenFaction.Server.Services.TrustService>();
 
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();

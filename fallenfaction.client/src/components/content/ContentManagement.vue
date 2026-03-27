@@ -39,28 +39,30 @@
       <div v-else class="bg-[var(--color-background-soft)] rounded-lg shadow-md border border-[var(--color-border)]">
         <!-- Tab Navigation -->
         <div class="border-b border-[var(--color-border)]">
-          <nav class="flex space-x-8 px-6" aria-label="Tabs">
-            <button v-for="tab in availableTabs"
-                    :key="tab.id"
-                    @click="activeTab = tab.id"
-                    :class="[
-                      'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200',
-                      activeTab === tab.id
-                        ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
-                        : 'border-transparent text-[var(--color-text)] opacity-70 hover:opacity-100 hover:border-[var(--color-border-hover)]'
-                    ]">
-              {{ tab.label }}
-              <span v-if="tab.count !== undefined"
-                    :class="[
-                      'ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
-                      activeTab === tab.id
-                        ? 'bg-[var(--color-accent)] text-white'
-                        : 'bg-[var(--color-background-mute)] text-[var(--color-text)]'
-                    ]">
-                {{ tab.count }}
-              </span>
-            </button>
-          </nav>
+          <div class="overflow-x-auto scrollbar-hide">
+            <nav class="flex min-w-max px-6" aria-label="Tabs">
+              <button v-for="tab in availableTabs"
+                      :key="tab.id"
+                      @click="activeTab = tab.id"
+                      :class="[
+                        'whitespace-nowrap py-4 px-1 mr-8 border-b-2 font-medium text-sm transition-colors duration-200 shrink-0',
+                        activeTab === tab.id
+                          ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
+                          : 'border-transparent text-[var(--color-text)] opacity-70 hover:opacity-100 hover:border-[var(--color-border-hover)]'
+                      ]">
+                {{ tab.label }}
+                <span v-if="tab.count !== undefined"
+                      :class="[
+                        'ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
+                        activeTab === tab.id
+                          ? 'bg-[var(--color-accent)] text-white'
+                          : 'bg-[var(--color-background-mute)] text-[var(--color-text)]'
+                      ]">
+                  {{ tab.count }}
+                </span>
+              </button>
+            </nav>
+          </div>
         </div>
 
         <!-- Tab Content -->
@@ -348,5 +350,12 @@ defineExpose({
 </script>
 
 <style scoped>
-  /* Add any component-specific styles here */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+    .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+    }
 </style>

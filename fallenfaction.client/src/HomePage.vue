@@ -17,7 +17,7 @@
         <CarouselItem v-for="manga in topTitles"
                       :key="'carousel-' + manga.id"
                       class="pl-4 basis-2/5 sm:basis-1/3 md:basis-1/4 lg:basis-1/5 xl:basis-1/11">
-          <router-link :to="getTitleUrl(manga.originalTitle)" class="manga-link">
+          <router-link :to="getTitleUrl(manga.originalTitle, manga.id)" class="manga-link">
             <div class="manga-cover-container">
               <img :src="getImageUrl(manga.coverImagePath)"
                    :alt="manga.originalTitle"
@@ -199,6 +199,7 @@
 
   import { Spinner } from '@/components/ui/spinner';
   import TitleCard from '@/components/catalog/TitleCard.vue';
+  import { buildTitleSlug } from '@/utils/titleSlug.js';
 
   export default {
     name: 'HomePage',
@@ -257,7 +258,8 @@
         return path.startsWith('/') ? path : `/${path}`;
       };
 
-      const getTitleUrl = (titleName) => {
+      const getTitleUrl = (titleName, id) => {
+        if (id) return `/${buildTitleSlug(titleName, id)}`;
         return `/${encodeURIComponent(titleName)}`;
       };
 

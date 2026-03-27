@@ -50,11 +50,8 @@ async function searchPublishers(query) {
 }
 
 async function searchTags(query) {
-  // No dedicated tag search endpoint — fetch form-data and filter client-side
-  const res = await api.get('/TitleApi/form-data');
-  const all = res.data?.Tags ?? [];
-  const q = query.toLowerCase();
-  return all.filter((t) => t.name.toLowerCase().includes(q)).slice(0, 10);
+  const res = await api.get('/Titles/Tags/Search', { params: { query } });
+  return Array.isArray(res.data) ? res.data.slice(0, 10) : [];
 }
 
 async function searchUsers(query) {
