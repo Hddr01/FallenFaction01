@@ -28,7 +28,7 @@ services:
       # Authentication__Facebook__AppId: "your-facebook-app-id"
       # Authentication__Facebook__AppSecret: "your-facebook-app-secret"
  
-      StaticAssets__BaseUrl: "http://localhost"
+      StaticAssets__BaseUrl: ""
  
     ports:
       - "7217:7217"   # optional: direct backend/Swagger access if needed
