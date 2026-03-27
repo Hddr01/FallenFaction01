@@ -29,18 +29,44 @@
         <div class="navbar-right">
           <button class="icon-btn" @click="toggleSettings">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" />
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+              <circle cx="12" cy="12" r="3" />
             </svg>
           </button>
           <button class="icon-btn" @click="toggleChapterList">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
-              <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+              <line x1="8" y1="6" x2="21" y2="6" />
+              <line x1="8" y1="12" x2="21" y2="12" />
+              <line x1="8" y1="18" x2="21" y2="18" />
+              <line x1="3" y1="6" x2="3.01" y2="6" />
+              <line x1="3" y1="12" x2="3.01" y2="12" />
+              <line x1="3" y1="18" x2="3.01" y2="18" />
             </svg>
           </button>
         </div>
       </div>
     </div>
+
+    <!-- ============================================================ -->
+    <!-- TAP ZONES — invisible overlay for touch/click navigation     -->
+    <!-- Only active when no popup is open                            -->
+    <!-- ============================================================ -->
+    <div v-if="!showSettings && !showChapterList && chapterData && !loading && !error"
+         class="tap-zones-overlay"
+         @touchstart.passive="onTouchStart"
+         @touchend="onTouchEnd"
+         @mousedown="onMouseDown"
+         @mouseup="onMouseUp">
+      <!-- Individual zones are visual-only for debug; interaction is on the parent -->
+      <div class="tap-zone tap-zone-left" data-zone="prev"></div>
+      <div class="tap-zone tap-zone-center" data-zone="toggle"></div>
+      <div class="tap-zone tap-zone-right" data-zone="next"></div>
+    </div>
+
+    <!-- Tap hint -->
+    <transition name="hint-fade">
+      <div v-if="currentHint" class="tap-hint">{{ currentHint }}</div>
+    </transition>
 
     <!-- Loading -->
     <div v-if="loading" class="state-container">
@@ -119,7 +145,7 @@
         <div class="popup__header">
           <h3>Chapter List</h3>
           <button class="close-btn" @click="toggleChapterList">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
           </button>
         </div>
         <div class="chapter-list">
@@ -142,7 +168,7 @@
         <div class="popup__header">
           <h3>Reading Settings</h3>
           <button class="close-btn" @click="toggleSettings">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
           </button>
         </div>
         <div class="settings-content">
@@ -185,6 +211,14 @@
               <button class="opt-btn" :class="{ active: fontFamily === 'monospace' }" @click="setFont('monospace')">Mono</button>
             </div>
           </div>
+          <!-- Tap Zones Toggle -->
+          <div class="settings-section toggle-section">
+            <div class="settings-label">Tap Zones</div>
+            <div class="toggle-switch">
+              <input type="checkbox" id="tapZonesEnabled" v-model="tapZonesEnabled" @change="savePref('tapZonesEnabled', tapZonesEnabled)" />
+              <label for="tapZonesEnabled"></label>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -192,441 +226,961 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { titleDetailsService } from '../../services/titleDetailsService'
-import { chapterService } from '../../services/chapterService'
-import CommentsComponent from '../title-details/CommentsComponent.vue'
+  import { ref, computed, onMounted, onUnmounted } from 'vue'
+  import { useRoute, useRouter } from 'vue-router'
+  import { titleDetailsService } from '../../services/titleDetailsService'
+  import { chapterService } from '../../services/chapterService'
+  import CommentsComponent from '../title-details/CommentsComponent.vue'
+  import { buildTitleSlug } from '@/utils/titleSlug.js'
 
-const props = defineProps({
-  titleName: { type: String, required: true },
-  chapterName: { type: String, required: true },
-  volumeNumber: { type: [Number, String], required: true },
-  teamId: { type: [Number, String], required: true }
-})
+  const props = defineProps({
+    titleSlug: { type: String, required: true },  // "title-name-{id}" format
+    chapterName: { type: String, required: true },
+    volumeNumber: { type: [Number, String], required: true },
+    teamId: { type: [Number, String], required: true }
+  })
 
-const route = useRoute()
-const router = useRouter()
+  const route = useRoute()
+  const router = useRouter()
 
-// State
-const loading = ref(true)
-const error = ref('')
-const chapterData = ref(null)
-const chaptersList = ref([])
-const isAuthenticated = ref(false)
-const currentUserId = ref('')
-const isAdmin = ref(false)
+  // State
+  const loading = ref(true)
+  const error = ref('')
+  const chapterData = ref(null)
+  const chaptersList = ref([])
+  const isAuthenticated = ref(false)
+  const currentUserId = ref('')
+  const isAdmin = ref(false)
 
-// UI State
-const uiVisible = ref(true)
-const showSettings = ref(false)
-const showChapterList = ref(false)
+  // UI State
+  const uiVisible = ref(true)
+  const showSettings = ref(false)
+  const showChapterList = ref(false)
+  const currentHint = ref('')
+  const tapZonesEnabled = ref(true)
 
-// Reading preferences
-const currentTheme = ref('dark')
-const fontSize = ref(18)
-const lineHeight = ref(1.8)
-const contentWidth = ref(75)
-const fontFamily = ref('serif')
+  // Reading preferences
+  const currentTheme = ref('dark')
+  const fontSize = ref(18)
+  const lineHeight = ref(1.8)
+  const contentWidth = ref(75)
+  const fontFamily = ref('serif')
 
-// =============================================
-// AUTH
-// =============================================
-const checkAuthStatus = () => {
-  try {
-    const token = localStorage.getItem('authToken')
-    const user = localStorage.getItem('authUser')
-    if (token && user) {
-      const userData = JSON.parse(user)
-      isAuthenticated.value = true
-      currentUserId.value = userData.id || userData.userId || ''
-      isAdmin.value = userData.role === 'Admin' || userData.roles?.includes('Admin') || false
+  // =============================================
+  // ZOOM PREVENTION
+  // Disables pinch-zoom while reader is mounted,
+  // restores the original meta content on unmount.
+  // =============================================
+  let originalViewportContent = ''
+
+  const disableZoom = () => {
+    let meta = document.querySelector('meta[name="viewport"]')
+    if (!meta) {
+      meta = document.createElement('meta')
+      meta.name = 'viewport'
+      document.head.appendChild(meta)
     }
-  } catch (err) {
-    isAuthenticated.value = false
-  }
-}
-
-// =============================================
-// COMPUTED
-// =============================================
-const contentStyles = computed(() => ({
-  fontSize: `${fontSize.value}px`,
-  lineHeight: `${lineHeight.value}`,
-  fontFamily: fontFamily.value,
-  maxWidth: `${contentWidth.value}%`,
-}))
-
-const formattedContent = computed(() => {
-  if (!chapterData.value?.content) return ''
-  // Preserve paragraph breaks — convert double newlines to <p> tags
-  return chapterData.value.content
-    .split(/\n\n+/)
-    .filter(p => p.trim())
-    .map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`)
-    .join('')
-})
-
-// =============================================
-// DATA LOADING
-// =============================================
-const loadChapter = async () => {
-  try {
-    loading.value = true
-    error.value = ''
-
-    const result = await titleDetailsService.getChapterByRoute(
-      props.titleName,
-      props.chapterName,
-      props.volumeNumber,
-      props.teamId
+    originalViewportContent = meta.getAttribute('content') || ''
+    meta.setAttribute(
+      'content',
+      'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no'
     )
+  }
 
-    if (result.success && result.data) {
-      chapterData.value = result.data
-      document.title = `${result.data.titleName} - ${result.data.name || `Ch.${result.data.chapterNumber}`}`
-      await loadChaptersList()
-      await updateReadingProgress()
-      window.scrollTo({ top: 0, behavior: 'auto' })
+  const restoreZoom = () => {
+    const meta = document.querySelector('meta[name="viewport"]')
+    if (meta && originalViewportContent) {
+      meta.setAttribute('content', originalViewportContent)
+    } else if (meta) {
+      meta.setAttribute('content', 'width=device-width, initial-scale=1.0')
+    }
+  }
+
+  // =============================================
+  // TAP ZONE LOGIC
+  // Detects short taps vs. scrolls.
+  // Touch: track start coords; fire only if
+  //   movement < TAP_THRESHOLD and duration < TAP_MAX_MS.
+  // Mouse: similarly track mousedown/mouseup.
+  // =============================================
+  const TAP_THRESHOLD = 12   // px — max movement to count as a tap
+  const TAP_MAX_MS = 400   // ms — max duration to count as a tap
+
+  let touchStartX = 0
+  let touchStartY = 0
+  let touchStartTime = 0
+  let mouseStartX = 0
+  let mouseStartY = 0
+  let mouseStartTime = 0
+
+  const fireTapAction = (clientX) => {
+    if (!tapZonesEnabled.value) return
+    if (showSettings.value || showChapterList.value) return
+
+    const w = window.innerWidth
+    const third = w / 3
+
+    if (clientX < third) {
+      // Left — previous chapter
+      showHint('← Previous chapter')
+      gotoPrevChapter()
+    } else if (clientX > w - third) {
+      // Right — next chapter
+      showHint('Next chapter →')
+      gotoNextChapter()
     } else {
-      error.value = result.error || 'Chapter not found'
+      // Center — toggle navbar
+      toggleUI()
     }
-  } catch (err) {
-    error.value = err.message || 'Failed to load chapter'
-  } finally {
-    loading.value = false
   }
-}
 
-const loadChaptersList = async () => {
-  if (!chapterData.value?.titleId) return
-  try {
-    const result = await titleDetailsService.getChapters(chapterData.value.titleId)
-    if (result.success) chaptersList.value = result.data || []
-  } catch (err) { /* non-critical */ }
-}
-
-const updateReadingProgress = async () => {
-  if (!chapterData.value) return
-  try {
-    await chapterService.updateReadingProgress(
-      chapterData.value.titleId,
-      chapterData.value.chapterNumber
-    )
-  } catch (err) { /* non-critical */ }
-}
-
-const retryLoad = () => loadChapter()
-
-// =============================================
-// NAVIGATION
-// =============================================
-const goToTitleDetails = () => {
-  const titleName = (chapterData.value?.titleName || props.titleName).trim()
-  router.push({ path: `/${encodeURIComponent(titleName)}`, query: { section: 'chapters' } })
-}
-
-const buildChapterUrl = (titleName, chapterName, volume, teamId) => {
-  return `/${encodeURIComponent(titleName.trim())}/chapter/${encodeURIComponent(chapterName)}/v${volume}/t${teamId}`
-}
-
-const gotoNextChapter = () => {
-  if (!chapterData.value?.nextChapterId) { goToTitleDetails(); return }
-  const url = buildChapterUrl(
-    chapterData.value.titleName,
-    chapterData.value.nextChapterName,
-    chapterData.value.nextChapterVolume,
-    chapterData.value.nextChapterTeamId
-  )
-  router.push(url)
-}
-
-const gotoPrevChapter = () => {
-  if (!chapterData.value?.previousChapterId) { goToTitleDetails(); return }
-  const url = buildChapterUrl(
-    chapterData.value.titleName,
-    chapterData.value.previousChapterName,
-    chapterData.value.previousChapterVolume,
-    chapterData.value.previousChapterTeamId
-  )
-  router.push(url)
-}
-
-const goToChapter = (chapter) => {
-  const url = buildChapterUrl(
-    chapterData.value.titleName.trim(),
-    chapter.name || chapter.chapterNumber,
-    chapter.volumeNumber,
-    chapter.teamId
-  )
-  router.push(url)
-  toggleChapterList()
-}
-
-// =============================================
-// UI
-// =============================================
-const toggleSettings = () => { showSettings.value = !showSettings.value; showChapterList.value = false }
-const toggleChapterList = () => { showChapterList.value = !showChapterList.value; showSettings.value = false }
-const handleBackdropClick = (e) => {
-  if (e.target === e.currentTarget) { showSettings.value = false; showChapterList.value = false }
-}
-
-const setTheme = (t) => { currentTheme.value = t; savePref('theme', t) }
-const setFont = (f) => { fontFamily.value = f; savePref('fontFamily', f) }
-
-const savePref = (key, value) => {
-  localStorage.setItem(`novelReader_${key}`, JSON.stringify(value))
-}
-const loadPref = (key, def) => {
-  try {
-    const v = localStorage.getItem(`novelReader_${key}`)
-    return v !== null ? JSON.parse(v) : def
-  } catch { return def }
-}
-const loadPreferences = () => {
-  currentTheme.value = loadPref('theme', 'dark')
-  fontSize.value = loadPref('fontSize', 18)
-  lineHeight.value = loadPref('lineHeight', 1.8)
-  contentWidth.value = loadPref('contentWidth', 75)
-  fontFamily.value = loadPref('fontFamily', 'serif')
-}
-
-const handleKeydown = (e) => {
-  if (showSettings.value || showChapterList.value) {
-    if (e.key === 'Escape') { showSettings.value = false; showChapterList.value = false }
-    return
+  const onTouchStart = (e) => {
+    if (e.touches.length !== 1) return
+    touchStartX = e.touches[0].clientX
+    touchStartY = e.touches[0].clientY
+    touchStartTime = Date.now()
   }
-  if (e.key === 'ArrowLeft') { e.preventDefault(); gotoPrevChapter() }
-  if (e.key === 'ArrowRight') { e.preventDefault(); gotoNextChapter() }
-}
 
-// =============================================
-// LIFECYCLE
-// =============================================
-onMounted(async () => {
-  checkAuthStatus()
-  loadPreferences()
-  await loadChapter()
-  document.addEventListener('keydown', handleKeydown)
-})
+  const onTouchEnd = (e) => {
+    if (e.changedTouches.length !== 1) return
+    const dx = Math.abs(e.changedTouches[0].clientX - touchStartX)
+    const dy = Math.abs(e.changedTouches[0].clientY - touchStartY)
+    const dt = Date.now() - touchStartTime
 
-onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeydown)
-})
+    if (dx < TAP_THRESHOLD && dy < TAP_THRESHOLD && dt < TAP_MAX_MS) {
+      e.preventDefault()
+      fireTapAction(touchStartX)
+    }
+  }
+
+  const onMouseDown = (e) => {
+    mouseStartX = e.clientX
+    mouseStartY = e.clientY
+    mouseStartTime = Date.now()
+  }
+
+  const onMouseUp = (e) => {
+    const dx = Math.abs(e.clientX - mouseStartX)
+    const dy = Math.abs(e.clientY - mouseStartY)
+    const dt = Date.now() - mouseStartTime
+
+    if (dx < TAP_THRESHOLD && dy < TAP_THRESHOLD && dt < TAP_MAX_MS) {
+      fireTapAction(mouseStartX)
+    }
+  }
+
+  // =============================================
+  // HINT
+  // =============================================
+  let hintTimer = null
+
+  const showHint = (msg) => {
+    currentHint.value = msg
+    clearTimeout(hintTimer)
+    hintTimer = setTimeout(() => { currentHint.value = '' }, 1600)
+  }
+
+  // =============================================
+  // AUTH
+  // =============================================
+  const checkAuthStatus = () => {
+    try {
+      const token = localStorage.getItem('authToken')
+      const user = localStorage.getItem('authUser')
+      if (token && user) {
+        const userData = JSON.parse(user)
+        isAuthenticated.value = true
+        currentUserId.value = userData.id || userData.userId || ''
+        isAdmin.value = userData.role === 'Admin' || userData.roles?.includes('Admin') || false
+      }
+    } catch {
+      isAuthenticated.value = false
+    }
+  }
+
+  // =============================================
+  // COMPUTED
+  // =============================================
+  const contentStyles = computed(() => ({
+    fontSize: `${fontSize.value}px`,
+    lineHeight: `${lineHeight.value}`,
+    fontFamily: fontFamily.value,
+    maxWidth: `${contentWidth.value}%`,
+  }))
+
+  const formattedContent = computed(() => {
+    if (!chapterData.value?.content) return ''
+    return chapterData.value.content
+      .split(/\n\n+/)
+      .filter(p => p.trim())
+      .map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+      .join('')
+  })
+
+  // =============================================
+  // DATA LOADING
+  // =============================================
+  const loadChapter = async () => {
+    try {
+      loading.value = true
+      error.value = ''
+
+      // titleSlug is "title-name-{id}"; pass it as the "titleName" param —
+      // the backend now resolves both slug and plain-name formats.
+      const result = await titleDetailsService.getChapterByRoute(
+        props.titleSlug,
+        props.chapterName,
+        props.volumeNumber,
+        props.teamId
+      )
+
+      if (result.success && result.data) {
+        chapterData.value = result.data
+        document.title = `${result.data.titleName} - ${result.data.name || `Ch.${result.data.chapterNumber}`}`
+        await loadChaptersList()
+        await updateReadingProgress()
+        window.scrollTo({ top: 0, behavior: 'auto' })
+      } else {
+        error.value = result.error || 'Chapter not found'
+      }
+    } catch (err) {
+      error.value = err.message || 'Failed to load chapter'
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const loadChaptersList = async () => {
+    if (!chapterData.value?.titleId) return
+    try {
+      const result = await titleDetailsService.getChapters(chapterData.value.titleId)
+      if (result.success) chaptersList.value = result.data || []
+    } catch { /* non-critical */ }
+  }
+
+  const updateReadingProgress = async () => {
+    if (!chapterData.value) return
+    try {
+      await chapterService.updateReadingProgress(
+        chapterData.value.titleId,
+        chapterData.value.chapterNumber
+      )
+    } catch { /* non-critical */ }
+  }
+
+  const retryLoad = () => loadChapter()
+
+  // =============================================
+  // NAVIGATION
+  // =============================================
+  const goToTitleDetails = () => {
+    // Build slug from API data (titleName + titleId); both are in ChapterDTO
+    const name = (chapterData.value?.titleName || '').trim()
+    const id = chapterData.value?.titleId
+    const slug = (name && id) ? buildTitleSlug(name, id) : encodeURIComponent(name || 'title')
+    router.push({ path: `/${slug}`, query: { section: 'chapters' } })
+  }
+
+  // Chapter URLs: /{titleSlug}/chapter/{chapterName}/v{vol}/t{teamId}
+  // titleId is the same for all adjacent chapters — reuse chapterData.titleId
+  const buildChapterUrl = (chapterName, volume, teamId) => {
+    const name = (chapterData.value?.titleName || '').trim()
+    const id = chapterData.value?.titleId
+    const slug = (name && id) ? buildTitleSlug(name, id) : encodeURIComponent(name || 'title')
+    return `/${slug}/chapter/${encodeURIComponent(chapterName)}/v${volume}/t${teamId}`
+  }
+
+  const gotoNextChapter = () => {
+    if (!chapterData.value?.nextChapterId) { goToTitleDetails(); return }
+    router.push(buildChapterUrl(
+      chapterData.value.nextChapterName,
+      chapterData.value.nextChapterVolume,
+      chapterData.value.nextChapterTeamId
+    ))
+  }
+
+  const gotoPrevChapter = () => {
+    if (!chapterData.value?.previousChapterId) { goToTitleDetails(); return }
+    router.push(buildChapterUrl(
+      chapterData.value.previousChapterName,
+      chapterData.value.previousChapterVolume,
+      chapterData.value.previousChapterTeamId
+    ))
+  }
+
+  const goToChapter = (chapter) => {
+    router.push(buildChapterUrl(
+      chapter.name || chapter.chapterNumber,
+      chapter.volumeNumber,
+      chapter.teamId
+    ))
+    toggleChapterList()
+  }
+
+  // =============================================
+  // UI
+  // =============================================
+  const toggleUI = () => {
+    uiVisible.value = !uiVisible.value
+    savePref('uiVisible', uiVisible.value)
+  }
+
+  const toggleSettings = () => { showSettings.value = !showSettings.value; showChapterList.value = false }
+  const toggleChapterList = () => { showChapterList.value = !showChapterList.value; showSettings.value = false }
+
+  const handleBackdropClick = (e) => {
+    if (e.target === e.currentTarget) { showSettings.value = false; showChapterList.value = false }
+  }
+
+  const setTheme = (t) => { currentTheme.value = t; savePref('theme', t) }
+  const setFont = (f) => { fontFamily.value = f; savePref('fontFamily', f) }
+
+  const savePref = (key, value) => localStorage.setItem(`novelReader_${key}`, JSON.stringify(value))
+  const loadPref = (key, def) => {
+    try {
+      const v = localStorage.getItem(`novelReader_${key}`)
+      return v !== null ? JSON.parse(v) : def
+    } catch { return def }
+  }
+
+  const loadPreferences = () => {
+    currentTheme.value = loadPref('theme', 'dark')
+    fontSize.value = loadPref('fontSize', 18)
+    lineHeight.value = loadPref('lineHeight', 1.8)
+    contentWidth.value = loadPref('contentWidth', 75)
+    fontFamily.value = loadPref('fontFamily', 'serif')
+    uiVisible.value = loadPref('uiVisible', true)
+    tapZonesEnabled.value = loadPref('tapZonesEnabled', true)
+  }
+
+  // =============================================
+  // KEYBOARD
+  // =============================================
+  const handleKeydown = (e) => {
+    if (showSettings.value || showChapterList.value) {
+      if (e.key === 'Escape') { showSettings.value = false; showChapterList.value = false }
+      return
+    }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); gotoPrevChapter() }
+    if (e.key === 'ArrowRight') { e.preventDefault(); gotoNextChapter() }
+    if (e.key === 'Escape') { e.preventDefault(); toggleUI() }
+  }
+
+  // =============================================
+  // LIFECYCLE
+  // =============================================
+  onMounted(async () => {
+    disableZoom()
+    checkAuthStatus()
+    loadPreferences()
+    await loadChapter()
+    document.addEventListener('keydown', handleKeydown)
+  })
+
+  onUnmounted(() => {
+    restoreZoom()
+    document.removeEventListener('keydown', handleKeydown)
+    clearTimeout(hintTimer)
+  })
 </script>
 
 <style scoped>
-.chapter-container {
-  min-height: 100vh;
-  background-color: var(--color-background);
-  color: var(--color-text);
-}
+  /* =========================================================
+   Base container
+   ========================================================= */
+  .chapter-container {
+    min-height: 100vh;
+    background-color: var(--color-background);
+    color: var(--color-text);
+    /* Prevent rubber-band zoom on iOS while allowing vertical scroll */
+    touch-action: pan-y;
+    overscroll-behavior: none;
+  }
 
-.chapter-container.dark {
-  --reader-bg: #111;
-  --reader-text: #e8e8e8;
-  --reader-navbar: rgba(0,0,0,0.95);
-  --reader-border: #2a2a2a;
-}
-.chapter-container.light {
-  --reader-bg: #fafafa;
-  --reader-text: #1a1a1a;
-  --reader-navbar: rgba(255,255,255,0.95);
-  --reader-border: #ddd;
-}
-.chapter-container.sepia {
-  --reader-bg: #f4ecd8;
-  --reader-text: #3b2f2f;
-  --reader-navbar: rgba(244,236,216,0.95);
-  --reader-border: #c9b99a;
-}
+    .chapter-container.dark {
+      --reader-bg: #111;
+      --reader-text: #e8e8e8;
+      --reader-navbar: rgba(0,0,0,0.95);
+      --reader-border: #2a2a2a;
+    }
 
-/* Navbar */
-.reader-navbar {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  z-index: 1000;
-  background: var(--reader-navbar);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--reader-border);
-  transition: transform 0.3s ease;
-}
-.reader-navbar.hidden { transform: translateY(-100%); }
+    .chapter-container.light {
+      --reader-bg: #fafafa;
+      --reader-text: #1a1a1a;
+      --reader-navbar: rgba(255,255,255,0.95);
+      --reader-border: #ddd;
+    }
 
-.navbar-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  max-width: 1200px;
-  margin: 0 auto;
-  min-height: 60px;
-}
-.navbar-left { display: flex; align-items: center; gap: 1rem; }
-.navbar-right { display: flex; align-items: center; gap: 0.5rem; }
+    .chapter-container.sepia {
+      --reader-bg: #f4ecd8;
+      --reader-text: #3b2f2f;
+      --reader-navbar: rgba(244,236,216,0.95);
+      --reader-border: #c9b99a;
+    }
 
-.back-button {
-  display: flex; align-items: center; gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: transparent;
-  border: 1px solid var(--reader-border);
-  border-radius: 0.375rem;
-  color: var(--reader-text);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.back-button:hover { background: var(--color-background-mute); }
+  /* =========================================================
+   TAP ZONES OVERLAY
+   Fixed, full-screen, sits above content but below popups.
+   Pointer-events only on the overlay itself; the text below
+   is still selectable because the overlay has no background.
+   ========================================================= */
+  .tap-zones-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 500;
+    display: grid;
+    grid-template-columns: 30% 40% 30%;
+    pointer-events: auto;
+    /* Transparent — only catches taps, never blocks visual content */
+    background: transparent;
+  }
 
-.chapter-info { display: flex; flex-direction: column; gap: 0.25rem; }
-.title-name { font-size: 1.1rem; font-weight: 600; cursor: pointer; margin: 0; color: var(--reader-text); }
-.chapter-nav { display: flex; align-items: center; gap: 0.5rem; }
-.chapter-nav-btn {
-  padding: 0.25rem; background: transparent; border: none;
-  color: var(--reader-text); cursor: pointer; border-radius: 0.25rem;
-}
-.chapter-nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.chapter-name { font-size: 0.95rem; font-weight: 500; margin: 0; color: var(--reader-text); }
+  .tap-zone {
+    /* Purely structural; actions fire on the parent overlay */
+    pointer-events: none;
+  }
 
-.icon-btn {
-  padding: 0.5rem;
-  background: transparent;
-  border: 1px solid var(--reader-border);
-  border-radius: 0.375rem;
-  color: var(--reader-text);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.icon-btn:hover { background: var(--color-background-mute); }
+  /* =========================================================
+   Tap hint
+   ========================================================= */
+  .tap-hint {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.75);
+    color: #fff;
+    padding: 0.6rem 1.4rem;
+    border-radius: 2rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    z-index: 1200;
+    pointer-events: none;
+    white-space: nowrap;
+  }
 
-/* States */
-.state-container {
-  display: flex; justify-content: center; align-items: center;
-  min-height: 100vh; padding: 2rem;
-}
-.state-inner {
-  display: flex; flex-direction: column;
-  align-items: center; text-align: center; gap: 0.75rem;
-  max-width: 400px; color: var(--reader-text);
-}
+  .hint-fade-enter-active,
+  .hint-fade-leave-active {
+    transition: opacity 0.25s ease;
+  }
 
-/* Reader body */
-.reader-body {
-  padding-top: 80px;
-  padding-bottom: 4rem;
-  min-height: 100vh;
-  background-color: var(--reader-bg);
-}
-.text-content-wrapper {
-  margin: 0 auto;
-  padding: 2rem 1.5rem;
-  color: var(--reader-text);
-}
+  .hint-fade-enter-from,
+  .hint-fade-leave-to {
+    opacity: 0;
+  }
 
-/* Chapter header */
-.chapter-header { text-align: center; margin-bottom: 1.5rem; }
-.chapter-meta { font-size: 0.85rem; opacity: 0.6; margin: 0 0 0.5rem; }
-.chapter-title-display { font-size: 1.6rem; font-weight: 700; margin: 0 0 0.5rem; }
-.chapter-team { font-size: 0.85rem; opacity: 0.55; margin: 0; }
-.chapter-divider { border: none; border-top: 1px solid var(--reader-border); margin: 1.5rem 0 2rem; }
+  /* =========================================================
+   Navbar
+   ========================================================= */
+  .reader-navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: var(--reader-navbar);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--reader-border);
+    transition: transform 0.3s ease;
+  }
 
-/* Chapter text */
-.chapter-text :deep(p) {
-  margin: 0 0 1.5em;
-  text-indent: 2em;
-}
-.chapter-text :deep(p:first-child) { text-indent: 0; }
+    .reader-navbar.hidden {
+      transform: translateY(-100%);
+    }
 
-.no-content {
-  text-align: center; padding: 4rem 0; opacity: 0.6;
-}
+  .navbar-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    min-height: 60px;
+  }
 
-/* Bottom nav */
-.bottom-nav {
-  display: flex; justify-content: space-between; align-items: center;
-  gap: 1rem; margin: 3rem 0 2rem; flex-wrap: wrap;
-}
-.nav-btn {
-  display: flex; align-items: center; gap: 0.5rem;
-  padding: 0.75rem 1.5rem; border-radius: 0.5rem;
-  font-weight: 500; cursor: pointer; transition: all 0.2s;
-  border: 1px solid var(--reader-border);
-  background: var(--color-background-mute);
-  color: var(--reader-text);
-}
-.nav-btn:hover:not(:disabled) { border-color: var(--color-accent); }
-.nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.back-btn { background: var(--color-accent); color: #fff; border-color: var(--color-accent); }
-.back-btn:hover { background: var(--color-accent-hover); }
+  .navbar-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
 
-/* Comments */
-.comments-section { margin-top: 3rem; border-top: 1px solid var(--reader-border); padding-top: 2rem; }
+  .navbar-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
 
-/* Popups */
-.popup {
-  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
-  z-index: 2000; display: flex; justify-content: center;
-  align-items: center; padding: 1rem;
-}
-.popup__content {
-  background: var(--color-background-soft);
-  border: 1px solid var(--color-border);
-  border-radius: 1rem;
-  max-width: 480px; width: 100%; max-height: 80vh;
-  display: flex; flex-direction: column;
-}
-.popup__content.scrollable { overflow-y: auto; }
-.popup__header {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--color-border);
-}
-.popup__header h3 { margin: 0; font-size: 1.2rem; font-weight: 600; color: var(--color-text); }
-.close-btn { padding: 0.4rem; background: transparent; border: none; color: var(--color-text); cursor: pointer; border-radius: 0.25rem; }
-.close-btn:hover { background: var(--color-background-mute); }
+  .back-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: transparent;
+    border: 1px solid var(--reader-border);
+    border-radius: 0.375rem;
+    color: var(--reader-text);
+    cursor: pointer;
+    transition: all 0.2s;
+    /* Make sure the button itself is above the tap overlay */
+    position: relative;
+    z-index: 1001;
+  }
 
-/* Chapter list */
-.chapter-list { padding: 0; }
-.chapter-item {
-  padding: 0.9rem 1.5rem; cursor: pointer;
-  border-bottom: 1px solid var(--color-border);
-  transition: background 0.15s;
-}
-.chapter-item:hover { background: var(--color-background-mute); }
-.chapter-item.active { background: var(--color-accent); color: #fff; }
-.chapter-item:last-child { border-bottom: none; }
-.chapter-title { font-weight: 500; font-size: 0.9rem; }
-.chapter-team-tag { font-size: 0.8rem; opacity: 0.65; margin-top: 0.2rem; }
+    .back-button:hover {
+      background: var(--color-background-mute);
+    }
 
-/* Settings */
-.settings-content { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; }
-.settings-section { display: flex; flex-direction: column; gap: 0.6rem; }
-.settings-label { font-weight: 500; font-size: 0.9rem; color: var(--color-text); }
-.settings-options { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.opt-btn {
-  padding: 0.45rem 1rem;
-  background: var(--color-background-mute);
-  border: 1px solid var(--color-border);
-  border-radius: 0.4rem; color: var(--color-text);
-  cursor: pointer; font-size: 0.875rem; transition: all 0.2s;
-}
-.opt-btn:hover { border-color: var(--color-accent); }
-.opt-btn.active { background: var(--color-accent); color: #fff; border-color: var(--color-accent); }
-.settings-slider { width: 100%; }
-.slider {
-  width: 100%; height: 4px;
-  background: var(--color-background-mute);
-  border-radius: 2px; outline: none; -webkit-appearance: none;
-}
-.slider::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 16px; height: 16px;
-  background: var(--color-accent); border-radius: 50%; cursor: pointer;
-}
+  .chapter-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
 
-@media (max-width: 768px) {
-  .back-text { display: none; }
-  .text-content-wrapper { max-width: 100% !important; padding: 1rem; }
-  .bottom-nav { flex-direction: column; }
-  .nav-btn { width: 100%; justify-content: center; }
-}
+  .title-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin: 0;
+    color: var(--reader-text);
+    position: relative;
+    z-index: 1001;
+  }
+
+  .chapter-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .chapter-nav-btn {
+    padding: 0.25rem;
+    background: transparent;
+    border: none;
+    color: var(--reader-text);
+    cursor: pointer;
+    border-radius: 0.25rem;
+    position: relative;
+    z-index: 1001;
+  }
+
+    .chapter-nav-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+  .chapter-name {
+    font-size: 0.95rem;
+    font-weight: 500;
+    margin: 0;
+    color: var(--reader-text);
+  }
+
+  .icon-btn {
+    padding: 0.5rem;
+    background: transparent;
+    border: 1px solid var(--reader-border);
+    border-radius: 0.375rem;
+    color: var(--reader-text);
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    z-index: 1001;
+  }
+
+    .icon-btn:hover {
+      background: var(--color-background-mute);
+    }
+
+  /* =========================================================
+   States
+   ========================================================= */
+  .state-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 2rem;
+  }
+
+  .state-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.75rem;
+    max-width: 400px;
+    color: var(--reader-text);
+  }
+
+  /* =========================================================
+   Reader body
+   ========================================================= */
+  .reader-body {
+    padding-top: 80px;
+    padding-bottom: 4rem;
+    min-height: 100vh;
+    background-color: var(--reader-bg);
+    /* Text is above the tap overlay so it stays visible & selectable */
+    position: relative;
+    z-index: 0;
+  }
+
+  .text-content-wrapper {
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+    color: var(--reader-text);
+  }
+
+  /* Chapter header */
+  .chapter-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .chapter-meta {
+    font-size: 0.85rem;
+    opacity: 0.6;
+    margin: 0 0 0.5rem;
+  }
+
+  .chapter-title-display {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem;
+  }
+
+  .chapter-team {
+    font-size: 0.85rem;
+    opacity: 0.55;
+    margin: 0;
+  }
+
+  .chapter-divider {
+    border: none;
+    border-top: 1px solid var(--reader-border);
+    margin: 1.5rem 0 2rem;
+  }
+
+  /* Chapter text — pointer-events: auto ensures text selection still works */
+  .chapter-text {
+    pointer-events: auto;
+    position: relative;
+    z-index: 501; /* above the tap overlay so selection works */
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+    .chapter-text :deep(p) {
+      margin: 0 0 1.5em;
+      text-indent: 2em;
+    }
+
+    .chapter-text :deep(p:first-child) {
+      text-indent: 0;
+    }
+
+  .no-content {
+    text-align: center;
+    padding: 4rem 0;
+    opacity: 0.6;
+  }
+
+  /* Bottom nav — above tap overlay so buttons are always clickable */
+  .bottom-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin: 3rem 0 2rem;
+    flex-wrap: wrap;
+    position: relative;
+    z-index: 501;
+  }
+
+  .nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid var(--reader-border);
+    background: var(--color-background-mute);
+    color: var(--reader-text);
+  }
+
+    .nav-btn:hover:not(:disabled) {
+      border-color: var(--color-accent);
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+  .back-btn {
+    background: var(--color-accent);
+    color: #fff;
+    border-color: var(--color-accent);
+  }
+
+    .back-btn:hover {
+      background: var(--color-accent-hover);
+    }
+
+  /* Comments */
+  .comments-section {
+    margin-top: 3rem;
+    border-top: 1px solid var(--reader-border);
+    padding-top: 2rem;
+    position: relative;
+    z-index: 501;
+  }
+
+  /* =========================================================
+   Popups — always on top
+   ========================================================= */
+  .popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    z-index: 2000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 1rem;
+  }
+
+  .popup__content {
+    background: var(--color-background-soft);
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    max-width: 480px;
+    width: 100%;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+    .popup__content.scrollable {
+      overflow-y: auto;
+    }
+
+  .popup__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+    .popup__header h3 {
+      margin: 0;
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--color-text);
+    }
+
+  .close-btn {
+    padding: 0.4rem;
+    background: transparent;
+    border: none;
+    color: var(--color-text);
+    cursor: pointer;
+    border-radius: 0.25rem;
+  }
+
+    .close-btn:hover {
+      background: var(--color-background-mute);
+    }
+
+  /* Chapter list */
+  .chapter-list {
+    padding: 0;
+  }
+
+  .chapter-item {
+    padding: 0.9rem 1.5rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--color-border);
+    transition: background 0.15s;
+  }
+
+    .chapter-item:hover {
+      background: var(--color-background-mute);
+    }
+
+    .chapter-item.active {
+      background: var(--color-accent);
+      color: #fff;
+    }
+
+    .chapter-item:last-child {
+      border-bottom: none;
+    }
+
+  .chapter-title {
+    font-weight: 500;
+    font-size: 0.9rem;
+  }
+
+  .chapter-team-tag {
+    font-size: 0.8rem;
+    opacity: 0.65;
+    margin-top: 0.2rem;
+  }
+
+  /* Settings */
+  .settings-content {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+    .settings-section.toggle-section {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+  .settings-label {
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: var(--color-text);
+  }
+
+  .settings-options {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .opt-btn {
+    padding: 0.45rem 1rem;
+    background: var(--color-background-mute);
+    border: 1px solid var(--color-border);
+    border-radius: 0.4rem;
+    color: var(--color-text);
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+  }
+
+    .opt-btn:hover {
+      border-color: var(--color-accent);
+    }
+
+    .opt-btn.active {
+      background: var(--color-accent);
+      color: #fff;
+      border-color: var(--color-accent);
+    }
+
+  .settings-slider {
+    width: 100%;
+  }
+
+  .slider {
+    width: 100%;
+    height: 4px;
+    background: var(--color-background-mute);
+    border-radius: 2px;
+    outline: none;
+    -webkit-appearance: none;
+  }
+
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      background: var(--color-accent);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+  /* Toggle switch */
+  .toggle-switch {
+    position: relative;
+    width: 44px;
+    height: 24px;
+  }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-switch label {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--color-background-mute);
+      border: 1px solid var(--color-border);
+      border-radius: 12px;
+      transition: all 0.3s;
+    }
+
+      .toggle-switch label::before {
+        position: absolute;
+        content: "";
+        height: 16px;
+        width: 16px;
+        left: 3px;
+        top: 3px;
+        background: white;
+        border-radius: 50%;
+        transition: all 0.3s;
+      }
+
+    .toggle-switch input:checked + label {
+      background: var(--color-accent);
+      border-color: var(--color-accent);
+    }
+
+      .toggle-switch input:checked + label::before {
+        transform: translateX(20px);
+      }
+
+  /* =========================================================
+   Mobile
+   ========================================================= */
+  @media (max-width: 768px) {
+    .back-text {
+      display: none;
+    }
+
+    .text-content-wrapper {
+      max-width: 100% !important;
+      padding: 1rem;
+    }
+
+    .bottom-nav {
+      flex-direction: column;
+    }
+
+    .nav-btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
 </style>

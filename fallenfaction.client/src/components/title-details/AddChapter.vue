@@ -8,7 +8,7 @@
           <button @click="goBack"
                   class="p-2 rounded-md border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-background-mute)] transition-colors">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
           </button>
           <div>
@@ -74,13 +74,11 @@
               <label class="block text-sm font-medium text-[var(--color-text)]">Chapter Content</label>
               <span class="text-xs text-[var(--color-text)] opacity-60">{{ wordCount }} words</span>
             </div>
-            <textarea
-              v-model="chapterData.content"
-              placeholder="Paste or write the chapter text here. Use blank lines to separate paragraphs."
-              rows="30"
-              required
-              class="w-full px-4 py-3 border border-[var(--color-border)] rounded-md bg-[var(--color-background)] text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-green-500 resize-y font-serif leading-relaxed text-base"
-            ></textarea>
+            <textarea v-model="chapterData.content"
+                      placeholder="Paste or write the chapter text here. Use blank lines to separate paragraphs."
+                      rows="30"
+                      required
+                      class="w-full px-4 py-3 border border-[var(--color-border)] rounded-md bg-[var(--color-background)] text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-green-500 resize-y font-serif leading-relaxed text-base"></textarea>
             <p class="text-xs text-[var(--color-text)] opacity-50">
               Separate paragraphs with a blank line. The text will be formatted automatically for readers.
             </p>
@@ -108,12 +106,12 @@
       <!-- Success toast -->
       <div v-if="successMessage" class="fixed bottom-4 right-4 bg-green-50 border border-green-200 rounded-md p-4 shadow-lg z-50 flex items-start gap-3">
         <svg class="h-5 w-5 text-green-400 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
         </svg>
         <p class="text-sm font-medium text-green-800">{{ successMessage }}</p>
         <button @click="successMessage = ''" class="ml-auto text-green-400 hover:text-green-600">
           <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
           </svg>
         </button>
       </div>
@@ -122,107 +120,108 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { chapterService } from '../../services/chapterService.js'
-import { titleDetailsService } from '../../services/titleDetailsService.js'
+  import { ref, reactive, computed, onMounted } from 'vue'
+  import { useRoute, useRouter } from 'vue-router'
+  import { chapterService } from '../../services/chapterService.js'
+  import { titleDetailsService } from '../../services/titleDetailsService.js'
 
-const route = useRoute()
-const router = useRouter()
+  const route = useRoute()
+  const router = useRouter()
 
-const titleName = ref('')
-const isLoadingForm = ref(true)
-const isSubmitting = ref(false)
-const error = ref('')
-const successMessage = ref('')
+  const titleName = ref('')
+  const isLoadingForm = ref(true)
+  const isSubmitting = ref(false)
+  const error = ref('')
+  const successMessage = ref('')
 
-const chapterData = reactive({
-  titleId: null,
-  volumeNumber: 1,
-  chapterNumber: 1,
-  name: '',
-  teamId: '',
-  content: ''
-})
+  const chapterData = reactive({
+    titleId: null,
+    volumeNumber: 1,
+    chapterNumber: 1,
+    name: '',
+    teamId: '',
+    content: ''
+  })
 
-const userTeams = ref([])
+  const userTeams = ref([])
 
-const wordCount = computed(() => {
-  return chapterData.content.trim()
-    ? chapterData.content.trim().split(/\s+/).length
-    : 0
-})
+  const wordCount = computed(() => {
+    return chapterData.content.trim()
+      ? chapterData.content.trim().split(/\s+/).length
+      : 0
+  })
 
-const loadChapterFormData = async () => {
-  try {
-    isLoadingForm.value = true
-    error.value = ''
+  const loadChapterFormData = async () => {
+    try {
+      isLoadingForm.value = true
+      error.value = ''
 
-    let actualTitleId = null
-    const titleIdParam = route.params.titleId
-    if (titleIdParam && !isNaN(titleIdParam)) {
-      actualTitleId = parseInt(titleIdParam)
-    } else {
-      const titleNameParam = route.params.titleName
-      if (titleNameParam) {
-        const titleResult = await titleDetailsService.getTitleDetails(titleNameParam)
-        if (titleResult.success && titleResult.data) {
-          actualTitleId = titleResult.data.id
-          titleName.value = titleResult.data.originalTitle
-        } else {
-          throw new Error(`Title "${titleNameParam}" not found.`)
+      let actualTitleId = null
+      const titleIdParam = route.params.titleId
+      if (titleIdParam && !isNaN(titleIdParam)) {
+        actualTitleId = parseInt(titleIdParam)
+      } else {
+        // titleSlug is "title-name-{id}" from the new router
+        const titleSlugParam = route.params.titleSlug || route.params.titleName
+        if (titleSlugParam) {
+          const titleResult = await titleDetailsService.getTitleDetails(titleSlugParam)
+          if (titleResult.success && titleResult.data) {
+            actualTitleId = titleResult.data.id
+            titleName.value = titleResult.data.originalTitle
+          } else {
+            throw new Error(`Title not found.`)
+          }
         }
       }
-    }
 
-    if (!actualTitleId) throw new Error('Title not found. Please access this page from a valid title.')
+      if (!actualTitleId) throw new Error('Title not found. Please access this page from a valid title.')
 
-    const result = await chapterService.getChapterFormData(actualTitleId)
-    if (result.success && result.data) {
-      if (!result.data.hasPermission) {
-        throw new Error('You do not have permission to add chapters to this title.')
+      const result = await chapterService.getChapterFormData(actualTitleId)
+      if (result.success && result.data) {
+        if (!result.data.hasPermission) {
+          throw new Error('You do not have permission to add chapters to this title.')
+        }
+        chapterData.titleId = actualTitleId
+        chapterData.volumeNumber = result.data.suggestedVolumeNumber
+        chapterData.chapterNumber = result.data.suggestedChapterNumber
+        titleName.value = result.data.titleName || titleName.value
+        userTeams.value = result.data.userTeams
+        if (userTeams.value.length === 1) chapterData.teamId = userTeams.value[0].id
+      } else {
+        throw new Error(result.error || 'Failed to load chapter form data')
       }
-      chapterData.titleId = actualTitleId
-      chapterData.volumeNumber = result.data.suggestedVolumeNumber
-      chapterData.chapterNumber = result.data.suggestedChapterNumber
-      titleName.value = result.data.titleName || titleName.value
-      userTeams.value = result.data.userTeams
-      if (userTeams.value.length === 1) chapterData.teamId = userTeams.value[0].id
-    } else {
-      throw new Error(result.error || 'Failed to load chapter form data')
+    } catch (err) {
+      error.value = err.message
+    } finally {
+      isLoadingForm.value = false
     }
-  } catch (err) {
-    error.value = err.message
-  } finally {
-    isLoadingForm.value = false
   }
-}
 
-const submitChapter = async () => {
-  if (!chapterData.content.trim()) { alert('Please enter chapter content.'); return }
-  if (!chapterData.teamId) { alert('Please select a team.'); return }
+  const submitChapter = async () => {
+    if (!chapterData.content.trim()) { alert('Please enter chapter content.'); return }
+    if (!chapterData.teamId) { alert('Please select a team.'); return }
 
-  try {
-    isSubmitting.value = true
-    const result = await chapterService.createChapter(chapterData.titleId, chapterData)
+    try {
+      isSubmitting.value = true
+      const result = await chapterService.createChapter(chapterData.titleId, chapterData)
 
-    if (result.success) {
-      successMessage.value = result.message || 'Chapter submitted for review.'
-      chapterData.name = ''
-      chapterData.chapterNumber = chapterData.chapterNumber + 1
-      chapterData.content = ''
-      setTimeout(() => router.push('/user/chapters'), 2000)
-    } else {
-      error.value = result.error
+      if (result.success) {
+        successMessage.value = result.message || 'Chapter submitted for review.'
+        chapterData.name = ''
+        chapterData.chapterNumber = chapterData.chapterNumber + 1
+        chapterData.content = ''
+        setTimeout(() => router.push('/user/chapters'), 2000)
+      } else {
+        error.value = result.error
+      }
+    } catch (err) {
+      error.value = err.message || 'Failed to submit chapter'
+    } finally {
+      isSubmitting.value = false
     }
-  } catch (err) {
-    error.value = err.message || 'Failed to submit chapter'
-  } finally {
-    isSubmitting.value = false
   }
-}
 
-const goBack = () => router.back()
+  const goBack = () => router.back()
 
-onMounted(loadChapterFormData)
+  onMounted(loadChapterFormData)
 </script>
