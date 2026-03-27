@@ -1,4 +1,3 @@
-﻿// Updated CommentService.cs to handle soft deletes and use your Title model
 using FallenFaction.Server.Data;
 using FallenFaction.Server.Data.Models;
 using FallenFaction.Server.DTOs.Comment;
@@ -20,10 +19,9 @@ public class CommentService : ICommentService
 
     public async Task<CommentStatsDto> GetCommentStatsAsync(int targetId, int targetType)
     {
-        if (targetType < 1 || targetType > 3)
-            throw new ArgumentException("Invalid target type");
+        if (targetType < 1 || targetType > 2)
+            throw new ArgumentException("Invalid target type. Must be 1 (Title) or 2 (Chapter).");
 
-        // Check if comments are enabled for the target
         bool commentsEnabled = await CheckCommentsEnabled(targetId, targetType);
 
         IQueryable<Comment> query = _context.Comments.AsQueryable();
@@ -35,9 +33,6 @@ public class CommentService : ICommentService
                 break;
             case 2: // Chapter
                 query = query.Where(c => c.ChapterId == targetId && !c.IsDeleted);
-                break;
-            case 3: // ChapterImage
-                query = query.Where(c => c.ChapterImageId == targetId && !c.IsDeleted);
                 break;
         }
 
@@ -79,25 +74,16 @@ public class CommentService : ICommentService
     {
         switch (targetType)
         {
-            case 1: // Title comments
+            case 1:
                 var title = await _context.Titles.FirstOrDefaultAsync(t => t.Id == targetId);
-                return title?.AreCommentsEnabled ?? true; // Default to enabled if title not found
-
-            case 2: // Chapter comments
+                return title?.AreCommentsEnabled ?? true;
+            case 2:
                 var chapter = await _context.Chapters
                     .Include(c => c.Title)
                     .FirstOrDefaultAsync(c => c.Id == targetId);
-                return chapter?.Title?.AreChapterCommentsEnabled ?? true; // Default to enabled
-
-            case 3: // ChapterImage comments
-                var chapterImage = await _context.ChapterImages
-                    .Include(ci => ci.Chapter)
-                    .ThenInclude(c => c.Title)
-                    .FirstOrDefaultAsync(ci => ci.Id == targetId);
-                return chapterImage?.Chapter?.Title?.AreChapterCommentsEnabled ?? true; // Default to enabled
-
+                return chapter?.Title?.AreChapterCommentsEnabled ?? true;
             default:
-                return false; // Invalid target type
+                return false;
         }
     }
 }

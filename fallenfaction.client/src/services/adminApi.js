@@ -210,7 +210,7 @@ const adminApi = {
       formData.append('areChapterCommentsEnabled', updateData.areChapterCommentsEnabled !== undefined ? updateData.areChapterCommentsEnabled : true);
 
       // Add array fields (many-to-many relationships)
-      const arrayFields = ['authors', 'artists', 'publishers', 'teams', 'categories', 'tags', 'formats'];
+      const arrayFields = ['authors', 'publishers', 'teams', 'categories', 'tags', 'formats'];
 
       arrayFields.forEach(field => {
         if (updateData[field] && Array.isArray(updateData[field])) {

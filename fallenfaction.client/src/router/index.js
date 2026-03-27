@@ -7,8 +7,7 @@ import Login from '../identity/auth/Login.vue';
 import Register from '../identity/auth/Register.vue';
 import Profile from '../identity/profile/Profile.vue';
 import { useAuthStore } from '../stores/authStore';
-import AddTitle from '../components/manga/AddTitle.vue';
-import AdminTitleManagement from '../components/admin/AdminTitleManagement.vue';
+import AddTitle from '../components/manga/AddTitle.vue'; import AdminTitleManagement from '../components/admin/AdminTitleManagement.vue';
 import TitleManagement from '../components/admin/TitleManagement.vue';
 import AdminChapterManagement from '../components/admin/AdminChapterManagement.vue';
 
@@ -30,10 +29,7 @@ import AddPublisher from '../components/publisher/AddPublisher.vue';
 import PublisherList from '../components/publisher/PublisherList.vue';
 import AdminPublisherManagement from '../components/admin/AdminPublisherManagement.vue';
 
-// Artist Components
-import AddArtist from '../components/artist/AddArtist.vue';
-import ArtistList from '../components/artist/ArtistList.vue';
-import AdminArtistManagement from '../components/admin/AdminArtistManagement.vue';
+
 
 import AdminUserManagement from '../components/admin/AdminUserManagement.vue';
 import AdminTeamManagement from '../components/admin/AdminTeamManagement.vue';
@@ -109,19 +105,19 @@ const routes = [
       title: 'Profile'
     }
   },
-{
-  path: '/title/:titleId/change-history',
-  name: 'TitleChangeHistory',
-  component: TitleChangeHistory,
-  props: route => ({
-    titleId: parseInt(route.params.titleId)
-    // Remove titleName from props - it will be loaded from the API
-  }),
-  meta: {
-    requiresAuth: true,
-    title: 'Change History'
-  }
-},
+  {
+    path: '/title/:titleId/change-history',
+    name: 'TitleChangeHistory',
+    component: TitleChangeHistory,
+    props: route => ({
+      titleId: parseInt(route.params.titleId)
+      // Remove titleName from props - it will be loaded from the API
+    }),
+    meta: {
+      requiresAuth: true,
+      title: 'Change History'
+    }
+  },
 
   // === CONTENT MANAGEMENT ROUTES ===
   // Main content management dashboard
@@ -200,7 +196,7 @@ const routes = [
 
   // === TITLE AND CHAPTER ROUTES ===
   {
-    path: '/manga/addtitle',
+    path: '/novel/addtitle',
     name: 'Add Title',
     component: AddTitle,
     meta: {
@@ -283,7 +279,7 @@ const routes = [
   },
   // User creation routes (authenticated users, not admin-only)
   {
-    path: '/author/createa',
+    path: '/author/CreateA',
     name: 'Create Author',
     component: AddAuthor,
     meta: {
@@ -326,24 +322,6 @@ const routes = [
 
   // === ARTIST ROUTES ===
   // Public viewing
-  {
-    path: '/artists',
-    name: 'Artists',
-    component: ArtistList,
-    meta: {
-      title: 'Artists'
-    }
-  },
-  // User creation route (authenticated users, not admin-only)
-  {
-    path: '/artist/create',
-    name: 'Create Artist',
-    component: AddArtist,
-    meta: {
-      requiresAuth: true,
-      title: 'Create Artist'
-    }
-  },
 
 
   {
@@ -392,17 +370,6 @@ const routes = [
       requiresAuth: true,
       requiresAdmin: true,
       title: 'Admin - Publisher Management'
-    }
-  },
-  // Admin artist management
-  {
-    path: '/admin/artists',
-    name: 'Admin Artist Management',
-    component: AdminArtistManagement,
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: true,
-      title: 'Admin - Artist Management'
     }
   },
   {
@@ -535,7 +502,7 @@ const routes = [
       const titleName = decodeURIComponent(to.params.titleName);
 
       // Basic validation - reject if it looks like a system route
-      const systemRoutes = ['api', 'admin', 'account', 'user', 'team', 'manga', 'author', 'artist', 'publisher', 'error'];
+      const systemRoutes = ['api', 'admin', 'account', 'user', 'team', 'novel', 'author', 'publisher', 'error'];
       const firstSegment = titleName.split('/')[0].toLowerCase();
 
       if (systemRoutes.includes(firstSegment)) {

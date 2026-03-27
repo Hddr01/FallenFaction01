@@ -134,14 +134,6 @@
                          create-new-url="/author/CreateA"
                          create-new-text="Create New Author" />
 
-            <!-- Artists -->
-            <MultiSelect :options="artists"
-                         v-model="formData.artists"
-                         placeholder="Select artists"
-                         label="Artists"
-                         create-new-url="/people/Create"
-                         create-new-text="Create New Artist" />
-
             <!-- Publishers -->
             <MultiSelect :options="publishers"
                          v-model="formData.publishers"
@@ -331,7 +323,6 @@
     type: '1',
     releaseDate: '',
     authors: [],
-    artists: [],
     publishers: [],
     teams: [],
     categories: [],
@@ -464,7 +455,6 @@
         console.log('Form data loaded successfully:', data)
 
         authors.value = data.Authors || data.authors || []
-        artists.value = data.Artists || data.artists || []
         publishers.value = data.Publishers || data.publishers || []
         teams.value = data.Teams || data.teams || []
         categories.value = data.Categories || data.categories || []
@@ -473,7 +463,6 @@
 
         console.log('Data assigned:', {
           authors: authors.value.length,
-          artists: artists.value.length,
           publishers: publishers.value.length,
           teams: teams.value.length,
           categories: categories.value.length,

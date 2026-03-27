@@ -27,7 +27,7 @@ namespace FallenFaction.Server.Data
         public DbSet<CommentReaction> CommentReactions { get; set; }
         public DbSet<PendingChapter> PendingChapters { get; set; }
         public DbSet<RejectedChapter> RejectedChapters { get; set; }
-        public DbSet<ChapterImage> ChapterImages { get; set; }
+
         public DbSet<TitleChangeLog> TitleChangeLogs { get; set; }
         public DbSet<ApprovedTitleChange> ApprovedTitleChanges { get; set; }
         public DbSet<RejectedTitleChange> RejectedTitleChanges { get; set; }
@@ -231,24 +231,6 @@ namespace FallenFaction.Server.Data
                 .HasForeignKey(rc => rc.TeamId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // ChapterImage relationships
-            builder.Entity<ChapterImage>()
-                .HasOne(ci => ci.Chapter)
-                .WithMany(c => c.ImagePaths)
-                .HasForeignKey(ci => ci.ChapterId)
-                .OnDelete(DeleteBehavior.NoAction);
-
-            builder.Entity<ChapterImage>()
-                .HasOne(ci => ci.PendingChapter)
-                .WithMany(pc => pc.ImagePaths)
-                .HasForeignKey(ci => ci.PendingChapterId)
-                .OnDelete(DeleteBehavior.NoAction);
-
-            builder.Entity<ChapterImage>()
-                .HasOne(ci => ci.RejectedChapter)
-                .WithMany(rc => rc.ImagePaths)
-                .HasForeignKey(ci => ci.RejectedChapterId)
-                .OnDelete(DeleteBehavior.NoAction);
 
             // TitleChangeLog relationships
             builder.Entity<TitleChangeLog>()
@@ -448,11 +430,6 @@ namespace FallenFaction.Server.Data
                       .OnDelete(DeleteBehavior.NoAction)
                       .IsRequired(false);
 
-                entity.HasOne(c => c.ChapterImage)
-                      .WithMany()
-                      .HasForeignKey(c => c.ChapterImageId)
-                      .OnDelete(DeleteBehavior.NoAction)
-                      .IsRequired(false);
 
                 entity.HasOne(c => c.ParentComment)
                       .WithMany(c => c.Replies)

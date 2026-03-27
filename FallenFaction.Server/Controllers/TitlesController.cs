@@ -108,7 +108,7 @@ namespace FallenFaction.Server.Controllers
         /// </summary>
         [HttpPost("{titleId:int}/chapters")]
         [Authorize]
-        public async Task<ActionResult> CreateChapter(int titleId, [FromForm] CreateChapterRequest request, [FromForm] List<IFormFile> chapterImages)
+        public async Task<ActionResult> CreateChapter(int titleId, [FromBody] CreateChapterRequest request)
         {
             try
             {
@@ -141,15 +141,10 @@ namespace FallenFaction.Server.Controllers
                     return BadRequest(new { message = "Selected team is not associated with this title" });
                 }
 
-                // Validate chapter images
-                if (chapterImages == null || !chapterImages.Any())
+                // Validate chapter content
+                if (string.IsNullOrWhiteSpace(request.Content))
                 {
-                    return BadRequest(new { message = "At least one chapter image is required" });
-                }
-
-                if (request.ImageOrders?.Length != chapterImages.Count)
-                {
-                    return BadRequest(new { message = "Each image must have an order number" });
+                    return BadRequest(new { message = "Chapter content cannot be empty" });
                 }
 
                 // Create pending chapter
@@ -162,18 +157,11 @@ namespace FallenFaction.Server.Controllers
                     TeamId = request.TeamId,
                     UpdatedByUserId = user.Id,
                     CreatedAt = DateTime.UtcNow,
-                    CreatedDate = DateTime.UtcNow
+                    CreatedDate = DateTime.UtcNow,
+                    Content = request.Content
                 };
 
                 _context.PendingChapters.Add(pendingChapter);
-                await _context.SaveChangesAsync();
-
-                // Handle image uploads
-                var savedImages = await SaveChapterImages(chapterImages, request.ImageOrders, pendingChapter.Id, isPending: true);
-
-                // Update pending chapter with images
-                pendingChapter.ImagePaths = savedImages;
-                _context.PendingChapters.Update(pendingChapter);
                 await _context.SaveChangesAsync();
 
                 var team = await _context.Teams.FindAsync(request.TeamId);
@@ -186,7 +174,7 @@ namespace FallenFaction.Server.Controllers
                     TitleName = title.OriginalTitle,
                     TeamName = team?.Name,
                     CreatedDate = pendingChapter.CreatedDate,
-                    ImageCount = savedImages.Count
+                    WordCount = request.Content.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length
                 };
 
                 _logger.LogInformation("Chapter created by user {UserName} for title {TitleName}, team {TeamName}",
@@ -287,7 +275,6 @@ namespace FallenFaction.Server.Controllers
                     .Include(c => c.Title)
                     .Include(c => c.Team)
                     .Include(c => c.UpdatedByUser)
-                    .Include(c => c.ImagePaths)
                     .OrderByDescending(c => c.CreatedDate)
                     .Select(c => new
                     {
@@ -299,7 +286,7 @@ namespace FallenFaction.Server.Controllers
                         TeamName = c.Team.Name,
                         CreatedDate = c.CreatedDate,
                         UpdatedByUserName = c.UpdatedByUser.UserName,
-                        ImageCount = c.ImagePaths.Count
+                        WordCount = c.Content != null ? c.Content.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length : 0
                     })
                     .ToListAsync();
 
@@ -326,7 +313,6 @@ namespace FallenFaction.Server.Controllers
                     .Include(c => c.Title)
                     .Include(c => c.Team)
                     .Include(c => c.UpdatedByUser)
-                    .Include(c => c.ImagePaths)
                     .FirstOrDefaultAsync(c => c.Id == id);
 
                 if (pendingChapter == null)
@@ -347,16 +333,7 @@ namespace FallenFaction.Server.Controllers
                     CreatedDate = pendingChapter.CreatedDate,
                     UpdatedByUserId = pendingChapter.UpdatedByUserId,
                     UpdatedByUserName = pendingChapter.UpdatedByUser.UserName,
-                    Images = pendingChapter.ImagePaths
-                        .OrderBy(i => i.OrderIndex)
-                        .Select(i => new ChapterImageDTO
-                        {
-                            Id = i.Id,
-                            ImagePath = i.ImagePath,
-                            OrderIndex = i.OrderIndex,
-                            ChapterId = i.ChapterId
-                        })
-                        .ToList()
+                    Content = pendingChapter.Content
                 };
 
                 return Ok(result);
@@ -385,7 +362,7 @@ namespace FallenFaction.Server.Controllers
                 }
 
                 var pendingChapter = await _context.PendingChapters
-                    .Include(pc => pc.ImagePaths)
+                    
                     .Include(pc => pc.Title)
                     .Include(pc => pc.Team)
                     .FirstOrDefaultAsync(pc => pc.Id == id);
@@ -425,19 +402,11 @@ namespace FallenFaction.Server.Controllers
                         CreatedDate = DateTime.UtcNow,
                         ReleaseDate = DateTime.UtcNow,
                         UpdatedByUserId = user.Id,
-                        ImagePaths = new List<ChapterImage>()
+                        Content = pendingChapter.Content
                     };
 
                     _context.Chapters.Add(chapter);
                     await _context.SaveChangesAsync(); // Save to get the ID
-
-                    // Transfer images from pending to approved chapter
-                    foreach (var image in pendingChapter.ImagePaths)
-                    {
-                        image.PendingChapterId = null;
-                        image.ChapterId = chapter.Id;
-                        chapter.ImagePaths.Add(image);
-                    }
 
                     // Remove the pending chapter
                     _context.PendingChapters.Remove(pendingChapter);
@@ -449,7 +418,6 @@ namespace FallenFaction.Server.Controllers
                     var fullChapter = await _context.Chapters
                         .Include(c => c.Title)
                         .Include(c => c.Team)
-                        .Include(c => c.ImagePaths)
                         .FirstOrDefaultAsync(c => c.Id == chapter.Id);
 
                     var result = ChapterMapper.ToDTO(fullChapter);
@@ -489,7 +457,7 @@ namespace FallenFaction.Server.Controllers
                 }
 
                 var pendingChapter = await _context.PendingChapters
-                    .Include(pc => pc.ImagePaths)
+                    
                     .FirstOrDefaultAsync(pc => pc.Id == id);
 
                 if (pendingChapter == null)
@@ -511,19 +479,11 @@ namespace FallenFaction.Server.Controllers
                         TeamId = pendingChapter.TeamId,
                         CreatedDate = DateTime.UtcNow,
                         UpdatedByUserId = user.Id,
-                        ImagePaths = new List<ChapterImage>()
+                        Content = pendingChapter.Content
                     };
 
                     _context.RejectedChapters.Add(rejectedChapter);
                     await _context.SaveChangesAsync(); // Save to get the ID
-
-                    // Transfer images from pending to rejected chapter
-                    foreach (var image in pendingChapter.ImagePaths)
-                    {
-                        image.PendingChapterId = null;
-                        image.RejectedChapterId = rejectedChapter.Id;
-                        rejectedChapter.ImagePaths.Add(image);
-                    }
 
                     // Remove the pending chapter
                     _context.PendingChapters.Remove(pendingChapter);
@@ -563,7 +523,7 @@ namespace FallenFaction.Server.Controllers
                 var query = _context.Chapters
                     .Include(c => c.Title)
                     .Include(c => c.Team)
-                    .Include(c => c.ImagePaths)
+                    
                     .Where(c => c.TitleId == titleId && c.ChapterNumber == chapterNumber);
 
                 if (volumeNumber.HasValue)
@@ -628,7 +588,7 @@ namespace FallenFaction.Server.Controllers
                 var chapters = await _context.Chapters
                     .Include(c => c.Team)
                     .Include(c => c.Title)
-                    .Include(c => c.ImagePaths)
+                    
                     .Where(c => c.TitleId == titleId)
                     .OrderByDescending(c => c.VolumeNumber)
                     .ThenByDescending(c => c.ChapterNumber)
@@ -660,7 +620,7 @@ namespace FallenFaction.Server.Controllers
                 var chapter = await _context.Chapters
                     .Include(c => c.Title)
                     .Include(c => c.Team)
-                    .Include(c => c.ImagePaths)
+                    
                     .FirstOrDefaultAsync(c => c.Title.OriginalTitle == decodedTitleName &&
                                             c.Name == chapterName &&
                                             c.VolumeNumber == volume &&
@@ -702,66 +662,23 @@ namespace FallenFaction.Server.Controllers
 
         #region Helper Methods
 
-        private async Task<List<ChapterImage>> SaveChapterImages(List<IFormFile> images, int[] orders, int chapterId, bool isPending = false)
-        {
-            var uploads = Path.Combine(_hostingEnvironment.WebRootPath, "uploads", "chapters");
-            Directory.CreateDirectory(uploads);
-
-            var savedImages = new List<ChapterImage>();
-
-            for (int i = 0; i < images.Count; i++)
-            {
-                var image = images[i];
-                var order = orders[i];
-
-                if (image.Length > 0)
-                {
-                    var extension = Path.GetExtension(image.FileName);
-                    var fileName = $"{chapterId}-{order}{extension}";
-                    var filePath = Path.Combine(uploads, fileName);
-
-                    using (var fileStream = new FileStream(filePath, FileMode.Create))
-                    {
-                        await image.CopyToAsync(fileStream);
-                    }
-
-                    var chapterImage = new ChapterImage
-                    {
-                        ImagePath = $"/uploads/chapters/{fileName}",
-                        OrderIndex = order,
-                        PendingChapterId = isPending ? chapterId : null,
-                        ChapterId = isPending ? null : chapterId
-                    };
-
-                    savedImages.Add(chapterImage);
-                }
-            }
-
-            return savedImages;
-        }
-
-        // Helper method to add adjacent chapter information (from old controller)
+        // Helper method to add adjacent chapter information
         private async Task EnrichWithAdjacentChapters(ChapterDTO chapterDto)
         {
-            // Get title information to find adjacent chapters
             var title = await _context.Titles
                 .Include(t => t.Chapters)
-                .ThenInclude(c => c.ImagePaths)  // Include image paths to get page count
                 .FirstOrDefaultAsync(t => t.Id == chapterDto.TitleId);
 
             if (title == null) return;
 
-            // Get ordered list of chapters for this title
             var orderedChapters = title.Chapters
                 .OrderBy(c => c.VolumeNumber)
                 .ThenBy(c => c.ChapterNumber)
                 .ToList();
 
-            // Find current chapter's index
             int currentIndex = orderedChapters.FindIndex(c => c.Id == chapterDto.Id);
             if (currentIndex == -1) return;
 
-            // Get next chapter
             if (currentIndex < orderedChapters.Count - 1)
             {
                 var nextChapter = orderedChapters[currentIndex + 1];
@@ -771,7 +688,6 @@ namespace FallenFaction.Server.Controllers
                 chapterDto.NextChapterTeamId = nextChapter.TeamId;
             }
 
-            // Get previous chapter
             if (currentIndex > 0)
             {
                 var prevChapter = orderedChapters[currentIndex - 1];
@@ -779,9 +695,6 @@ namespace FallenFaction.Server.Controllers
                 chapterDto.PreviousChapterName = prevChapter.Name;
                 chapterDto.PreviousChapterVolume = prevChapter.VolumeNumber;
                 chapterDto.PreviousChapterTeamId = prevChapter.TeamId;
-
-                // Get the page count of the previous chapter
-                chapterDto.PreviousChapterPageCount = prevChapter.ImagePaths?.Count ?? 0;
             }
         }
 
@@ -828,7 +741,7 @@ namespace FallenFaction.Server.Controllers
             public int VolumeNumber { get; set; }
             public int ChapterNumber { get; set; }
             public int TeamId { get; set; }
-            public int[]? ImageOrders { get; set; }
+            public string Content { get; set; } = string.Empty;
         }
 
         public class RejectChapterRequest

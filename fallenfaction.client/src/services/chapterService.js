@@ -112,34 +112,20 @@ export const chapterService = {
    * Create a new chapter (submitted for review)
    * @param {number} titleId - The title ID
    * @param {Object} chapterData - Chapter information
-   * @param {Array} images - Array of image files with order
    * @returns {Object} - Result of chapter creation
    */
-  async createChapter(titleId, chapterData, images) {
+  async createChapter(titleId, chapterData) {
     try {
-      if (!images || images.length === 0) {
-        throw new Error('At least one chapter image is required');
+      if (!chapterData.content || !chapterData.content.trim()) {
+        throw new Error('Chapter content cannot be empty');
       }
 
-      const formData = new FormData();
-
-      // Add chapter metadata
-      formData.append('titleId', titleId);
-      formData.append('volumeNumber', chapterData.volumeNumber);
-      formData.append('chapterNumber', chapterData.chapterNumber);
-      formData.append('name', chapterData.name || '');
-      formData.append('teamId', chapterData.teamId);
-
-      // Add images in the correct order
-      images.forEach((image, index) => {
-        formData.append('chapterImages', image.file);
-        formData.append('imageOrders', index + 1);
-      });
-
-      const response = await api.post(`/Titles/${titleId}/chapters`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+      const response = await api.post(`/Titles/${titleId}/chapters`, {
+        volumeNumber: chapterData.volumeNumber,
+        chapterNumber: chapterData.chapterNumber,
+        name: chapterData.name || '',
+        teamId: chapterData.teamId,
+        content: chapterData.content
       });
 
       return {
@@ -153,7 +139,7 @@ export const chapterService = {
           titleName: response.data.titleName,
           teamName: response.data.teamName,
           createdDate: response.data.createdDate,
-          imageCount: response.data.imageCount
+          wordCount: response.data.wordCount
         }
       };
     } catch (error) {
@@ -556,54 +542,4 @@ export const chapterService = {
     }
   },
 
-  /**
-   * Get image URL helper
-   * @param {string} imagePath - The image path
-   * @returns {string} - Full image URL
-   */
-  getImageUrl(imagePath) {
-    if (!imagePath) {
-      return '/img/default-chapter.png';
-    }
-
-    // Check if the path is already a full URL
-    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-      return imagePath;
-    }
-
-    // Get base URL from environment or default
-    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') ?? '';
-
-    // Ensure the path starts with /
-    const fullUrl = imagePath.startsWith('/')
-      ? `${baseUrl}${imagePath}`
-      : `${baseUrl}/${imagePath}`;
-
-    return fullUrl;
-  },
-
-  /**
-   * Preload chapter images for better user experience
-   * @param {Array} imagePaths - Array of image paths to preload
-   * @returns {Promise} - Promise that resolves when images are preloaded
-   */
-  async preloadImages(imagePaths) {
-    if (!imagePaths || imagePaths.length === 0) return;
-
-    const promises = imagePaths.slice(0, 5).map(imagePath => { // Only preload first 5 images
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = resolve;
-        img.onerror = resolve; // Resolve even on error to not block
-        img.src = this.getImageUrl(imagePath.imagePath || imagePath);
-      });
-    });
-
-    try {
-      await Promise.all(promises);
-      console.log('Chapter images preloaded successfully');
-    } catch (error) {
-      console.warn('Some images failed to preload:', error);
-    }
-  }
 };

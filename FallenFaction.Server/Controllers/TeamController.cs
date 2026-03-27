@@ -54,6 +54,31 @@ namespace FallenFaction.Server.Controllers
             return Ok(teams);
         }
 
+        // GET: api/team/TopTeams
+        [HttpGet("TopTeams")]
+        [AllowAnonymous]
+        public async Task<ActionResult<IEnumerable<TeamTopDto>>> GetTopTeams([FromQuery] int count = 10)
+        {
+            var teams = await _context.Teams
+                .Include(t => t.UserTeamRoles)
+                .Include(t => t.Titles)
+                    .ThenInclude(title => title.Chapters)
+                .OrderByDescending(t => t.Titles.Count)
+                .Take(count)
+                .Select(t => new TeamTopDto
+                {
+                    Id = t.Id,
+                    Name = t.Name,
+                    Avatar = t.AvatarImagePath ?? string.Empty,
+                    Level = t.UserTeamRoles.Count,
+                    Progress = t.Titles.Count,
+                    Score = t.Titles.SelectMany(title => title.Chapters).Count().ToString()
+                })
+                .ToListAsync();
+
+            return Ok(teams);
+        }
+
         // GET: api/team/{id}
         [HttpGet("{id}")]
         public async Task<ActionResult<object>> GetTeamById(int id)

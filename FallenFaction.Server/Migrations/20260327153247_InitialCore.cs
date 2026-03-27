@@ -32,6 +32,9 @@ namespace FallenFaction.Server.Migrations
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    FirstName = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    LastName = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    BannerImagePath = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     IsBannedFromComments = table.Column<bool>(type: "bit", nullable: false),
                     LastActive = table.Column<DateTime>(type: "datetime2", nullable: false),
                     IsOnline = table.Column<bool>(type: "bit", nullable: false),
@@ -432,6 +435,8 @@ namespace FallenFaction.Server.Migrations
                     Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     Description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
                     CreatorId = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    AvatarImagePath = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
+                    BackgroundImagePath = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
                     CreatedDate = table.Column<DateTime>(type: "datetime2", nullable: false),
                     RejectedTitleId = table.Column<int>(type: "int", nullable: true)
                 },
@@ -494,6 +499,7 @@ namespace FallenFaction.Server.Migrations
                     UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     AddedDate = table.Column<DateTime>(type: "datetime2", nullable: false),
                     LastReadChapter = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     LastReadDate = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
@@ -571,6 +577,34 @@ namespace FallenFaction.Server.Migrations
                         principalColumn: "Id");
                     table.ForeignKey(
                         name: "FK_Ratings_Titles_TitleId",
+                        column: x => x.TitleId,
+                        principalTable: "Titles",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ReadingProgress",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    TitleId = table.Column<int>(type: "int", nullable: false),
+                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    LastReadChapter = table.Column<int>(type: "int", nullable: false),
+                    LastReadDate = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ReadingProgress", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ReadingProgress_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ReadingProgress_Titles_TitleId",
                         column: x => x.TitleId,
                         principalTable: "Titles",
                         principalColumn: "Id",
@@ -980,7 +1014,8 @@ namespace FallenFaction.Server.Migrations
                     CreatedDate = table.Column<DateTime>(type: "datetime2", nullable: false),
                     ReleaseDate = table.Column<DateTime>(type: "datetime2", nullable: false),
                     LastUpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    UpdatedByUserId = table.Column<string>(type: "nvarchar(450)", nullable: false)
+                    UpdatedByUserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    Content = table.Column<string>(type: "nvarchar(max)", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -1011,6 +1046,7 @@ namespace FallenFaction.Server.Migrations
                     Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     VolumeNumber = table.Column<int>(type: "int", nullable: false),
                     ChapterNumber = table.Column<int>(type: "int", nullable: false),
+                    Content = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     CreatedDate = table.Column<DateTime>(type: "datetime2", nullable: false),
                     TitleId = table.Column<int>(type: "int", nullable: false),
                     TeamId = table.Column<int>(type: "int", nullable: false),
@@ -1072,6 +1108,7 @@ namespace FallenFaction.Server.Migrations
                     Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     VolumeNumber = table.Column<int>(type: "int", nullable: false),
                     ChapterNumber = table.Column<int>(type: "int", nullable: false),
+                    Content = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     CreatedDate = table.Column<DateTime>(type: "datetime2", nullable: false),
                     TitleId = table.Column<int>(type: "int", nullable: false),
                     TeamId = table.Column<int>(type: "int", nullable: false),
@@ -1130,7 +1167,8 @@ namespace FallenFaction.Server.Migrations
                 {
                     AppUserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     TeamId = table.Column<int>(type: "int", nullable: false),
-                    Role = table.Column<int>(type: "int", nullable: false)
+                    Role = table.Column<int>(type: "int", nullable: false),
+                    JoinedDate = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -1176,34 +1214,53 @@ namespace FallenFaction.Server.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "ChapterImages",
+                name: "Comments",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    ImagePath = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    OrderIndex = table.Column<int>(type: "int", nullable: false),
+                    Content = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: false),
+                    PostedDate = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()"),
+                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    LikesCount = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
+                    DislikesCount = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
+                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    DeletedByUserId = table.Column<string>(type: "nvarchar(450)", nullable: true),
+                    DeletionReason = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    TitleId = table.Column<int>(type: "int", nullable: true),
                     ChapterId = table.Column<int>(type: "int", nullable: true),
-                    PendingChapterId = table.Column<int>(type: "int", nullable: true),
-                    RejectedChapterId = table.Column<int>(type: "int", nullable: true)
+                    ParentCommentId = table.Column<int>(type: "int", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_ChapterImages", x => x.Id);
+                    table.PrimaryKey("PK_Comments", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_ChapterImages_Chapters_ChapterId",
+                        name: "FK_Comments_AspNetUsers_DeletedByUserId",
+                        column: x => x.DeletedByUserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_Comments_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_Comments_Chapters_ChapterId",
                         column: x => x.ChapterId,
                         principalTable: "Chapters",
                         principalColumn: "Id");
                     table.ForeignKey(
-                        name: "FK_ChapterImages_PendingChapters_PendingChapterId",
-                        column: x => x.PendingChapterId,
-                        principalTable: "PendingChapters",
-                        principalColumn: "Id");
+                        name: "FK_Comments_Comments_ParentCommentId",
+                        column: x => x.ParentCommentId,
+                        principalTable: "Comments",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_ChapterImages_RejectedChapters_RejectedChapterId",
-                        column: x => x.RejectedChapterId,
-                        principalTable: "RejectedChapters",
+                        name: "FK_Comments_Titles_TitleId",
+                        column: x => x.TitleId,
+                        principalTable: "Titles",
                         principalColumn: "Id");
                 });
 
@@ -1230,63 +1287,6 @@ namespace FallenFaction.Server.Migrations
                         principalTable: "UserTeamRoles",
                         principalColumns: new[] { "AppUserId", "TeamId" },
                         onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "Comments",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Content = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: false),
-                    PostedDate = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()"),
-                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    LikesCount = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
-                    DislikesCount = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
-                    IsDeleted = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
-                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    DeletedByUserId = table.Column<string>(type: "nvarchar(450)", nullable: true),
-                    DeletionReason = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    TitleId = table.Column<int>(type: "int", nullable: true),
-                    ChapterId = table.Column<int>(type: "int", nullable: true),
-                    ChapterImageId = table.Column<int>(type: "int", nullable: true),
-                    ParentCommentId = table.Column<int>(type: "int", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Comments", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_Comments_AspNetUsers_DeletedByUserId",
-                        column: x => x.DeletedByUserId,
-                        principalTable: "AspNetUsers",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.SetNull);
-                    table.ForeignKey(
-                        name: "FK_Comments_AspNetUsers_UserId",
-                        column: x => x.UserId,
-                        principalTable: "AspNetUsers",
-                        principalColumn: "Id");
-                    table.ForeignKey(
-                        name: "FK_Comments_ChapterImages_ChapterImageId",
-                        column: x => x.ChapterImageId,
-                        principalTable: "ChapterImages",
-                        principalColumn: "Id");
-                    table.ForeignKey(
-                        name: "FK_Comments_Chapters_ChapterId",
-                        column: x => x.ChapterId,
-                        principalTable: "Chapters",
-                        principalColumn: "Id");
-                    table.ForeignKey(
-                        name: "FK_Comments_Comments_ParentCommentId",
-                        column: x => x.ParentCommentId,
-                        principalTable: "Comments",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_Comments_Titles_TitleId",
-                        column: x => x.TitleId,
-                        principalTable: "Titles",
-                        principalColumn: "Id");
                 });
 
             migrationBuilder.CreateTable(
@@ -1459,21 +1459,6 @@ namespace FallenFaction.Server.Migrations
                 column: "RejectedTitleId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_ChapterImages_ChapterId",
-                table: "ChapterImages",
-                column: "ChapterId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_ChapterImages_PendingChapterId",
-                table: "ChapterImages",
-                column: "PendingChapterId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_ChapterImages_RejectedChapterId",
-                table: "ChapterImages",
-                column: "RejectedChapterId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Chapters_TeamId",
                 table: "Chapters",
                 column: "TeamId");
@@ -1513,11 +1498,6 @@ namespace FallenFaction.Server.Migrations
                 name: "IX_Comments_ChapterId",
                 table: "Comments",
                 column: "ChapterId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Comments_ChapterImageId",
-                table: "Comments",
-                column: "ChapterImageId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Comments_DeletedByUserId",
@@ -1627,6 +1607,17 @@ namespace FallenFaction.Server.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_Ratings_UserId_TitleId",
                 table: "Ratings",
+                columns: new[] { "UserId", "TitleId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ReadingProgress_TitleId",
+                table: "ReadingProgress",
+                column: "TitleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ReadingProgress_UserId_TitleId",
+                table: "ReadingProgress",
                 columns: new[] { "UserId", "TitleId" },
                 unique: true);
 
@@ -1775,6 +1766,9 @@ namespace FallenFaction.Server.Migrations
                 name: "CommentReactions");
 
             migrationBuilder.DropTable(
+                name: "PendingChapters");
+
+            migrationBuilder.DropTable(
                 name: "PendingTitleArtists");
 
             migrationBuilder.DropTable(
@@ -1800,6 +1794,12 @@ namespace FallenFaction.Server.Migrations
 
             migrationBuilder.DropTable(
                 name: "Ratings");
+
+            migrationBuilder.DropTable(
+                name: "ReadingProgress");
+
+            migrationBuilder.DropTable(
+                name: "RejectedChapters");
 
             migrationBuilder.DropTable(
                 name: "RejectedTitleChanges");
@@ -1868,16 +1868,7 @@ namespace FallenFaction.Server.Migrations
                 name: "UserTeamRoles");
 
             migrationBuilder.DropTable(
-                name: "ChapterImages");
-
-            migrationBuilder.DropTable(
                 name: "Chapters");
-
-            migrationBuilder.DropTable(
-                name: "PendingChapters");
-
-            migrationBuilder.DropTable(
-                name: "RejectedChapters");
 
             migrationBuilder.DropTable(
                 name: "Teams");

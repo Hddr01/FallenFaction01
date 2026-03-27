@@ -18,7 +18,6 @@
         // Target information
         public int? TitleId { get; set; }
         public int? ChapterId { get; set; }
-        public int? ChapterImageId { get; set; }
 
         // ✅ NEW: Soft delete fields
         public bool IsDeleted { get; set; }

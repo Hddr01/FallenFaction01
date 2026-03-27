@@ -143,13 +143,6 @@
                                create-new-url="/people/Create"
                                create-new-text="Create New Author" />
 
-                  <MultiSelect :options="formData.artists"
-                               v-model="selectedTitle.artists"
-                               placeholder="Select artists"
-                               label="Artists"
-                               create-new-url="/people/Create"
-                               create-new-text="Create New Artist" />
-
                   <MultiSelect :options="formData.publishers"
                                v-model="selectedTitle.publishers"
                                placeholder="Select publishers"
@@ -491,7 +484,6 @@ const errorMessage = ref('')
 // Form data (authors, artists, etc.)
 const formData = reactive({
   authors: [],
-  artists: [],
   publishers: [],
   teams: [],
   categories: [],
@@ -525,7 +517,6 @@ const loadFormData = async () => {
     if (result.success) {
       const data = result.data
       formData.authors = data.Authors || data.authors || []
-      formData.artists = data.Artists || data.artists || []
       formData.publishers = data.Publishers || data.publishers || []
       formData.teams = data.Teams || data.teams || []
       formData.categories = data.Categories || data.categories || []
@@ -606,7 +597,6 @@ const selectTitleData = (data) => {
     areCommentsEnabled: data.areCommentsEnabled ?? true,
     areChapterCommentsEnabled: data.areChapterCommentsEnabled ?? true,
     authors: data.authors || [],
-    artists: data.artists || [],
     publishers: data.publishers || [],
     teams: data.teams || [],
     categories: data.categories || [],
@@ -707,7 +697,6 @@ const updateTitle = async () => {
       areCommentsEnabled: selectedTitle.value.areCommentsEnabled,
       areChapterCommentsEnabled: selectedTitle.value.areChapterCommentsEnabled,
       authors: selectedTitle.value.authors,
-      artists: selectedTitle.value.artists,
       publishers: selectedTitle.value.publishers,
       teams: selectedTitle.value.teams,
       categories: selectedTitle.value.categories,

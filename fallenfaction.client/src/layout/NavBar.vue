@@ -128,7 +128,7 @@
                 <DropdownMenuSeparator class="dropdown-menu-separator" />
                 <DropdownMenuGroup>
                   <DropdownMenuItem as-child class="dropdown-menu-item">
-                    <router-link to="/manga/addtitle" class="dropdown-item-link">
+                    <router-link to="/novel/addtitle" class="dropdown-item-link">
                       <BookPlus :size="16" class="mr-2 text-red-400" />
                       Add Title
                     </router-link>
@@ -143,12 +143,6 @@
                     <router-link to="/publisher/create" class="dropdown-item-link">
                       <Building2 :size="16" class="mr-2 text-orange-400" />
                       Add Publisher
-                    </router-link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem as-child class="dropdown-menu-item">
-                    <router-link to="/artist/create" class="dropdown-item-link">
-                      <Palette :size="16" class="mr-2 text-purple-400" />
-                      Add Artist
                     </router-link>
                   </DropdownMenuItem>
                 </DropdownMenuGroup>

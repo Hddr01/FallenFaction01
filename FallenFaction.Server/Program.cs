@@ -250,11 +250,6 @@ builder.Services.Configure<Dictionary<string, string>>(options =>
 var app = builder.Build();
 app.UseDeveloperExceptionPage();
 
-// Configure static files BEFORE other middleware
-app.UseStaticFiles();
-app.UseDefaultFiles();
-app.MapStaticAssets();
-
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -308,6 +303,14 @@ app.Use(async (context, next) =>
     await next();
 });
 
+// Serve static files (uploads, wwwroot) in production only.
+// In dev, Vite serves its own assets and /uploads is proxied by Vite config.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
+}
+
 // Map controllers with detailed route debugging
 app.MapControllers();
 
@@ -330,8 +333,42 @@ if (app.Environment.IsDevelopment())
     }).WithOpenApi();
 }
 
-// Fallback to serve the Vue.js app
-app.MapFallbackToFile("/index.html");
+// Fallback: in development proxy unknown routes to Vite dev server;
+// in production serve the built index.html from wwwroot.
+if (app.Environment.IsDevelopment())
+{
+    app.MapFallback(async context =>
+    {
+        var path = context.Request.Path.Value ?? "";
+        if (path.StartsWith("/api") || path.StartsWith("/auth") || path.StartsWith("/uploads"))
+        {
+            context.Response.StatusCode = 404;
+            return;
+        }
+
+        using var handler = new HttpClientHandler { ServerCertificateCustomValidationCallback = (_, _, _, _) => true };
+        using var client = new HttpClient(handler);
+        var viteUrl = $"https://localhost:49217{path}{context.Request.QueryString}";
+        try
+        {
+            var response = await client.GetAsync(viteUrl);
+            context.Response.StatusCode = (int)response.StatusCode;
+            context.Response.ContentType = response.Content.Headers.ContentType?.ToString() ?? "text/html";
+            var content = await response.Content.ReadAsStringAsync();
+            await context.Response.WriteAsync(content);
+        }
+        catch
+        {
+            context.Response.StatusCode = 503;
+            await context.Response.WriteAsync("Vite dev server not running. Run: cd fallenfaction.client && npm run dev");
+        }
+    });
+}
+else
+{
+    app.MapStaticAssets();
+    app.MapFallbackToFile("/index.html");
+}
 
 using (var scope = app.Services.CreateScope())
 {
