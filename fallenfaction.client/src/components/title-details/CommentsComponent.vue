@@ -1,8 +1,8 @@
 <!-- Enhanced Comments Component with shadcn-vue UI Components -->
 <template>
-  <div class="border border-[var(--color-border)] rounded-xl overflow-hidden">
-    <!-- Comments Header -->
-    <div class="p-6 border-b border-[var(--color-border)]">
+  <div :class="threadMode ? '' : 'border border-[var(--color-border)] rounded-xl overflow-hidden'">
+    <!-- Comments Header — hidden when displaying a single thread (threadMode) -->
+    <div v-if="!threadMode" class="p-6 border-b border-[var(--color-border)]">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-xl font-semibold text-[var(--color-text)]">
           Comments ({{ totalComments }})
@@ -124,7 +124,7 @@
     </div>
 
     <!-- Comments List -->
-    <div class="p-6">
+    <div :class="threadMode ? 'p-4' : 'p-6'">
       <!-- Thread Mode Breadcrumb (Reddit-style) -->
       <div v-if="threadMode && parentChain.length > 0" class="mb-4 p-4 bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-lg">
         <div class="flex items-center gap-2 mb-3 pb-3 border-b border-[var(--color-border)]">
@@ -286,6 +286,12 @@
       isAdmin: {
         type: Boolean,
         default: false
+      },
+      // When set (e.g. from CommentThreadView), the "Back to full discussion" link
+      // uses this URL instead of stripping comment_id from the current URL.
+      fullDiscussionUrl: {
+        type: String,
+        default: null
       }
     },
     emits: ['comments-loaded', 'comment-added', 'comments-updated'],
@@ -549,6 +555,9 @@
       },
 
       getBackToFullDiscussionUrl() {
+        // Prefer the explicitly-passed URL (set by CommentThreadView)
+        if (this.fullDiscussionUrl) return this.fullDiscussionUrl
+        // Fallback: strip comment_id from the current URL
         const currentUrl = new URL(window.location.href)
         currentUrl.searchParams.delete('comment_id')
         return currentUrl.toString()

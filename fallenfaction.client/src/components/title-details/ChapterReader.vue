@@ -118,7 +118,8 @@
           </div>
         </div>
 
-        <!-- Navigation Buttons for Single Page View (Always visible) -->
+        <!-- Navigation Buttons for Single Page View -->
+        <!-- Desktop navigation: toggled with UI visibility -->
         <div v-if="viewMode === 'single'" class="single-page-navigation" :class="{ 'hidden': !uiVisible }">
           <div class="max-w-4xl mx-auto px-4 py-6">
             <!-- Desktop Navigation -->
@@ -156,64 +157,55 @@
                 </svg>
               </button>
             </div>
-
-            <!-- Mobile Navigation -->
-            <div class="md:hidden flex flex-col gap-3 mb-6">
-              <!-- Mobile Left Button -->
-              <button @click="enhancedGoToPrevPage"
-                      :disabled="currentPage === 1 && !chapterData?.previousChapterId"
-                      class="flex items-center justify-center gap-2 w-full px-4 py-3 bg-black/80 backdrop-blur-lg border border-white/20 rounded-xl text-white cursor-pointer transition-all duration-300 font-medium text-sm hover:bg-black/90 hover:border-[var(--color-accent)] disabled:opacity-50 disabled:cursor-not-allowed">
-                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                </svg>
-                <span>{{ currentPage === 1 ? 'Previous Chapter' : 'Previous Page' }}</span>
-              </button>
-
-              <!-- Mobile Center Button -->
-              <button @click="goToTitleDetails"
-                      class="flex items-center justify-center gap-2 w-full px-4 py-3 bg-[var(--color-accent)] border border-[var(--color-accent)] rounded-xl text-white cursor-pointer transition-all duration-300 font-medium text-sm hover:bg-[var(--color-accent-hover)]">
-                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2z"></path>
-                </svg>
-                <span>Back to Title</span>
-              </button>
-
-              <!-- Mobile Right Button -->
-              <button @click="enhancedGoToNextPage"
-                      :disabled="currentPage === totalPages && !chapterData?.nextChapterId"
-                      class="flex items-center justify-center gap-2 w-full px-4 py-3 bg-black/80 backdrop-blur-lg border border-white/20 rounded-xl text-white cursor-pointer transition-all duration-300 font-medium text-sm hover:bg-black/90 hover:border-[var(--color-accent)] disabled:opacity-50 disabled:cursor-not-allowed">
-                <span>{{ currentPage === totalPages ? 'Next Chapter' : 'Next Page' }}</span>
-                <svg class="w-5 h-5 flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                </svg>
-              </button>
-            </div>
           </div>
         </div>
 
-        <!-- Image Comments Section (separate from navigation) -->
-        <div v-if="showImageComments && currentImage && viewMode === 'single'" class="image-comments-section">
-          <div class="max-w-4xl mx-auto px-4 py-6">
-            <div class="flex items-center justify-between mb-4">
-              <h4 class="text-lg font-semibold text-[var(--color-text)] flex items-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path>
-                </svg>
-                Comments for Page {{ currentPage }}
-              </h4>
-              <button @click="imageCommentsVisible = !imageCommentsVisible"
-                      class="p-2 text-[var(--color-text)] opacity-60 hover:opacity-100 rounded-lg hover:bg-[var(--color-background-mute)] transition-all duration-200">
-                <svg v-if="imageCommentsVisible" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
-                </svg>
-                <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
-              </button>
-            </div>
+        <!-- Mobile Navigation: always visible, not tied to uiVisible toggle -->
+        <div v-if="viewMode === 'single'" class="max-w-4xl mx-auto px-4">
+          <div class="flex flex-col gap-3 mb-6">
+            <!-- Mobile Prev Button -->
+            <button @click="enhancedGoToPrevPage"
+                    :disabled="currentPage === 1 && !chapterData?.previousChapterId"
+                    class="flex items-center justify-center gap-2 w-full px-4 py-3 bg-black/80 backdrop-blur-lg border border-white/20 rounded-xl text-white cursor-pointer transition-all duration-300 font-medium text-sm hover:bg-black/90 hover:border-[var(--color-accent)] disabled:opacity-50 disabled:cursor-not-allowed">
+              <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+              </svg>
+              <span>{{ currentPage === 1 ? 'Previous Chapter' : 'Previous Page' }}</span>
+            </button>
+
+            <!-- Mobile Back to Title Button -->
+            <button @click="goToTitleDetails"
+                    class="flex items-center justify-center gap-2 w-full px-4 py-3 bg-[var(--color-accent)] border border-[var(--color-accent)] rounded-xl text-white cursor-pointer transition-all duration-300 font-medium text-sm hover:bg-[var(--color-accent-hover)]">
+              <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2z"></path>
+              </svg>
+              <span>Back to Title</span>
+            </button>
+
+            <!-- Mobile Next Button -->
+            <button @click="enhancedGoToNextPage"
+                    :disabled="currentPage === totalPages && !chapterData?.nextChapterId"
+                    class="flex items-center justify-center gap-2 w-full px-4 py-3 bg-black/80 backdrop-blur-lg border border-white/20 rounded-xl text-white cursor-pointer transition-all duration-300 font-medium text-sm hover:bg-black/90 hover:border-[var(--color-accent)] disabled:opacity-50 disabled:cursor-not-allowed">
+              <span>{{ currentPage === totalPages ? 'Next Chapter' : 'Next Page' }}</span>
+              <svg class="w-5 h-5 flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Image Comments Section (always shown in single view) -->
+        <div v-if="currentImage && viewMode === 'single'" class="image-comments-section">
+          <div class="">
+            <h4 class="text-lg font-semibold text-[var(--color-text)] flex items-center gap-2 mb-4">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path>
+              </svg>
+              Comments for Page {{ currentPage }}
+            </h4>
 
             <!-- Image Comments Container -->
-            <div v-if="imageCommentsVisible" class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-xl p-4">
+            <div class="">
               <CommentsComponent v-if="chapterData.id"
                                  :key="`image-comments-${chapterData.id}-page-${currentPage}`"
                                  :target-id="getImageCommentTargetId()"
@@ -302,7 +294,7 @@
 
             <!-- Comments Section for All Pages View -->
             <div class="all-pages-comments-section">
-              <div class="max-w-4xl mx-auto px-4 py-8">
+              <div class="">
                 <CommentsComponent v-if="chapterData.id"
                                    :target-id="chapterData.id"
                                    :target-type="2"

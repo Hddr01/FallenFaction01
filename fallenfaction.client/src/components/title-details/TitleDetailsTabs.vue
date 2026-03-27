@@ -213,59 +213,63 @@
                             Rate this Title
                           </Button>
                         </DialogTrigger>
-                        <DialogContent class="sm:max-w-md bg-black border-white/20">
-                          <DialogHeader>
-                            <DialogTitle class="text-[var(--color-white)] text-center">Rate this title</DialogTitle>
-                            <DialogDescription class="text-center text-muted-foreground">
+                        <DialogContent class="w-[calc(100vw-2rem)] max-w-xs sm:max-w-sm bg-black border-white/10 p-0 overflow-hidden">
+                          <DialogHeader class="px-5 pt-5 pb-3">
+                            <DialogTitle class="text-[var(--color-white)] text-center text-base">Rate this title</DialogTitle>
+                            <DialogDescription class="text-center text-muted-foreground text-xs">
                               Share your rating with the community
                             </DialogDescription>
                           </DialogHeader>
 
-                          <div class="p-4 space-y-6">
-                            <!-- Star Rating (10 stars) -->
-                            <div class="flex justify-center space-x-2">
+                          <!-- Loading existing rating -->
+                          <div v-if="loadingExistingRating" class="px-5 pb-4 flex justify-center py-6">
+                            <svg class="animate-spin w-6 h-6 text-yellow-400" fill="none" viewBox="0 0 24 24">
+                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                          </div>
+
+                          <div v-else class="px-5 pb-4 space-y-4">
+                            <!-- Stars — wrap to 2×5 on tiny screens -->
+                            <div class="flex flex-wrap justify-center gap-1.5">
                               <button v-for="star in 10"
                                       :key="star"
                                       type="button"
                                       @click="setRating(star)"
                                       @mouseover="hoverRating = star"
                                       @mouseleave="hoverRating = 0"
-                                      class="w-8 h-8 transition-all duration-200 transform hover:scale-110"
-                                      :class="{
-                                      'text-yellow-400' : star <= (hoverRating || selectedRating),
-                            'text-gray-600': star > (hoverRating || selectedRating)
-                          }">
-                    <svg class="w-full h-full" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                    </svg>
-                  </button>
+                                      class="w-9 h-9 sm:w-8 sm:h-8 transition-all duration-150 transform hover:scale-110 active:scale-95"
+                                      :class="star <= (hoverRating || selectedRating) ? 'text-yellow-400' : 'text-gray-600'">
+                                <svg class="w-full h-full" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                                </svg>
+                              </button>
                             </div>
 
-                            <!-- Rating Text -->
-                            <p class="text-white font-medium text-center min-h-6">
+                            <!-- Rating label -->
+                            <p class="text-white font-medium text-center text-sm min-h-5">
                               {{ getRatingText(hoverRating || selectedRating) }}
                             </p>
                           </div>
 
-                          <DialogFooter class="sm:justify-center gap-2">
+                          <DialogFooter class="px-5 pb-5 flex-row gap-2 sm:justify-center">
                             <Button type="button"
                                     variant="outline"
-                                    class="bg-[#141414] ring-[0.3px] ring-white hover:text-white"
+                                    size="sm"
+                                    class="flex-1 bg-[#141414] border-white/10 text-white hover:bg-white/10 hover:text-white"
                                     @click="isRatingDialogOpen = false">
                               Cancel
                             </Button>
                             <Button type="button"
-                                    @click="submitRating"
+                                    size="sm"
                                     :disabled="!selectedRating || submittingRating"
-                                    class="justify-center bg-[#e6e6e6] text-black hover:bg-gray-100 hover:text-black">
-                              <span v-if="submittingRating" class="inline-flex items-center">
-                                <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Submitting...
-                              </span>
-                              <span v-else>Submit Rating</span>
+                                    class="flex-1 justify-center bg-[#e6e6e6] text-black hover:bg-gray-100 hover:text-black"
+                                    @click="submitRating">
+                              <svg v-if="submittingRating" class="animate-spin -ml-1 mr-1.5 h-3.5 w-3.5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              {{ submittingRating ? 'Submitting…' : 'Submit Rating' }}
                             </Button>
                           </DialogFooter>
                         </DialogContent>
@@ -517,6 +521,25 @@
   const selectedRating = ref(0)
   const hoverRating = ref(0)
   const submittingRating = ref(false)
+  const loadingExistingRating = ref(false)
+
+  // Pre-fill the dialog with the user's existing rating whenever it opens
+  watch(isRatingDialogOpen, async (open) => {
+    if (!open || !props.isAuthenticated || !props.titleId) return
+    loadingExistingRating.value = true
+    try {
+      const result = await titleDetailsService.getUserRating(props.titleId)
+      if (result.success && result.data?.value) {
+        selectedRating.value = result.data.value
+      } else {
+        selectedRating.value = 0
+      }
+    } catch {
+      selectedRating.value = 0
+    } finally {
+      loadingExistingRating.value = false
+    }
+  })
 
   // Tabs configuration
   const tabs = ref([
@@ -557,14 +580,21 @@
   const ratingStatsData = ref(null)
 
   const ratingStatsTotalCount = computed(() => {
-    return ratingStatsData.value?.totalRatings || 0
+    // API returns "total" (camelCase from JSON serialisation of "Total")
+    return ratingStatsData.value?.total ?? ratingStatsData.value?.totalRatings ?? 0
   })
 
   const ratingStatsDistribution = computed(() => {
-    if (!ratingStatsData.value?.distribution) return []
-
-    // Return distribution in descending order (10 to 1)
-    return ratingStatsData.value.distribution
+    // API returns "distribution" (camelCase from "Distribution")
+    const dist = ratingStatsData.value?.distribution ?? ratingStatsData.value?.Distribution ?? []
+    if (!dist.length) return []
+    // Return descending 10 → 1, normalise field names from both casings
+    return [...dist]
+      .map(item => ({
+        value: item.value ?? item.Value,
+        count: item.count ?? item.Count,
+        percentage: item.percentage ?? item.Percentage ?? 0,
+      }))
       .sort((a, b) => b.value - a.value)
   })
 
@@ -582,19 +612,11 @@
         console.log('Rating stats loaded:', result.data)
       } else {
         console.error('Failed to load rating stats:', result.error)
-        ratingStatsData.value = {
-          totalRatings: 0,
-          averageRating: 0,
-          distribution: []
-        }
+        ratingStatsData.value = { total: 0, average: 0, distribution: [] }
       }
     } catch (error) {
       console.error('Error loading rating stats:', error)
-      ratingStatsData.value = {
-        totalRatings: 0,
-        averageRating: 0,
-        distribution: []
-      }
+      ratingStatsData.value = { total: 0, average: 0, distribution: [] }
     } finally {
       loadingRatingStats.value = false
     }
@@ -668,7 +690,8 @@
       'Completed': CheckCircle2,
       'On Hold': PauseCircle,
       'Plan to Read': Clock,
-      'Dropped': XCircle
+      'Dropped': XCircle,
+      'Others': BookmarkIcon,
     }
     return iconMap[folderName] || BookmarkIcon
   }
@@ -679,9 +702,10 @@
       'Completed': 'text-green-500',
       'On Hold': 'text-yellow-500',
       'Plan to Read': 'text-purple-500',
-      'Dropped': 'text-red-500'
+      'Dropped': 'text-red-500',
+      'Others': 'text-gray-400',
     }
-    return colorMap[folderName] || 'text-gray-500'
+    return colorMap[folderName] || 'text-gray-400'
   }
 
   const getStatusBgColor = (folderName) => {
@@ -690,9 +714,10 @@
       'Completed': 'bg-green-500',
       'On Hold': 'bg-yellow-500',
       'Plan to Read': 'bg-purple-500',
-      'Dropped': 'bg-red-500'
+      'Dropped': 'bg-red-500',
+      'Others': 'bg-gray-400',
     }
-    return bgColorMap[folderName] || 'bg-gray-500'
+    return bgColorMap[folderName] || 'bg-gray-400'
   }
 
   // Methods

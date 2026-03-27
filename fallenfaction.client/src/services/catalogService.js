@@ -306,9 +306,12 @@ export const catalogService = {
    */
   getImageUrl(path) {
     if (!path) return '/img/no-cover.png';
+    // Already absolute (external CDN etc.) — return as-is
     if (path.startsWith('http')) return path;
-    const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? '/api').replace('/api', '');
-    return `${baseUrl}${path}`;
+    // Relative path — return as-is so the browser resolves it against the
+    // current origin. Vite dev server and nginx both proxy /uploads → backend,
+    // so this works from localhost AND from any LAN/Docker IP address.
+    return path;
   },
 
   /**

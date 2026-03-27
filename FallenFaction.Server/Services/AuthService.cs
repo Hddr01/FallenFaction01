@@ -37,36 +37,34 @@ namespace FallenFaction.Server.Services
             _configuration = configuration;
         }
 
-        // Helper method to get the correct base URL for static assets
         private string GetStaticAssetBaseUrl()
         {
-            // Get from configuration, fallback to HTTPS localhost
-            return _configuration["StaticAssets:BaseUrl"] ?? "https://localhost:7217";
+            // No longer used to build returned URLs.
+            // Kept only for any legacy code that still calls it.
+            return string.Empty;
         }
 
-        // Helper method to fix profile picture URLs
-        private string FixProfilePictureUrl(string currentUrl)
+        private string FixProfilePictureUrl(string? currentUrl)
         {
             if (string.IsNullOrEmpty(currentUrl))
-            {
-                return $"{GetStaticAssetBaseUrl()}/img/default-avatar.png";
-            }
+                return "/img/default-avatar.png";   // relative — works from any origin
 
-            // Fix HTTP URLs to HTTPS
-            if (currentUrl.StartsWith("http://localhost:5064/img/"))
-            {
-                return currentUrl.Replace("http://localhost:5064", GetStaticAssetBaseUrl());
-            }
+            // Already a clean relative path — return as-is
+            if (currentUrl.StartsWith("/"))
+                return currentUrl;
 
-            // Fix any other HTTP localhost variants
-            if (currentUrl.StartsWith("http://localhost:") && currentUrl.Contains("/img/"))
+            // Strip any absolute prefix (http://localhost:xxxx or https://localhost:xxxx)
+            // and return just the path portion so the frontend/nginx can serve it.
+            try
             {
-                var pathPart = currentUrl.Substring(currentUrl.IndexOf("/img/"));
-                return $"{GetStaticAssetBaseUrl()}{pathPart}";
+                var uri = new Uri(currentUrl);
+                return uri.PathAndQuery;   // e.g. "/img/default-avatar.png" or "/uploads/avatars/..."
             }
-
-            // If it's already HTTPS or a different format, return as-is
-            return currentUrl;
+            catch
+            {
+                // Not a valid URI — return the raw value and let the frontend handle it
+                return currentUrl;
+            }
         }
 
         public async Task<AuthResponseDto> RegisterAsync(RegisterDto registerDto)
