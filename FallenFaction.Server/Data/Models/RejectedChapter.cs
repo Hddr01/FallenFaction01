@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Collections.Generic;
 
 namespace FallenFaction.Server.Data.Models
 {
@@ -18,7 +17,10 @@ namespace FallenFaction.Server.Data.Models
         [Required]
         public int ChapterNumber { get; set; }
 
-        public List<ChapterImage> ImagePaths { get; set; } = new List<ChapterImage>();
+        /// <summary>
+        /// The full text content of this chapter that was rejected.
+        /// </summary>
+        public string Content { get; set; } = string.Empty;
 
         public DateTime CreatedDate { get; set; } = DateTime.Now;
 

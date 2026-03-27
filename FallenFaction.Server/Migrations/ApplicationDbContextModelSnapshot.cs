@@ -477,6 +477,10 @@ namespace FallenFaction.Server.Migrations
                     b.Property<int>("ChapterNumber")
                         .HasColumnType("int");
 
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
 
@@ -513,41 +517,6 @@ namespace FallenFaction.Server.Migrations
                     b.HasIndex("UpdatedByUserId");
 
                     b.ToTable("Chapters");
-                });
-
-            modelBuilder.Entity("FallenFaction.Server.Data.Models.ChapterImage", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int?>("ChapterId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ImagePath")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("OrderIndex")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("PendingChapterId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("RejectedChapterId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ChapterId");
-
-                    b.HasIndex("PendingChapterId");
-
-                    b.HasIndex("RejectedChapterId");
-
-                    b.ToTable("ChapterImages");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.ChapterView", b =>
@@ -594,9 +563,6 @@ namespace FallenFaction.Server.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int?>("ChapterId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("ChapterImageId")
                         .HasColumnType("int");
 
                     b.Property<string>("Content")
@@ -646,8 +612,6 @@ namespace FallenFaction.Server.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ChapterId");
-
-                    b.HasIndex("ChapterImageId");
 
                     b.HasIndex("DeletedByUserId");
 
@@ -738,6 +702,10 @@ namespace FallenFaction.Server.Migrations
 
                     b.Property<int>("ChapterNumber")
                         .HasColumnType("int");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -996,6 +964,10 @@ namespace FallenFaction.Server.Migrations
 
                     b.Property<int>("ChapterNumber")
                         .HasColumnType("int");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -1961,30 +1933,6 @@ namespace FallenFaction.Server.Migrations
                     b.Navigation("UpdatedByUser");
                 });
 
-            modelBuilder.Entity("FallenFaction.Server.Data.Models.ChapterImage", b =>
-                {
-                    b.HasOne("FallenFaction.Server.Data.Models.Chapter", "Chapter")
-                        .WithMany("ImagePaths")
-                        .HasForeignKey("ChapterId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("FallenFaction.Server.Data.Models.PendingChapter", "PendingChapter")
-                        .WithMany("ImagePaths")
-                        .HasForeignKey("PendingChapterId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("FallenFaction.Server.Data.Models.RejectedChapter", "RejectedChapter")
-                        .WithMany("ImagePaths")
-                        .HasForeignKey("RejectedChapterId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.Navigation("Chapter");
-
-                    b.Navigation("PendingChapter");
-
-                    b.Navigation("RejectedChapter");
-                });
-
             modelBuilder.Entity("FallenFaction.Server.Data.Models.ChapterView", b =>
                 {
                     b.HasOne("FallenFaction.Server.Data.Models.Chapter", "Chapter")
@@ -2011,11 +1959,6 @@ namespace FallenFaction.Server.Migrations
                         .HasForeignKey("ChapterId")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("FallenFaction.Server.Data.Models.ChapterImage", "ChapterImage")
-                        .WithMany()
-                        .HasForeignKey("ChapterImageId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.HasOne("FallenFaction.Server.Data.Models.AppUser", "DeletedByUser")
                         .WithMany()
                         .HasForeignKey("DeletedByUserId")
@@ -2038,8 +1981,6 @@ namespace FallenFaction.Server.Migrations
                         .IsRequired();
 
                     b.Navigation("Chapter");
-
-                    b.Navigation("ChapterImage");
 
                     b.Navigation("DeletedByUser");
 
@@ -2523,8 +2464,6 @@ namespace FallenFaction.Server.Migrations
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.Chapter", b =>
                 {
-                    b.Navigation("ImagePaths");
-
                     b.Navigation("Views");
                 });
 
@@ -2533,16 +2472,6 @@ namespace FallenFaction.Server.Migrations
                     b.Navigation("Reactions");
 
                     b.Navigation("Replies");
-                });
-
-            modelBuilder.Entity("FallenFaction.Server.Data.Models.PendingChapter", b =>
-                {
-                    b.Navigation("ImagePaths");
-                });
-
-            modelBuilder.Entity("FallenFaction.Server.Data.Models.RejectedChapter", b =>
-                {
-                    b.Navigation("ImagePaths");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.RejectedTitle", b =>

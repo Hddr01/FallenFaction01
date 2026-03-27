@@ -53,42 +53,22 @@
       </div>
     </div>
 
-    <!-- Enhanced Debug Info (development only) -->
+    <!-- Debug Info (development only) -->
     <div v-if="showDebugInfo && isDev" class="debug-info">
-      <h4>🚀 Enhanced Smart Loading Debug</h4>
-
-      <h5>Device & Network</h5>
-      <p>Device Score: <strong>{{ deviceCapabilities.score }}</strong> ({{ deviceCapabilities.category }})</p>
-      <p>Network Score: <strong>{{ networkInfo.score }}</strong> ({{ networkInfo.type }})</p>
-      <p>Loading Strategy: <strong>{{ loadingStrategy.name }}</strong></p>
-      <p>Timeout: <strong>{{ loadingStrategy.timeout }}ms</strong></p>
-      <p>Actual Load Time: <strong>{{ actualLoadTime }}ms</strong></p>
-
+      <h4>Debug Info</h4>
       <h5>Navigation</h5>
       <p>Current Route: <strong>{{ $route.path }}</strong></p>
       <p>Hide Navigation: <strong>{{ hideNavigation ? '✅' : '❌' }}</strong></p>
       <p>Route Loading: <strong>{{ showRouteLoading ? '⏳' : '✅' }}</strong></p>
-      <p v-if="showRouteLoading">Loading: <strong>{{ routeLoadingConfig.text }}</strong></p>
-
       <h5>Authentication Status</h5>
       <p>Auth Initialized: <strong>{{ authStore.isInitialized ? '✅' : '⏳' }}</strong></p>
       <p>User Logged In: <strong>{{ authStore.isAuthenticated ? '✅' : '❌' }}</strong></p>
       <p v-if="authStore.user">User: <strong>{{ authStore.userFullName }}</strong></p>
-
       <h5>Resource Loading</h5>
       <p>Router: {{ resourcesLoaded.router ? '✅' : '⏳' }}</p>
       <p>DOM: {{ resourcesLoaded.dom ? '✅' : '⏳' }}</p>
       <p>Critical: {{ resourcesLoaded.critical ? '✅' : '⏳' }}</p>
       <p>Auth: {{ resourcesLoaded.auth ? '✅' : '⏳' }}</p>
-
-      <div v-if="analytics" class="ml-analytics">
-        <h5>🤖 ML Analytics</h5>
-        <p>Total Sessions: <strong>{{ analytics.totalSessions }}</strong></p>
-        <p>Avg Accuracy: <strong>{{ Math.round(analytics.averageAccuracy * 100) }}%</strong></p>
-        <p>Best Strategy: <strong>{{ analytics.mostSuccessfulStrategy }}</strong></p>
-        <p>Learning Active: <strong>{{ analytics.learningEnabled ? '🧠' : '💤' }}</strong></p>
-      </div>
-
       <button @click="showDebugInfo = false">Close Debug</button>
     </div>
   </div>
@@ -103,8 +83,6 @@
   import LoadingScreen from './LoadingScreen.vue';
   import ErrorHandler from './services/ErrorHandler.js';
   import { createApiClient } from './services/ApiErrorHandler.js';
-  // Import the enhanced algorithm
-  import EnhancedSmartLoadingAlgorithm from './services/EnhancedSmartLoadingAlgorithm.js';
 
   const router = useRouter();
   const route = useRoute();
@@ -127,13 +105,9 @@
     return route.meta?.hideNavigation || false;
   });
 
-  // Smart Loading Algorithm Variables
-  const deviceCapabilities = ref({});
-  const networkInfo = ref({});
-  const loadingStrategy = ref({});
+  // Loading state variables
   const loadingStartTime = ref(0);
   const actualLoadTime = ref(0);
-  const analytics = ref(null);
   const resourcesLoaded = ref({
     router: false,
     dom: false,
@@ -151,13 +125,8 @@
   let unsubscribeFromErrors;
   let notificationId = 0;
 
-  // Initialize enhanced smart loading with configuration
-  const smartLoader = new EnhancedSmartLoadingAlgorithm({
-    minTime: 250,
-    maxTime: 4000,
-    fastThreshold: 80,
-    enableLearning: true
-  });
+  // Simple static loading strategy (no image preloading needed for novels)
+  const loadingStrategy = ref({ gif: '/img/happy_girl.gif', text: 'Loading...', type: 'standard' });
 
   // Computed loading configuration for initial loading
   const loadingConfig = computed(() => {
@@ -226,7 +195,7 @@
     showRouteLoading.value = true;
 
     // Determine loading duration based on device performance
-    const loadingDuration = deviceCapabilities.value.score > 80 ? 300 : 600;
+    const loadingDuration = 400;
 
     // Auto-complete route loading after calculated duration
     setTimeout(() => {
@@ -247,19 +216,6 @@
     actualLoadTime.value = totalTime;
 
     // Record performance for machine learning
-    if (smartLoader.config.LEARNING_ENABLED) {
-      const realPerformanceTime = Math.min(resourceTime, 1000);
-
-      smartLoader.recordPerformance(
-        deviceCapabilities.value.score,
-        networkInfo.value.score || 75,
-        loadingStrategy.value.timeout,
-        realPerformanceTime,
-        loadingStrategy.value.name.replace(' (ML-Adjusted)', '')
-      );
-    }
-
-    analytics.value = smartLoader.getAnalytics();
     showInitialLoading.value = false;
   };
 
@@ -269,23 +225,9 @@
     }
   };
 
-  // Enhanced smart loading execution with auth integration
+  // Simple loading execution without image preloading
   const executeSmartLoading = async () => {
     loadingStartTime.value = Date.now();
-
-    deviceCapabilities.value = smartLoader.analyzeDeviceCapabilities();
-    networkInfo.value = smartLoader.analyzeNetworkInfo();
-
-    loadingStrategy.value = smartLoader.determineLoadingStrategy(
-      deviceCapabilities.value.score,
-      networkInfo.value.score
-    );
-
-    try {
-      await smartLoader.preloadCriticalResources(loadingStrategy.value);
-    } catch (error) {
-      // Silently handle preloading errors
-    }
 
     const resourcePromises = [];
 
@@ -319,27 +261,17 @@
         setTimeout(() => {
           resourcesLoaded.value.critical = true;
           resolve();
-        }, Math.random() * 200 + 100);
+        }, 200);
       })
     );
 
     try {
       await Promise.all(resourcePromises);
-
       const elapsedTime = Date.now() - loadingStartTime.value;
-      const remainingTime = Math.max(0, loadingStrategy.value.timeout - elapsedTime);
-
-      const finalTimeout = Math.max(
-        smartLoader.config.MINIMUM_LOADING_TIME - elapsedTime,
-        remainingTime
-      );
-
-      setTimeout(() => {
-        startAppLoadingComplete();
-      }, finalTimeout);
-
+      const remainingTime = Math.max(0, 500 - elapsedTime);
+      setTimeout(() => { startAppLoadingComplete(); }, remainingTime);
     } catch (error) {
-      setTimeout(() => startAppLoadingComplete(), loadingStrategy.value.timeout);
+      setTimeout(() => startAppLoadingComplete(), 500);
     }
   };
 
@@ -407,35 +339,11 @@
     window.removeEventListener('api-error', handleApiNotification);
   });
 
-  // Enhanced development helpers
+  // Development helpers
   if (isDev) {
-    window.smartLoader = smartLoader;
     window.authStore = authStore;
-    window.showLoadingDebug = () => {
-      analytics.value = smartLoader.getAnalytics();
-      showDebugInfo.value = true;
-    };
-    window.triggerRouteLoading = () => {
-      showRouteLoadingScreen();
-    };
-    window.getLoadingAnalytics = () => smartLoader.getAnalytics();
-    window.clearLoadingHistory = () => {
-      localStorage.removeItem('smartLoading_history');
-      smartLoader.performanceHistory = [];
-    };
-    window.resetToFastLoading = () => {
-      localStorage.removeItem('smartLoading_history');
-      smartLoader.performanceHistory = [];
-      const fastExamples = [
-        { deviceScore: 100, networkScore: 95, predictedTime: 300, actualTime: 150, strategy: 'High Performance', accuracy: 0.5, timestamp: Date.now() },
-        { deviceScore: 100, networkScore: 95, predictedTime: 300, actualTime: 120, strategy: 'High Performance', accuracy: 0.6, timestamp: Date.now() },
-        { deviceScore: 100, networkScore: 95, predictedTime: 300, actualTime: 180, strategy: 'High Performance', accuracy: 0.4, timestamp: Date.now() }
-      ];
-      smartLoader.performanceHistory = fastExamples;
-      smartLoader.savePerformanceHistory();
-    };
-    window.deviceCapabilities = deviceCapabilities;
-    window.networkInfo = networkInfo;
+    window.showLoadingDebug = () => { showDebugInfo.value = true; };
+    window.triggerRouteLoading = () => { showRouteLoadingScreen(); };
     window.loadingStrategy = loadingStrategy;
   }
 </script>
@@ -639,4 +547,3 @@
       }
   }
 </style>
-

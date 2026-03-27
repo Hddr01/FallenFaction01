@@ -7,7 +7,6 @@ namespace FallenFaction.Server.Data.Models
     {
         public Chapter()
         {
-            ImagePaths = new HashSet<ChapterImage>();
             Views = new HashSet<ChapterView>();
         }
 
@@ -44,7 +43,10 @@ namespace FallenFaction.Server.Data.Models
         [ForeignKey("UpdatedByUserId")]
         public AppUser UpdatedByUser { get; set; }
 
-        public ICollection<ChapterImage> ImagePaths { get; set; }
+        /// <summary>
+        /// The full text content of this chapter.
+        /// </summary>
+        public string Content { get; set; } = string.Empty;
 
         public ICollection<ChapterView> Views { get; set; }
     }

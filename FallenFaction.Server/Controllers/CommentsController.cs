@@ -72,7 +72,7 @@ namespace FallenFaction.Server.Controllers
                 // Validate parameters
                 if (targetType < 1 || targetType > 3)
                 {
-                    return BadRequest(new { message = "Invalid target type. Must be 1 (Title), 2 (Chapter), or 3 (ChapterImage)" });
+                    return BadRequest(new { message = "Invalid target type. Must be 1 (Title) or 2 (Chapter)" });
                 }
 
                 if (page < 1) page = 1;
@@ -115,12 +115,11 @@ namespace FallenFaction.Server.Controllers
                 var currentUserId = currentUser?.Id;
                 var isAdmin = currentUser != null && await _userManager.IsInRoleAsync(currentUser, "Admin");
 
-                // Build query based on target type (TitleId, ChapterId, or ChapterImageId)
+                // Build query based on target type (TitleId or ChapterId)
                 IQueryable<Comment> query = targetType switch
                 {
                     1 => _context.Comments.Where(c => c.TitleId == targetId && c.ParentCommentId == null),
                     2 => _context.Comments.Where(c => c.ChapterId == targetId && c.ParentCommentId == null),
-                    3 => _context.Comments.Where(c => c.ChapterImageId == targetId && c.ParentCommentId == null),
                     _ => throw new ArgumentException("Invalid target type")
                 };
 
@@ -206,7 +205,6 @@ namespace FallenFaction.Server.Controllers
                 ParentCommentId = comment.ParentCommentId,
                 TitleId = comment.TitleId,
                 ChapterId = comment.ChapterId,
-                ChapterImageId = comment.ChapterImageId,
                 Replies = new List<CommentDto>()
             };
 
@@ -309,9 +307,6 @@ namespace FallenFaction.Server.Controllers
                     case 2: // Chapter
                         comment.ChapterId = dto.TargetId;
                         break;
-                    case 3: // ChapterImage
-                        comment.ChapterImageId = dto.TargetId;
-                        break;
                 }
 
                 _context.Comments.Add(comment);
@@ -345,7 +340,6 @@ namespace FallenFaction.Server.Controllers
                     ParentCommentId = createdComment.ParentCommentId,
                     TitleId = createdComment.TitleId,
                     ChapterId = createdComment.ChapterId,
-                    ChapterImageId = createdComment.ChapterImageId,
                     Replies = new List<CommentDto>()
                 };
 
@@ -664,8 +658,8 @@ namespace FallenFaction.Server.Controllers
                 {
                     Comment = commentDto,
                     ParentChain = parentChain,
-                    TargetId = comment.TitleId ?? comment.ChapterId ?? comment.ChapterImageId ?? 0,
-                    TargetType = comment.TitleId.HasValue ? 1 : comment.ChapterId.HasValue ? 2 : 3
+                    TargetId = comment.TitleId ?? comment.ChapterId ?? 0,
+                    TargetType = comment.TitleId.HasValue ? 1 : comment.ChapterId.HasValue ? 2 : 0
                 });
             }
             catch (Exception ex)
@@ -705,15 +699,9 @@ namespace FallenFaction.Server.Controllers
                     .Include(c => c.Reactions)
                     .Include(c => c.Title)
                     .Include(c => c.Chapter)
-                        .ThenInclude(ch => ch != null ? ch.Title : null)
+                        .ThenInclude(ch => ch.Title)
                     .Include(c => c.Chapter)
-                        .ThenInclude(ch => ch != null ? ch.Team : null)
-                    .Include(c => c.ChapterImage)
-                        .ThenInclude(ci => ci != null ? ci.Chapter : null)
-                            .ThenInclude(ch => ch != null ? ch.Title : null)
-                    .Include(c => c.ChapterImage)
-                        .ThenInclude(ci => ci != null ? ci.Chapter : null)
-                            .ThenInclude(ch => ch != null ? ch.Team : null)
+                        .ThenInclude(ch => ch.Team)
                     .AsQueryable();
 
                 query = sortBy.ToLower() switch
@@ -745,33 +733,25 @@ namespace FallenFaction.Server.Controllers
                     // Target resolution
                     TargetType = c.TitleId.HasValue ? 1
                                : c.ChapterId.HasValue ? 2
-                               : 3,
+                               : 0,
 
                     TitleId = c.TitleId
-                                 ?? c.Chapter?.TitleId
-                                 ?? c.ChapterImage?.Chapter?.TitleId,
+                                 ?? c.Chapter?.TitleId,
 
                     TitleName = c.Title?.EnglishTitle
                                  ?? c.Title?.OriginalTitle
                                  ?? c.Chapter?.Title?.EnglishTitle
-                                 ?? c.Chapter?.Title?.OriginalTitle
-                                 ?? c.ChapterImage?.Chapter?.Title?.EnglishTitle
-                                 ?? c.ChapterImage?.Chapter?.Title?.OriginalTitle,
+                                 ?? c.Chapter?.Title?.OriginalTitle,
 
                     // IMPORTANT: OriginalTitle is what the Vue router matches in /:titleName
                     TitleSlug = c.Title?.OriginalTitle
-                                 ?? c.Chapter?.Title?.OriginalTitle
-                                 ?? c.ChapterImage?.Chapter?.Title?.OriginalTitle,
+                                 ?? c.Chapter?.Title?.OriginalTitle,
 
                     // Chapter route components — needed to build /{title}/chapter/{name}/v{vol}/t{team} URLs
-                    ChapterId = c.ChapterId
-                                    ?? c.ChapterImage?.ChapterId,
-                    ChapterName = c.Chapter?.Name
-                                    ?? c.ChapterImage?.Chapter?.Name,
-                    VolumeNumber = c.Chapter?.VolumeNumber
-                                    ?? c.ChapterImage?.Chapter?.VolumeNumber,
-                    TeamId = c.Chapter?.TeamId
-                                    ?? c.ChapterImage?.Chapter?.TeamId,
+                    ChapterId = c.ChapterId,
+                    ChapterName = c.Chapter?.Name,
+                    VolumeNumber = c.Chapter?.VolumeNumber,
+                    TeamId = c.Chapter?.TeamId,
                 }).ToList();
 
                 return Ok(new UserCommentsResponseDto
@@ -856,7 +836,7 @@ namespace FallenFaction.Server.Controllers
         public int? ParentCommentId { get; set; }
 
         // Target
-        public int TargetType { get; set; }  // 1=Title 2=Chapter 3=ChapterImage
+        public int TargetType { get; set; }  // 1=Title 2=Chapter
         public int? TitleId { get; set; }
         public string? TitleName { get; set; }
         public string? TitleSlug { get; set; }  // OriginalTitle — matches /:titleName route

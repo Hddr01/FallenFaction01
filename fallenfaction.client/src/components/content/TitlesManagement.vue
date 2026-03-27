@@ -274,11 +274,6 @@
             <p class="text-[var(--color-text)]">{{ selectedTitle.authors.map(a => a.name || a).join(', ') }}</p>
           </div>
 
-          <div v-if="selectedTitle.artists?.length > 0">
-            <label class="block text-sm font-medium text-[var(--color-text)] opacity-60">Artists</label>
-            <p class="text-[var(--color-text)]">{{ selectedTitle.artists.map(a => a.name || a).join(', ') }}</p>
-          </div>
-
           <div v-if="selectedTitle.categories?.length > 0">
             <label class="block text-sm font-medium text-[var(--color-text)] opacity-60">Categories</label>
             <div class="flex flex-wrap gap-1 mt-1">

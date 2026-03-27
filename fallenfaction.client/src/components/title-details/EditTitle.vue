@@ -132,14 +132,6 @@
                          create-new-url="/author/CreateA"
                          create-new-text="Create New Author" />
 
-            <!-- Artists -->
-            <MultiSelect :options="formData.artists"
-                         v-model="form.artists"
-                         placeholder="Select artists"
-                         label="Artists"
-                         create-new-url="/people/Create"
-                         create-new-text="Create New Artist" />
-
             <!-- Publishers -->
             <MultiSelect :options="formData.publishers"
                          v-model="form.publishers"
@@ -334,7 +326,6 @@
   const titleData = ref(null)
   const formData = ref({
     authors: [],
-    artists: [],
     publishers: [],
     teams: [],
     categories: [],
@@ -355,7 +346,6 @@
     coverImage: null,
     backgroundImage: null,
     authors: [],
-    artists: [],
     publishers: [],
     teams: [],
     categories: [],
@@ -399,7 +389,6 @@
         coverImage: null,
         backgroundImage: null,
         authors: Array.isArray(titleData.value.authors) ? titleData.value.authors : [],
-        artists: Array.isArray(titleData.value.artists) ? titleData.value.artists : [],
         publishers: Array.isArray(titleData.value.publishers) ? titleData.value.publishers : [],
         teams: Array.isArray(titleData.value.teams) ? titleData.value.teams : [],
         categories: Array.isArray(titleData.value.categories) ? titleData.value.categories : [],
@@ -463,7 +452,6 @@
         coverImage: form.value.coverImage,
         backgroundImage: form.value.backgroundImage,
         authors: form.value.authors,
-        artists: form.value.artists,
         publishers: form.value.publishers,
         teams: form.value.teams,
         categories: form.value.categories,

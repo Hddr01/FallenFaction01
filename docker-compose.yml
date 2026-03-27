@@ -45,7 +45,8 @@ services:
       - backend
     ports:
       - "80:80"     # http://localhost  ← open this in your browser
+    volumes:
+      - uploads_data:/app/uploads:ro   # read-only — backend writes, nginx reads
  
 volumes:
   uploads_data:     # user-uploaded media (covers, avatars, chapter pages)
- 

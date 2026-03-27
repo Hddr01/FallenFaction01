@@ -40,11 +40,6 @@ namespace FallenFaction.Server.Data.Models
         [ForeignKey("ChapterId")]
         public Chapter Chapter { get; set; }
 
-        // Reference to ChapterImage (may be null if comment is on title or chapter)
-        public int? ChapterImageId { get; set; }
-        [ForeignKey("ChapterImageId")]
-        public ChapterImage ChapterImage { get; set; }
-
         // Support for nested comments/replies
         public int? ParentCommentId { get; set; }
         [ForeignKey("ParentCommentId")]

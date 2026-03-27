@@ -1,4 +1,4 @@
-﻿using FallenFaction.Server.Data.Models;
+using FallenFaction.Server.Data.Models;
 
 namespace FallenFaction.Server.DTOs.Chapter
 {
@@ -14,7 +14,11 @@ namespace FallenFaction.Server.DTOs.Chapter
         public NameIdDTO? Team { get; set; }
         public DateTime CreatedDate { get; set; }
         public DateTime ReleaseDate { get; set; }
-        public List<ChapterImageDTO> ImagePaths { get; set; } = new List<ChapterImageDTO>();
+
+        /// <summary>
+        /// The full text content of the chapter.
+        /// </summary>
+        public string Content { get; set; } = string.Empty;
 
         // Navigation properties for chapter browsing
         public int? NextChapterId { get; set; }
@@ -25,15 +29,6 @@ namespace FallenFaction.Server.DTOs.Chapter
         public string? PreviousChapterName { get; set; }
         public int? PreviousChapterVolume { get; set; }
         public int? PreviousChapterTeamId { get; set; }
-        public int? PreviousChapterPageCount { get; set; }
-    }
-
-    public class ChapterImageDTO
-    {
-        public int Id { get; set; }
-        public string ImagePath { get; set; } = string.Empty;
-        public int OrderIndex { get; set; }
-        public int? ChapterId { get; set; }
     }
 
     public class NameIdDTO
@@ -68,13 +63,7 @@ namespace FallenFaction.Server.DTOs.Chapter
                 } : null,
                 CreatedDate = chapter.CreatedDate,
                 ReleaseDate = chapter.ReleaseDate,
-                ImagePaths = chapter.ImagePaths?.Select(ip => new ChapterImageDTO
-                {
-                    Id = ip.Id,
-                    ImagePath = ip.ImagePath ?? string.Empty,
-                    OrderIndex = ip.OrderIndex,
-                    ChapterId = ip.ChapterId ?? 0
-                }).OrderBy(ip => ip.OrderIndex).ToList() ?? new List<ChapterImageDTO>()
+                Content = chapter.Content ?? string.Empty
             };
         }
     }

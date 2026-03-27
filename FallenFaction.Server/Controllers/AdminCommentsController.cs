@@ -144,10 +144,7 @@ namespace FallenFaction.Server.Controllers
                     .Include(c => c.DeletedByUser) // ✅ NEW: Include who deleted it
                     .Include(c => c.Title)
                     .Include(c => c.Chapter)
-                        .ThenInclude(ch => ch != null ? ch.Title : null)
-                    .Include(c => c.ChapterImage)
-                        .ThenInclude(ci => ci != null ? ci.Chapter : null)
-                        .ThenInclude(ch => ch != null ? ch.Title : null)
+                        .ThenInclude(ch => ch.Title)
                     .AsQueryable();
 
                 // ✅ Filter by deletion status
@@ -170,9 +167,6 @@ namespace FallenFaction.Server.Controllers
                             break;
                         case 2: // Chapter comments
                             query = query.Where(c => c.ChapterId != null);
-                            break;
-                        case 3: // Chapter image comments
-                            query = query.Where(c => c.ChapterImageId != null);
                             break;
                     }
                 }
@@ -223,10 +217,8 @@ namespace FallenFaction.Server.Controllers
                         ParentCommentId = c.ParentCommentId,
                         TitleId = c.TitleId,
                         ChapterId = c.ChapterId,
-                        ChapterImageId = c.ChapterImageId,
                         TargetTitle = c.Title != null ? c.Title.OriginalTitle :
                                      c.Chapter != null && c.Chapter.Title != null ? c.Chapter.Title.OriginalTitle :
-                                     c.ChapterImage != null && c.ChapterImage.Chapter != null && c.ChapterImage.Chapter.Title != null ? c.ChapterImage.Chapter.Title.OriginalTitle :
                                      "Unknown",
                         IsReported = c.DislikesCount > c.LikesCount && c.DislikesCount > 5,
 
@@ -276,9 +268,6 @@ namespace FallenFaction.Server.Controllers
                     .Include(c => c.Title)
                     .Include(c => c.Chapter)
                         .ThenInclude(ch => ch.Title)
-                    .Include(c => c.ChapterImage)
-                        .ThenInclude(ci => ci.Chapter)
-                        .ThenInclude(ch => ch.Title)
                     .Include(c => c.Replies)
                         .ThenInclude(r => r.User)
                     .FirstOrDefaultAsync(c => c.Id == id);
@@ -300,14 +289,11 @@ namespace FallenFaction.Server.Controllers
                     ParentCommentId = comment.ParentCommentId,
                     TitleId = comment.TitleId,
                     ChapterId = comment.ChapterId,
-                    ChapterImageId = comment.ChapterImageId,
                     TargetTitle = comment.Title?.OriginalTitle ??
                                  comment.Chapter?.Title?.OriginalTitle ??
-                                 comment.ChapterImage?.Chapter?.Title?.OriginalTitle ??
                                  "Unknown",
                     TargetType = comment.TitleId != null ? "Title" :
-                                comment.ChapterId != null ? "Chapter" :
-                                comment.ChapterImageId != null ? "Image" : "Unknown",
+                                comment.ChapterId != null ? "Chapter" : "Unknown",
                     Replies = comment.Replies?.Select(r => new AdminCommentDto
                     {
                         Id = r.Id,
@@ -654,7 +640,6 @@ namespace FallenFaction.Server.Controllers
             public int? ParentCommentId { get; set; }
             public int? TitleId { get; set; }
             public int? ChapterId { get; set; }
-            public int? ChapterImageId { get; set; }
             public string TargetTitle { get; set; } = string.Empty;
             public bool IsReported { get; set; }
 

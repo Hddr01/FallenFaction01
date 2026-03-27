@@ -134,7 +134,7 @@
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-text)]">
                   <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                    {{ chapter.imageCount }} pages
+                    {{ chapter.wordCount ?? '—' }} words
                   </span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
@@ -215,8 +215,8 @@
                 <h4 class="text-sm font-medium text-[var(--color-text)] opacity-75 mb-2">Chapter Statistics</h4>
                 <dl class="space-y-2">
                   <div>
-                    <dt class="text-xs text-[var(--color-text)] opacity-60">Total Pages</dt>
-                    <dd class="text-sm text-[var(--color-text)]">{{ chapterDetails.images?.length || 0 }}</dd>
+                    <dt class="text-xs text-[var(--color-text)] opacity-60">Word Count</dt>
+                    <dd class="text-sm text-[var(--color-text)]">{{ chapterDetails.content ? chapterDetails.content.trim().split(/\s+/).length : 0 }}</dd>
                   </div>
                   <div>
                     <dt class="text-xs text-[var(--color-text)] opacity-60">Title ID</dt>
@@ -230,24 +230,12 @@
               </div>
             </div>
 
-            <!-- Chapter Images Preview -->
-            <div v-if="chapterDetails.images && chapterDetails.images.length > 0">
-              <h4 class="text-sm font-medium text-[var(--color-text)] opacity-75 mb-4">Chapter Pages Preview</h4>
-              <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 max-h-96 overflow-y-auto">
-                <div v-for="(image, index) in chapterDetails.images" :key="image.id" class="relative group">
-                  <img :src="image.imagePath"
-                       :alt="`Page ${image.orderIndex}`"
-                       class="w-full h-24 object-cover rounded border border-[var(--color-border)] cursor-pointer hover:shadow-lg transition-shadow duration-200"
-                       @click="viewFullImage(image.imagePath, image.orderIndex)"
-                       @error="handleImageError">
-                  <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded-b">
-                    Page {{ image.orderIndex }}
-                  </div>
-                </div>
+            <!-- Chapter Content Preview -->
+            <div v-if="chapterDetails.content">
+              <h4 class="text-sm font-medium text-[var(--color-text)] opacity-75 mb-4">Content Preview</h4>
+              <div class="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg p-4 max-h-64 overflow-y-auto text-sm text-[var(--color-text)] leading-relaxed whitespace-pre-wrap font-serif">
+                {{ chapterDetails.content.slice(0, 1500) }}{{ chapterDetails.content.length > 1500 ? '…' : '' }}
               </div>
-              <p class="text-xs text-[var(--color-text)] opacity-60 mt-2">
-                Click on any image to view full size
-              </p>
             </div>
           </div>
 
@@ -300,23 +288,6 @@
         </div>
       </div>
 
-      <!-- Full Image Modal -->
-      <div v-if="showImageModal" class="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center p-4 z-70" @click="closeImageModal">
-        <div class="relative max-w-full max-h-full">
-          <img :src="selectedImage"
-               :alt="`Page ${selectedImagePage}`"
-               class="max-w-full max-h-full object-contain">
-          <button @click="closeImageModal"
-                  class="absolute top-4 right-4 text-white bg-black bg-opacity-50 rounded-full p-2 hover:bg-opacity-75 transition-opacity duration-200">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-          </button>
-          <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white bg-black bg-opacity-50 rounded px-3 py-1">
-            Page {{ selectedImagePage }}
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </template>
@@ -338,11 +309,6 @@ const showDetailsModal = ref(false)
 const chapterDetails = ref(null)
 const showRejectModal = ref(false)
 const rejectReason = ref('')
-
-// Image modal
-const showImageModal = ref(false)
-const selectedImage = ref('')
-const selectedImagePage = ref(0)
 
 // Methods
 const loadPendingChapters = async () => {
@@ -449,21 +415,6 @@ const confirmRejectChapter = async () => {
   }
 }
 
-const viewFullImage = (imagePath, pageNumber) => {
-  selectedImage.value = imagePath
-  selectedImagePage.value = pageNumber
-  showImageModal.value = true
-}
-
-const closeImageModal = () => {
-  showImageModal.value = false
-  selectedImage.value = ''
-  selectedImagePage.value = 0
-}
-
-const handleImageError = (event) => {
-  event.target.src = '/img/logo.png' // Fallback image
-}
 
 const formatDate = (dateString) => {
   if (!dateString) return 'Unknown'
