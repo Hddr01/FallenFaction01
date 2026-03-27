@@ -362,7 +362,7 @@ namespace FallenFaction.Server.Controllers
                 }
 
                 var pendingChapter = await _context.PendingChapters
-                    
+
                     .Include(pc => pc.Title)
                     .Include(pc => pc.Team)
                     .FirstOrDefaultAsync(pc => pc.Id == id);
@@ -457,7 +457,7 @@ namespace FallenFaction.Server.Controllers
                 }
 
                 var pendingChapter = await _context.PendingChapters
-                    
+
                     .FirstOrDefaultAsync(pc => pc.Id == id);
 
                 if (pendingChapter == null)
@@ -523,7 +523,7 @@ namespace FallenFaction.Server.Controllers
                 var query = _context.Chapters
                     .Include(c => c.Title)
                     .Include(c => c.Team)
-                    
+
                     .Where(c => c.TitleId == titleId && c.ChapterNumber == chapterNumber);
 
                 if (volumeNumber.HasValue)
@@ -588,7 +588,7 @@ namespace FallenFaction.Server.Controllers
                 var chapters = await _context.Chapters
                     .Include(c => c.Team)
                     .Include(c => c.Title)
-                    
+
                     .Where(c => c.TitleId == titleId)
                     .OrderByDescending(c => c.VolumeNumber)
                     .ThenByDescending(c => c.ChapterNumber)
@@ -614,40 +614,51 @@ namespace FallenFaction.Server.Controllers
         {
             try
             {
-                // Decode the URL-encoded title name
                 string decodedTitleName = Uri.UnescapeDataString(titleName);
 
-                var chapter = await _context.Chapters
-                    .Include(c => c.Title)
-                    .Include(c => c.Team)
-                    
-                    .FirstOrDefaultAsync(c => c.Title.OriginalTitle == decodedTitleName &&
-                                            c.Name == chapterName &&
-                                            c.VolumeNumber == volume &&
-                                            c.TeamId == teamId);
+                // Support slug format "title-name-{id}" as well as plain name
+                var (slugId, _) = ParseSlug(decodedTitleName);
+
+                Chapter? chapter = null;
+
+                if (slugId.HasValue)
+                {
+                    // Slug lookup — fast, by ID
+                    chapter = await _context.Chapters
+                        .Include(c => c.Title)
+                        .Include(c => c.Team)
+                        .FirstOrDefaultAsync(c =>
+                            c.TitleId == slugId.Value &&
+                            c.Name == chapterName &&
+                            c.VolumeNumber == volume &&
+                            c.TeamId == teamId);
+                }
 
                 if (chapter == null)
                 {
-                    return NotFound(new { message = "Chapter not found" });
+                    // Fallback: legacy plain-name lookup
+                    chapter = await _context.Chapters
+                        .Include(c => c.Title)
+                        .Include(c => c.Team)
+                        .FirstOrDefaultAsync(c =>
+                            c.Title.OriginalTitle == decodedTitleName &&
+                            c.Name == chapterName &&
+                            c.VolumeNumber == volume &&
+                            c.TeamId == teamId);
                 }
+
+                if (chapter == null)
+                    return NotFound(new { message = "Chapter not found" });
 
                 if (!chapter.Title.IsAvailable)
-                {
                     return NotFound(new { message = "Title is not available" });
-                }
 
-                // Convert to DTO
                 var chapterDto = ChapterMapper.ToDTO(chapter);
-
-                // Add information about next and previous chapters
                 await EnrichWithAdjacentChapters(chapterDto);
 
-                // Log chapter view
                 var user = await _userManager.GetUserAsync(User);
                 if (user != null)
-                {
                     await LogChapterView(chapter.Id, user.Id);
-                }
 
                 return Ok(chapterDto);
             }
@@ -1243,6 +1254,140 @@ namespace FallenFaction.Server.Controllers
             {
                 _logger.LogError(ex, "Error fetching title details for {EncodedTitle}: {Error}", encodedTitle, ex.Message);
                 return StatusCode(500, new { message = "Error fetching title details", error = ex.Message });
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // GET: api/Titles/BySlug/{slug}
+        // Resolves a slug like "naruto-42" → title with Id=42.
+        // ─────────────────────────────────────────────────────────────────────
+        [HttpGet("BySlug/{slug}")]
+        public async Task<ActionResult<TitleDetailDto>> GetTitleBySlug(string slug)
+        {
+            try
+            {
+                var decoded = Uri.UnescapeDataString(slug ?? "");
+                var (titleId, _) = ParseSlug(decoded);
+
+                if (titleId == null)
+                    return BadRequest(new { message = "Invalid slug format — expected 'title-name-{id}'" });
+
+                var title = await _context.Titles
+                    .Where(t => t.IsAvailable && t.Id == titleId.Value)
+                    .Include(t => t.Teams)
+                    .Include(t => t.Authors)
+                    .Include(t => t.Artists)
+                    .Include(t => t.Categories)
+                    .Include(t => t.Tags)
+                    .FirstOrDefaultAsync();
+
+                if (title == null)
+                    return NotFound(new { message = "Title not found" });
+
+                return Ok(await BuildTitleDetailDto(title));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching title by slug: {Slug}", slug);
+                return StatusCode(500, new { message = "Error fetching title", error = ex.Message });
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // GET: api/Titles/CheckSimilarity?originalTitle=...&englishTitle=...&alternativeNames=...
+        // Returns existing titles that are exact, near-exact or name-overlapping
+        // with the supplied names. Used by the admin review panel.
+        // ─────────────────────────────────────────────────────────────────────
+        [HttpGet("CheckSimilarity")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult> CheckSimilarity(
+            [FromQuery] string? originalTitle = null,
+            [FromQuery] string? englishTitle = null,
+            [FromQuery] string? alternativeNames = null)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(originalTitle) && string.IsNullOrWhiteSpace(englishTitle))
+                    return Ok(new { matches = new List<object>() });
+
+                // Gather all candidate name tokens from the pending title
+                var inputNames = new List<string>();
+                if (!string.IsNullOrWhiteSpace(originalTitle)) inputNames.Add(originalTitle.Trim().ToLower());
+                if (!string.IsNullOrWhiteSpace(englishTitle)) inputNames.Add(englishTitle.Trim().ToLower());
+                if (!string.IsNullOrWhiteSpace(alternativeNames))
+                    inputNames.AddRange(alternativeNames.Split(',', ';', '\n')
+                        .Select(s => s.Trim().ToLower())
+                        .Where(s => s.Length > 0));
+
+                // Pull all approved titles (names only — fast query)
+                var approvedTitles = await _context.Titles
+                    .Where(t => t.IsAvailable)
+                    .Select(t => new {
+                        t.Id,
+                        t.OriginalTitle,
+                        t.EnglishTitle,
+                        t.AlternativeNames
+                    })
+                    .ToListAsync();
+
+                var matches = new List<object>();
+
+                foreach (var existing in approvedTitles)
+                {
+                    // Build the name set for this approved title
+                    var existingNames = new List<string>();
+                    if (!string.IsNullOrWhiteSpace(existing.OriginalTitle))
+                        existingNames.Add(existing.OriginalTitle.Trim().ToLower());
+                    if (!string.IsNullOrWhiteSpace(existing.EnglishTitle))
+                        existingNames.Add(existing.EnglishTitle.Trim().ToLower());
+                    if (!string.IsNullOrWhiteSpace(existing.AlternativeNames))
+                        existingNames.AddRange(existing.AlternativeNames.Split(',', ';', '\n')
+                            .Select(s => s.Trim().ToLower())
+                            .Where(s => s.Length > 0));
+
+                    string? level = null;
+
+                    // EXACT match (case-insensitive)
+                    if (inputNames.Any(i => existingNames.Any(e => e == i)))
+                        level = "exact";
+                    // CONTAINS match (one name contains the other)
+                    else if (inputNames.Any(i => existingNames.Any(e =>
+                        e.Contains(i) || i.Contains(e))))
+                        level = "similar";
+                    // STARTS-WITH (first word matches)
+                    else if (inputNames.Any(i =>
+                    {
+                        var firstWord = i.Split(' ')[0];
+                        return firstWord.Length >= 4 && existingNames.Any(e => e.StartsWith(firstWord));
+                    }))
+                        level = "partial";
+
+                    if (level != null)
+                    {
+                        matches.Add(new
+                        {
+                            id = existing.Id,
+                            originalTitle = existing.OriginalTitle,
+                            englishTitle = existing.EnglishTitle,
+                            alternativeNames = existing.AlternativeNames,
+                            matchLevel = level
+                        });
+                    }
+                }
+
+                // Sort: exact > similar > partial
+                var ordered = matches
+                    .OrderBy(m => ((dynamic)m).matchLevel == "exact" ? 0 :
+                                  ((dynamic)m).matchLevel == "similar" ? 1 : 2)
+                    .Take(10)
+                    .ToList();
+
+                return Ok(new { matches = ordered });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking title similarity");
+                return StatusCode(500, new { message = "Error checking similarity", error = ex.Message });
             }
         }
 
@@ -1919,6 +2064,71 @@ namespace FallenFaction.Server.Controllers
         {
             public int TitleId { get; set; }
             public int ChapterNumber { get; set; }
+        }
+
+        // ── Slug helpers ─────────────────────────────────────────────────────
+        // Slug format: "{title-name}-{id}"  e.g. "naruto-42", "my-hero-academia-123"
+        private static (int? id, string namePart) ParseSlug(string slug)
+        {
+            if (string.IsNullOrWhiteSpace(slug)) return (null, slug ?? "");
+            var lastDash = slug.LastIndexOf('-');
+            if (lastDash > 0)
+            {
+                var suffix = slug.Substring(lastDash + 1);
+                if (int.TryParse(suffix, out var id) && id > 0)
+                    return (id, slug.Substring(0, lastDash));
+            }
+            return (null, slug);
+        }
+
+        private async Task<TitleDetailDto> BuildTitleDetailDto(
+            FallenFaction.Server.Data.Models.Title title)
+        {
+            var id = title.Id;
+
+            var chapterCount = await _context.Chapters.Where(c => c.TitleId == id).CountAsync();
+            var latestNum = await _context.Chapters.Where(c => c.TitleId == id)
+                                   .MaxAsync(c => (int?)c.ChapterNumber) ?? 0;
+            var ratingStats = await _context.Ratings.Where(r => r.TitleId == id)
+                                   .GroupBy(r => r.TitleId)
+                                   .Select(g => new { Avg = g.Average(r => (double)r.Value), Cnt = g.Count() })
+                                   .FirstOrDefaultAsync();
+            var bookmarks = await _context.Bookmarks.Where(b => b.TitleId == id).CountAsync();
+            var views = await _context.ChapterViews
+                                   .Where(cv => _context.Chapters.Where(c => c.TitleId == id)
+                                       .Select(c => c.Id).Contains(cv.ChapterId))
+                                   .CountAsync();
+            var lastUpdated = await _context.Chapters.Where(c => c.TitleId == id)
+                                   .OrderByDescending(c => c.ReleaseDate)
+                                   .Select(c => (DateTime?)c.ReleaseDate)
+                                   .FirstOrDefaultAsync();
+
+            return new TitleDetailDto
+            {
+                Id = title.Id,
+                OriginalTitle = title.OriginalTitle,
+                EnglishTitle = title.EnglishTitle ?? title.OriginalTitle,
+                Description = title.Description ?? "",
+                CoverImagePath = !string.IsNullOrEmpty(title.CoverImagePath) ? title.CoverImagePath : "/img/logo.png",
+                BackgroundImagePath = title.BackgroundImagePath,
+                Type = title.Type,
+                StatusTitle = title.StatusTitle ?? "Unknown",
+                StatusTranslation = title.StatusTranslation ?? "Unknown",
+                ReleaseDate = title.ReleaseDate ?? "Unknown",
+                AgeRestriction = title.AgeRestriction,
+                ChapterCount = chapterCount,
+                LatestChapter = latestNum > 0 ? latestNum.ToString() : "No chapters",
+                AverageRating = ratingStats?.Avg ?? 0.0,
+                RatingCount = ratingStats?.Cnt ?? 0,
+                BookmarkCount = bookmarks,
+                ViewCount = views,
+                LastUpdated = lastUpdated,
+                Teams = title.Teams.Select(t => new TeamSimpleDto { Id = t.Id, Name = t.Name, AvatarImagePath = t.AvatarImagePath, BackgroundImagePath = t.BackgroundImagePath }).ToList(),
+                Authors = title.Authors.Select(a => a.Name).ToList(),
+                Artists = title.Artists.Select(a => a.Name).ToList(),
+                Categories = title.Categories.Select(c => c.Name).ToList(),
+                Tags = title.Tags.Select(t => t.Name).ToList()
+            };
         }
     }
 }

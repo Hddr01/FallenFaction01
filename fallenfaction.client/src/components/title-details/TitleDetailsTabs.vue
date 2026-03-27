@@ -365,7 +365,7 @@
             </div>
 
             <ChaptersComponent :chapters="tabData.chapters.data"
-                               :title-name="titleData.originalTitle" />
+                               :title-slug="buildTitleSlug(props.titleData.originalTitle, props.titleId)" />
           </template>
 
           <div v-else-if="tabData.chapters.error" class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 bg-gray-900 rounded-b-lg">
@@ -443,6 +443,7 @@
   import { Motion } from 'motion-v'
   import ChaptersComponent from './ChaptersComponent.vue'
   import CommentsComponent from './CommentsComponent.vue'
+  import { buildTitleSlug } from '@/utils/titleSlug.js'
   import {
     Star,
     StarIcon,

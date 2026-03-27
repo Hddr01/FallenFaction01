@@ -622,6 +622,7 @@
   import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { titleDetailsService } from '../../services/titleDetailsService'
+  import { buildTitleSlug } from '@/utils/titleSlug.js'
   import TitleDetailsTabs from './TitleDetailsTabs.vue'
   import BookmarkDropdown from './BookmarkDropdown.vue'
   import TitleChangeHistory from './TitleChangeHistory.vue'
@@ -661,7 +662,7 @@
 
   // Props
   const props = defineProps({
-    titleName: {
+    titleSlug: {
       type: String,
       required: true
     }
@@ -849,7 +850,7 @@
    * Get bookmark cache key for current title
    */
   const getBookmarkCacheKey = () => {
-    return `bookmark_${titleData.value?.id || props.titleName}`
+    return `bookmark_${titleData.value?.id || props.titleSlug}`
   }
 
   /**
@@ -916,8 +917,8 @@
   // Methods
   // MODIFY loadTitleData to also load reading progress:
   const loadTitleData = async () => {
-    if (!props.titleName) {
-      error.value = 'No title name provided'
+    if (!props.titleSlug) {
+      error.value = 'No title provided'
       return
     }
 
@@ -925,7 +926,7 @@
       loading.value = true
       error.value = null
 
-      const result = await titleDetailsService.getTitleDetails(props.titleName)
+      const result = await titleDetailsService.getTitleDetails(props.titleSlug)
 
       if (!result.success || !result.data) {
         error.value = result.error || 'Failed to load title details'
@@ -1336,14 +1337,14 @@
     const firstChapter = sortedChapters[0]
     if (!firstChapter) return '#'
 
+    const titleSlug = buildTitleSlug(titleData.value.originalTitle, titleData.value.id)
     const chapterName = firstChapter.name || firstChapter.chapterNumber.toString()
-    return `/${encodeURIComponent(titleData.value.originalTitle)}/chapter/${encodeURIComponent(chapterName)}/v${firstChapter.volumeNumber}/t${firstChapter.teamId || firstChapter.team?.id || 0}?viewMode=single`
+    return `/${titleSlug}/chapter/${encodeURIComponent(chapterName)}/v${firstChapter.volumeNumber}/t${firstChapter.teamId || firstChapter.team?.id || 0}?viewMode=single`
   }
 
   const getContinueReadingUrl = () => {
     if (!chaptersData.value || chaptersData.value.length === 0) return '#'
 
-    // Get last read chapter from either bookmark or progress
     let lastReadChapter = 0
     if (userBookmark.value?.lastReadChapter > 0) {
       lastReadChapter = userBookmark.value.lastReadChapter
@@ -1352,6 +1353,8 @@
     }
 
     if (lastReadChapter === 0) return '#'
+
+    const titleSlug = buildTitleSlug(titleData.value.originalTitle, titleData.value.id)
 
     const continueChapter = chaptersData.value.find(chapter =>
       chapter.chapterNumber === lastReadChapter
@@ -1365,13 +1368,13 @@
       if (sortedChapters.length > 0) {
         const chapter = sortedChapters[0]
         const chapterName = chapter.name || chapter.chapterNumber.toString()
-        return `/${encodeURIComponent(titleData.value.originalTitle)}/chapter/${encodeURIComponent(chapterName)}/v${chapter.volumeNumber}/t${chapter.teamId || chapter.team?.id || 0}?viewMode=single`
+        return `/${titleSlug}/chapter/${encodeURIComponent(chapterName)}/v${chapter.volumeNumber}/t${chapter.teamId || chapter.team?.id || 0}?viewMode=single`
       }
       return '#'
     }
 
     const chapterName = continueChapter.name || continueChapter.chapterNumber.toString()
-    return `/${encodeURIComponent(titleData.value.originalTitle)}/chapter/${encodeURIComponent(chapterName)}/v${continueChapter.volumeNumber}/t${continueChapter.teamId || continueChapter.team?.id || 0}?viewMode=single`
+    return `/${titleSlug}/chapter/${encodeURIComponent(chapterName)}/v${continueChapter.volumeNumber}/t${continueChapter.teamId || continueChapter.team?.id || 0}?viewMode=single`
   }
 
   const getErrorTitle = () => {
@@ -1440,8 +1443,8 @@
 
   // Watch for route changes
   import { watch } from 'vue'
-  watch(() => props.titleName, async (newTitleName) => {
-    if (newTitleName) {
+  watch(() => props.titleSlug, async (newSlug) => {
+    if (newSlug) {
       await loadTitleData()
     }
   })

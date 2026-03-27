@@ -1,207 +1,136 @@
 // services/globalSearchService.js
 import axios from 'axios';
 
-// Create axios instance with base configuration
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',
-  headers: {
-    'Accept': 'application/json',
-  },
+  headers: { 'Accept': 'application/json' },
   withCredentials: true,
   timeout: 15000,
 });
 
-// Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
+
+// ─── helpers ────────────────────────────────────────────────────────────────
+const safe = (promise) =>
+  promise.then((r) => r).catch(() => []);
+
+// ─── individual searches ─────────────────────────────────────────────────────
+
+async function searchTitles(query) {
+  // Hits the new GET /api/Titles/Search?query=... endpoint we added
+  const res = await api.get('/Titles/Search', { params: { query } });
+  return Array.isArray(res.data) ? res.data.slice(0, 20) : [];
+}
+
+async function searchTeams(query) {
+  const res = await api.get('/Team/search', { params: { query } });
+  return Array.isArray(res.data) ? res.data.slice(0, 10) : [];
+}
+
+async function searchAuthors(query) {
+  const res = await api.get('/Author/search', { params: { query } });
+  return Array.isArray(res.data) ? res.data.slice(0, 10) : [];
+}
+
+async function searchArtists(query) {
+  const res = await api.get('/Artist/search', { params: { query } });
+  return Array.isArray(res.data) ? res.data.slice(0, 10) : [];
+}
+
+async function searchPublishers(query) {
+  const res = await api.get('/Publisher/search', { params: { query } });
+  return Array.isArray(res.data) ? res.data.slice(0, 10) : [];
+}
+
+async function searchTags(query) {
+  // No dedicated tag search endpoint — fetch form-data and filter client-side
+  const res = await api.get('/TitleApi/form-data');
+  const all = res.data?.Tags ?? [];
+  const q = query.toLowerCase();
+  return all.filter((t) => t.name.toLowerCase().includes(q)).slice(0, 10);
+}
+
+async function searchUsers(query) {
+  // Hits the new GET /api/Users/search?query=... endpoint we added
+  const res = await api.get('/Users/search', { params: { query } });
+  return Array.isArray(res.data) ? res.data.slice(0, 10) : [];
+}
+
+// ─── public API ──────────────────────────────────────────────────────────────
 
 export const globalSearchService = {
   /**
-   * Search across all entities
-   * @param {string} query - Search query
-   * @returns {Object} - Categorized search results
+   * Search every category in parallel.
    */
   async searchAll(query) {
-    if (!query || query.trim().length < 2) {
-      return {
-        titles: [],
-        teams: [],
-        authors: [],
-        artists: [],
-        publishers: [],
-        tags: [],
-        users: []
-      };
-    }
+    if (!query || query.trim().length < 2) return emptyResults();
 
-    const trimmedQuery = query.trim();
-
-    try {
-      // Execute all searches in parallel
-      const [
-        titlesResult,
-        teamsResult,
-        authorsResult,
-        artistsResult,
-        publishersResult,
-        tagsResult,
-        usersResult
-      ] = await Promise.allSettled([
-        this.searchTitles(trimmedQuery),
-        this.searchTeams(trimmedQuery),
-        this.searchAuthors(trimmedQuery),
-        this.searchArtists(trimmedQuery),
-        this.searchPublishers(trimmedQuery),
-        this.searchTags(trimmedQuery),
-        this.searchUsers(trimmedQuery)
+    const [titles, teams, authors, artists, publishers, tags, users] =
+      await Promise.all([
+        safe(searchTitles(query)),
+        safe(searchTeams(query)),
+        safe(searchAuthors(query)),
+        safe(searchArtists(query)),
+        safe(searchPublishers(query)),
+        safe(searchTags(query)),
+        safe(searchUsers(query)),
       ]);
 
-      return {
-        titles: titlesResult.status === 'fulfilled' ? titlesResult.value : [],
-        teams: teamsResult.status === 'fulfilled' ? teamsResult.value : [],
-        authors: authorsResult.status === 'fulfilled' ? authorsResult.value : [],
-        artists: artistsResult.status === 'fulfilled' ? artistsResult.value : [],
-        publishers: publishersResult.status === 'fulfilled' ? publishersResult.value : [],
-        tags: tagsResult.status === 'fulfilled' ? tagsResult.value : [],
-        users: usersResult.status === 'fulfilled' ? usersResult.value : []
-      };
-    } catch (error) {
-      console.error('Global search error:', error);
-      return {
-        titles: [],
-        teams: [],
-        authors: [],
-        artists: [],
-        publishers: [],
-        tags: [],
-        users: []
-      };
-    }
+    return { titles, teams, authors, artists, publishers, tags, users };
   },
 
   /**
-   * Search titles
+   * Search a single category by key.
+   * Key must be one of: titles | teams | authors | artists | publishers | tags | users
    */
-  async searchTitles(query) {
-    try {
-      const response = await api.get('/Titles/Search', {
-        params: { query }
-      });
-      return response.data.slice(0, 10); // Limit to 10 results
-    } catch (error) {
-      console.error('Error searching titles:', error);
-      return [];
-    }
+  async searchCategory(category, query) {
+    if (!query || query.trim().length < 2) return emptyResults();
+
+    const fn = {
+      titles: searchTitles,
+      teams: searchTeams,
+      authors: searchAuthors,
+      artists: searchArtists,
+      publishers: searchPublishers,
+      tags: searchTags,
+      users: searchUsers,
+    }[category];
+
+    if (!fn) return emptyResults();
+
+    const results = await safe(fn(query));
+    const r = emptyResults();
+    r[category] = results;
+    return r;
   },
 
-  /**
-   * Search teams
-   */
-  async searchTeams(query) {
-    try {
-      const response = await api.get('/Team/search', {
-        params: { query }
-      });
-      return response.data.slice(0, 10);
-    } catch (error) {
-      console.error('Error searching teams:', error);
-      return [];
-    }
-  },
-
-  /**
-   * Search authors
-   */
-  async searchAuthors(query) {
-    try {
-      const response = await api.get('/Author/search', {
-        params: { query }
-      });
-      return response.data.slice(0, 10);
-    } catch (error) {
-      console.error('Error searching authors:', error);
-      return [];
-    }
-  },
-
-  /**
-   * Search artists
-   */
-  async searchArtists(query) {
-    try {
-      const response = await api.get('/Artist/search', {
-        params: { query }
-      });
-      return response.data.slice(0, 10);
-    } catch (error) {
-      console.error('Error searching artists:', error);
-      return [];
-    }
-  },
-
-  /**
-   * Search publishers
-   */
-  async searchPublishers(query) {
-    try {
-      const response = await api.get('/Publisher/search', {
-        params: { query }
-      });
-      return response.data.slice(0, 10);
-    } catch (error) {
-      console.error('Error searching publishers:', error);
-      return [];
-    }
-  },
-
-  /**
-   * Search tags
-   */
-  async searchTags(query) {
-    try {
-      // Fetch all tags and filter client-side since there's no search endpoint
-      const response = await api.get('/TitleApi/form-data');
-      const allTags = response.data.Tags || [];
-
-      return allTags
-        .filter(tag => tag.name.toLowerCase().includes(query.toLowerCase()))
-        .slice(0, 10);
-    } catch (error) {
-      console.error('Error searching tags:', error);
-      return [];
-    }
-  },
-
-  /**
-   * Search users
-   */
-  async searchUsers(query) {
-    try {
-      // Since there's no user search endpoint, we'll fetch top users and filter
-      // In production, you'd want a dedicated user search endpoint
-      const response = await api.get('/Users/TopUsers');
-      const allUsers = response.data || [];
-
-      return allUsers
-        .filter(user =>
-          user.name?.toLowerCase().includes(query.toLowerCase())
-        )
-        .slice(0, 10);
-    } catch (error) {
-      console.error('Error searching users:', error);
-      return [];
-    }
-  }
+  // Individual exports for direct use if needed
+  searchTitles,
+  searchTeams,
+  searchAuthors,
+  searchArtists,
+  searchPublishers,
+  searchTags,
+  searchUsers,
 };
+
+function emptyResults() {
+  return {
+    titles: [],
+    teams: [],
+    authors: [],
+    artists: [],
+    publishers: [],
+    tags: [],
+    users: [],
+  };
+}
 
 export default globalSearchService;

@@ -152,7 +152,7 @@
       type: Array,
       default: () => []
     },
-    titleName: {
+    titleSlug: {
       type: String,
       required: true
     },
@@ -245,7 +245,7 @@
   }
 
   const getChapterUrl = (chapter) => {
-    return `/${props.titleName}/chapter/${chapter.name}/v${chapter.volumeNumber}/t${chapter.teamId || 0}`
+    return `/${props.titleSlug}/chapter/${chapter.name}/v${chapter.volumeNumber}/t${chapter.teamId || 0}`
   }
 
   const formatDate = (dateString) => {

@@ -1187,8 +1187,19 @@
 
   // Navigate to title using originalTitle (the Vue router slug)
   function navigateToTitle(bm) {
-    const slug = bm.originalTitle || bm.titleName
-    if (slug) router.push(`/${encodeURIComponent(slug)}`)
+    // bm.titleId is the numeric ID from BookmarkDto; build the slug so the
+    // router guard (which requires /:name-{id}) doesn't reject the navigation.
+    if (bm.titleId) {
+      const name = bm.originalTitle || bm.titleName || 'title'
+      const slug = name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+      router.push(`/${slug}-${bm.titleId}`)
+    } else if (bm.originalTitle || bm.titleName) {
+      // Fallback for legacy data without titleId — bare name, will 404 if guard rejects
+      router.push(`/${encodeURIComponent(bm.originalTitle || bm.titleName)}`)
+    }
   }
 
   // ─── Load folders (+ all bookmarks) ──────────────────────────

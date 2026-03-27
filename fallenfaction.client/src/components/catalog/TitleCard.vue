@@ -218,6 +218,7 @@
   import { Card } from '@/components/ui/card';
   import { Badge } from '@/components/ui/badge';
   import { Button } from '@/components/ui/button';
+  import { buildTitleSlug } from '@/utils/titleSlug.js';
 
   import catalogService from '@/services/catalogService';
 
@@ -265,8 +266,9 @@
 
   // Methods
   function navigateToTitle() {
-    const titleName = encodeURIComponent(props.title.originalTitle || props.title.englishTitle);
-    router.push(`/${titleName}`);
+    // Use slug format: "title-name-{id}" e.g. "naruto-42"
+    const slug = buildTitleSlug(props.title.originalTitle || props.title.englishTitle, props.title.id)
+    router.push(`/${slug}`)
   }
 
   function toggleBookmark(event) {

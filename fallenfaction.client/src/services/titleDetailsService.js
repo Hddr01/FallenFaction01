@@ -91,32 +91,71 @@ class TitleDetailsService {
     return error.response?.data?.message || error.message || 'An error occurred';
   }
 
-  // Get title details by original title name
-  async getTitleDetails(titleName) {
+  // ── Slug helpers ─────────────────────────────────────────────────────────
+  // Build a URL-safe slug: "My Hero Academia" + 42 → "my-hero-academia-42"
+  buildTitleSlug(originalTitle, id) {
+    const slug = (originalTitle || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+    return `${slug || 'title'}-${id}`
+  }
+
+  // Parse slug back to id: "my-hero-academia-42" → 42
+  parseTitleSlug(slug) {
+    const lastDash = (slug || '').lastIndexOf('-')
+    if (lastDash > 0) {
+      const suffix = slug.slice(lastDash + 1)
+      const id = parseInt(suffix, 10)
+      if (!isNaN(id) && id > 0) return id
+    }
+    return null
+  }
+
+  // ── Get title details — accepts EITHER a slug ("naruto-42") or a plain name ──
+  async getTitleDetails(titleSlugOrName) {
     try {
-      console.log('Fetching title details for:', titleName);
+      console.log('Fetching title details for:', titleSlugOrName)
 
-      // Encode the title name for URL
-      const encodedTitle = encodeURIComponent(titleName);
-      const response = await this.apiClient.get(`/Titles/Details/${encodedTitle}`);
-
-      // Check if response is HTML (indicates wrong endpoint)
-      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
-        throw new Error('Received HTML instead of JSON - API endpoint not found');
+      // Try slug format first (ends with -<number>)
+      const id = this.parseTitleSlug(titleSlugOrName)
+      if (id !== null) {
+        const response = await this.apiClient.get(
+          `/Titles/BySlug/${encodeURIComponent(titleSlugOrName)}`
+        )
+        if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+          throw new Error('Received HTML instead of JSON')
+        }
+        return { success: true, data: response.data, error: null }
       }
 
-      return {
-        success: true,
-        data: response.data,
-        error: null
-      };
+      // Fallback — legacy plain-name endpoint (backward compat)
+      const encodedTitle = encodeURIComponent(titleSlugOrName)
+      const response = await this.apiClient.get(`/Titles/Details/${encodedTitle}`)
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('Received HTML instead of JSON')
+      }
+      return { success: true, data: response.data, error: null }
     } catch (error) {
-      console.error('Error fetching title details:', error);
-      return {
-        success: false,
-        data: null,
-        error: this.getErrorMessage(error)
-      };
+      console.error('Error fetching title details:', error)
+      return { success: false, data: null, error: this.getErrorMessage(error) }
+    }
+  }
+
+  // ── Check for duplicate / similar titles (admin use) ─────────────────────
+  async checkSimilarity(originalTitle, englishTitle = '', alternativeNames = '') {
+    try {
+      const response = await this.apiClient.get('/Titles/CheckSimilarity', {
+        params: {
+          originalTitle: originalTitle || '',
+          englishTitle: englishTitle || '',
+          alternativeNames: alternativeNames || '',
+        }
+      })
+      return { success: true, data: response.data, error: null }
+    } catch (error) {
+      console.error('Error checking similarity:', error)
+      return { success: false, data: { matches: [] }, error: this.getErrorMessage(error) }
     }
   }
 
