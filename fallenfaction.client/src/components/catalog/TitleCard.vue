@@ -51,9 +51,11 @@
         <!-- Bookmark Button -->
         <Button variant="ghost"
                 size="icon"
+                :disabled="bookmarkLoading"
                 class="absolute top-2 right-2 bg-background/80 backdrop-blur-sm hover:bg-background opacity-0 group-hover:opacity-100 transition-opacity"
                 @click.stop="toggleBookmark">
-          <Bookmark :class="['h-4 w-4', isBookmarked ? 'fill-current' : '']" />
+          <Loader2 v-if="bookmarkLoading" class="h-4 w-4 animate-spin" />
+          <Bookmark v-else :class="['h-4 w-4', isBookmarked ? 'fill-[var(--color-accent)] text-[var(--color-accent)]' : '']" />
         </Button>
 
         <!-- Rating -->
@@ -130,8 +132,10 @@
 
             <Button variant="ghost"
                     size="icon"
+                    :disabled="bookmarkLoading"
                     @click.stop="toggleBookmark">
-              <Bookmark :class="['h-4 w-4', isBookmarked ? 'fill-current' : '']" />
+              <Loader2 v-if="bookmarkLoading" class="h-4 w-4 animate-spin" />
+              <Bookmark v-else :class="['h-4 w-4', isBookmarked ? 'fill-[var(--color-accent)] text-[var(--color-accent)]' : '']" />
             </Button>
           </div>
 
@@ -209,10 +213,10 @@
 </template>
 
 <script setup>
-  import { ref, computed } from 'vue';
+  import { ref, computed, inject, onMounted } from 'vue';
   import { useRouter } from 'vue-router';
   import {
-    Star, Bookmark, BookOpen, Eye, Calendar, Clock, Sparkles
+    Star, Bookmark, BookOpen, Eye, Calendar, Clock, Sparkles, Loader2
   } from 'lucide-vue-next';
 
   import { Card } from '@/components/ui/card';
@@ -234,9 +238,31 @@
     }
   });
 
+  const apiClient = inject('apiClient', null);
   const router = useRouter();
   const isBookmarked = ref(false);
+  const bookmarkLoading = ref(false);
+  const currentBookmarkId = ref(null);
+  const cachedFolders = ref([]);
   const imageError = ref(false);
+
+  // Check auth from localStorage (same pattern as BookmarkDropdown)
+  const isAuthenticated = computed(() => {
+    try {
+      return !!(localStorage.getItem('authToken') && localStorage.getItem('authUser'));
+    } catch { return false; }
+  });
+
+  onMounted(async () => {
+    if (!isAuthenticated.value || !apiClient) return;
+    try {
+      const res = await apiClient.get(`/Bookmarks/GetFolders?titleId=${props.title.id}`);
+      const data = res.data;
+      cachedFolders.value = data.folders ?? [];
+      currentBookmarkId.value = data.currentBookmark?.id ?? null;
+      isBookmarked.value = data.currentBookmark !== null;
+    } catch { /* not bookmarked or not authed — ignore */ }
+  });
 
   // Computed
   const coverUrl = computed(() => {
@@ -271,10 +297,41 @@
     router.push(`/${slug}`)
   }
 
-  function toggleBookmark(event) {
+  async function toggleBookmark(event) {
     event.stopPropagation();
-    isBookmarked.value = !isBookmarked.value;
-    // TODO: Call API to add/remove bookmark
+    if (!isAuthenticated.value) {
+      router.push(`/account/login?returnUrl=${encodeURIComponent(window.location.pathname)}`);
+      return;
+    }
+    if (bookmarkLoading.value || !apiClient) return;
+    bookmarkLoading.value = true;
+    try {
+      if (isBookmarked.value && currentBookmarkId.value) {
+        // Remove from folder
+        await apiClient.post('/Bookmarks/RemoveBookmark', { bookmarkId: currentBookmarkId.value });
+        isBookmarked.value = false;
+        currentBookmarkId.value = null;
+      } else {
+        // Use cached folders — no extra GetFolders call
+        const folders = cachedFolders.value.length
+          ? cachedFolders.value
+          : (await apiClient.get(`/Bookmarks/GetFolders?titleId=${props.title.id}`)).data.folders ?? [];
+        cachedFolders.value = folders;
+        const targetFolder = folders.find(f => f.name === 'Reading') ?? folders[0];
+        if (!targetFolder) return;
+        // Add — response carries the new bookmark id
+        const addRes = await apiClient.post('/Bookmarks/AddBookmark', {
+          titleId: props.title.id,
+          folderId: targetFolder.id
+        });
+        currentBookmarkId.value = addRes.data?.bookmarkId ?? addRes.data?.id ?? null;
+        isBookmarked.value = true;
+      }
+    } catch (err) {
+      console.error('Bookmark toggle failed:', err);
+    } finally {
+      bookmarkLoading.value = false;
+    }
   }
 
   function handleImageError() {

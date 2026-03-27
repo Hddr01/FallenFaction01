@@ -2,28 +2,30 @@
   <div class="space-y-6">
     <!-- Section Navigation -->
     <div class="border-b border-[var(--color-border)]">
-      <nav class="flex space-x-8" aria-label="Chapter sections">
-        <button v-for="section in sections"
-                :key="section.id"
-                @click="activeSection = section.id"
-                :class="[
-                  'whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200',
+      <div class="overflow-x-auto scrollbar-hide">
+        <nav class="flex min-w-max" aria-label="Chapter sections">
+          <button v-for="section in sections"
+                  :key="section.id"
+                  @click="activeSection = section.id"
+                  :class="[
+                  'whitespace-nowrap py-2 px-1 mr-8 border-b-2 font-medium text-sm transition-colors duration-200 shrink-0',
                   activeSection === section.id
                     ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
                     : 'border-transparent text-[var(--color-text)] opacity-70 hover:opacity-100 hover:border-[var(--color-border-hover)]'
                 ]">
-          {{ section.label }}
-          <span v-if="section.count !== undefined"
-                :class="[
+            {{ section.label }}
+            <span v-if="section.count !== undefined"
+                  :class="[
                   'ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
                   activeSection === section.id
                     ? 'bg-[var(--color-accent)] text-white'
                     : 'bg-[var(--color-background-mute)] text-[var(--color-text)]'
                 ]">
-            {{ section.count }}
-          </span>
-        </button>
-      </nav>
+              {{ section.count }}
+            </span>
+          </button>
+        </nav>
+      </div>
     </div>
 
     <!-- Approved Chapters Section -->
@@ -403,4 +405,13 @@ const deleteChapter = async (chapterId) => {
 
 <style scoped>
   /* Add any component-specific styles here */
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+    .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+    }
 </style>

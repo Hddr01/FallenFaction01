@@ -1961,6 +1961,101 @@ namespace FallenFaction.Server.Controllers
         }
 
         /// <summary>
+        /// Quick tag search for global search bar (public).
+        /// GET: api/Titles/Tags/Search?query=...
+        /// </summary>
+        [HttpGet("Tags/Search")]
+        public async Task<ActionResult<IEnumerable<object>>> SearchTags([FromQuery] string query)
+        {
+            try
+            {
+                var q = (query ?? "").Trim().ToLower();
+                var tags = await _context.Tags
+                    .Where(t => string.IsNullOrEmpty(q) || t.Name.ToLower().Contains(q))
+                    .Select(t => new { t.Id, t.Name })
+                    .OrderBy(t => t.Name)
+                    .Take(20)
+                    .ToListAsync();
+                return Ok(tags);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error searching tags with query: {Query}", query);
+                return StatusCode(500, new { message = "Error searching tags", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Quick title search for global search bar.
+        /// GET: api/Titles/Search?query=...
+        /// Returns up to 20 TitleCatalogDto items matching the query.
+        /// </summary>
+        [HttpGet("Search")]
+        public async Task<ActionResult<IEnumerable<TitleCatalogDto>>> SearchTitles([FromQuery] string query)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 2)
+                    return Ok(new List<TitleCatalogDto>());
+
+                var q = query.Trim().ToLower();
+
+                var titleIds = await _context.Titles
+                    .Where(t =>
+                        t.OriginalTitle.ToLower().Contains(q) ||
+                        (t.EnglishTitle != null && t.EnglishTitle.ToLower().Contains(q)) ||
+                        (t.AlternativeNames != null && t.AlternativeNames.ToLower().Contains(q)))
+                    .OrderByDescending(t => t.Chapters.Count)
+                    .Take(20)
+                    .Select(t => t.Id)
+                    .ToListAsync();
+
+                var titles = await _context.Titles
+                    .Where(t => titleIds.Contains(t.Id))
+                    .Include(t => t.Chapters)
+                    .ToListAsync();
+
+                var results = titles.Select(title =>
+                {
+                    var latestChapter = title.Chapters
+                        .OrderByDescending(c => c.ReleaseDate)
+                        .FirstOrDefault();
+
+                    return new TitleCatalogDto
+                    {
+                        Id = title.Id,
+                        OriginalTitle = title.OriginalTitle ?? "Unknown Title",
+                        EnglishTitle = title.EnglishTitle ?? title.OriginalTitle ?? "",
+                        CoverImagePath = !string.IsNullOrEmpty(title.CoverImagePath)
+                            ? title.CoverImagePath : "/img/logo.png",
+                        Type = title.Type,
+                        StatusTitle = title.StatusTitle ?? "Unknown",
+                        StatusTranslation = title.StatusTranslation ?? "Unknown",
+                        AgeRestriction = title.AgeRestriction,
+                        Description = title.Description != null && title.Description.Length > 200
+                            ? title.Description.Substring(0, 200) + "..."
+                            : title.Description ?? "",
+                        LatestChapter = latestChapter != null
+                            ? $"Ch. {latestChapter.ChapterNumber}" : null,
+                        ChapterCount = title.Chapters.Count,
+                        ReleaseDate = title.ReleaseDate ?? "Unknown",
+                        LastUpdated = latestChapter?.ReleaseDate,
+                    };
+                })
+                // Re-apply order to match original titleIds ranking
+                .OrderBy(t => titleIds.IndexOf(t.Id))
+                .ToList();
+
+                return Ok(results);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error searching titles with query: {Query}", query);
+                return StatusCode(500, new { message = "Error searching titles", error = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Get filter options with counts
         /// GET: api/Titles/Catalog/FilterOptions
         /// </summary>

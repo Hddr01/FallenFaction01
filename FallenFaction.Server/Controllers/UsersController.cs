@@ -134,6 +134,44 @@ namespace FallenFaction.Server.Controllers
         }
 
         /// <summary>
+        /// Search users by username for global search bar.
+        /// GET: api/Users/search?query=...
+        /// </summary>
+        [HttpGet("search")]
+        public async Task<ActionResult<IEnumerable<UserTopDto>>> SearchUsers([FromQuery] string query)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 2)
+                    return Ok(new List<UserTopDto>());
+
+                var q = query.Trim().ToLower();
+
+                var users = await _userManager.Users
+                    .Where(u => !string.IsNullOrEmpty(u.UserName) &&
+                                u.UserName.ToLower().Contains(q))
+                    .Take(10)
+                    .ToListAsync();
+
+                var results = users.Select(u => new UserTopDto
+                {
+                    Id = u.Id,
+                    Name = u.UserName ?? "Unknown User",
+                    Avatar = u.ProfilePicturePath ?? "/img/logo.png",
+                    Level = GetUserLevel(u.Id),
+                    Score = GetUserScore(u.Id),
+                }).ToList();
+
+                return Ok(results);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error searching users with query: {Query}", query);
+                return StatusCode(500, new { message = "Error searching users", error = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Health check endpoint
         /// GET: api/Users/health
         /// </summary>

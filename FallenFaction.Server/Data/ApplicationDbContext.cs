@@ -1,4 +1,4 @@
-using FallenFaction.Server.Data.Models;
+﻿using FallenFaction.Server.Data.Models;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -37,6 +37,9 @@ namespace FallenFaction.Server.Data
         public DbSet<Rating> Ratings { get; set; }
         public DbSet<ReadingProgress> ReadingProgress { get; set; }
         public DbSet<ChapterView> ChapterViews { get; set; }
+
+        // ── Trust system ─────────────────────────────────────────────────────────
+        public DbSet<UserTrustRecord> UserTrustRecords { get; set; }
 
         public IQueryable<Chapter> GetUserChapters(string userId)
         {
@@ -506,6 +509,18 @@ namespace FallenFaction.Server.Data
                 entity.Property(rp => rp.LastReadChapter).IsRequired();
                 entity.Property(rp => rp.LastReadDate).IsRequired();
             });
+            // UserTrustRecord configuration
+            builder.Entity<UserTrustRecord>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.UserId, e.ActionType }).IsUnique();
+                entity.HasOne(e => e.User)
+                      .WithMany()
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+                entity.Property(e => e.UserId).IsRequired();
+            });
+
             // Call the seed data from LibManga.Data namespace
             FallenFaction.Server.Data.SeedData.SeedData.Seed(builder);
         }

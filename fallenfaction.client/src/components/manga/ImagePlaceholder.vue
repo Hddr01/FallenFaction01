@@ -126,7 +126,7 @@
   const imageClasses = computed(() => {
     switch (props.aspectRatio) {
       case 'cover':
-        return 'aspect-[2/3] w-64' // Cover image style
+        return 'aspect-[2/3] w-44 max-h-[264px]' // ~176×264px — standard manga cover thumbnail
       case 'background':
         return 'aspect-video w-full' // Background image style
       default:
@@ -137,7 +137,7 @@
   const placeholderClasses = computed(() => {
     switch (props.aspectRatio) {
       case 'cover':
-        return 'aspect-[2/3] w-64' // Cover image style
+        return 'aspect-[2/3] w-44 max-h-[264px]' // match preview size
       case 'background':
         return 'aspect-video w-full' // Background image style
       default:

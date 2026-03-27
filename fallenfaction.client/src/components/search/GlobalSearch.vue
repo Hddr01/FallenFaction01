@@ -29,7 +29,7 @@
               <X class="h-4 w-4" />
             </button>
             <button class="s-icon-btn s-close-mobile" @click="close" aria-label="Close">
-              <X class="h-5 w-5" />
+              <ArrowLeft class="h-5 w-5" />
             </button>
           </div>
 
@@ -153,7 +153,7 @@
   import { useRouter } from 'vue-router'
   import { debounce } from 'lodash-es'
   import {
-    Search, X, BookOpen, Users, Pen, Palette,
+    Search, X, ArrowLeft, BookOpen, Users, Pen, Palette,
     Building, Tag, UserCircle, SearchX, Sparkles
   } from 'lucide-vue-next'
 

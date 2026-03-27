@@ -845,6 +845,7 @@
   import { ref, reactive, computed, inject, onMounted, watch } from 'vue'
   import { useRouter } from 'vue-router'
   import { useAuthStore } from '../../stores/authStore'
+  import { buildTitleSlug } from '@/utils/titleSlug.js'
   import { Motion } from 'motion-v'
   import {
     UserIcon, BookmarkIcon, BookmarkX, BookOpenIcon,
@@ -1191,13 +1192,9 @@
     // router guard (which requires /:name-{id}) doesn't reject the navigation.
     if (bm.titleId) {
       const name = bm.originalTitle || bm.titleName || 'title'
-      const slug = name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-      router.push(`/${slug}-${bm.titleId}`)
+      router.push(`/${buildTitleSlug(name, bm.titleId)}`)
     } else if (bm.originalTitle || bm.titleName) {
-      // Fallback for legacy data without titleId — bare name, will 404 if guard rejects
+      // Fallback for legacy data without titleId — bare name
       router.push(`/${encodeURIComponent(bm.originalTitle || bm.titleName)}`)
     }
   }
