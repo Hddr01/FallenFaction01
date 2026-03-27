@@ -205,50 +205,77 @@ namespace FallenFaction.Server.Controllers
         {
             try
             {
-                // Check if title exists
-                var title = await _context.Titles
-                    .FirstOrDefaultAsync(t => t.Id == titleId);
-
+                var title = await _context.Titles.FirstOrDefaultAsync(t => t.Id == titleId);
                 if (title == null)
-                {
                     return NotFound("Title not found");
-                }
 
-                // Count bookmarks for this title
                 var bookmarkCount = await _context.Bookmarks
                     .Where(b => b.TitleId == titleId)
                     .CountAsync();
 
-                // Get distribution by folder (top 5 folders)
-                var folderDistribution = await _context.Bookmarks
+                // Group by folder NAME only — every user has their own folder IDs,
+                // so grouping by FolderId would give one row per user instead of one per status.
+                var rawDistribution = await _context.Bookmarks
                     .Where(b => b.TitleId == titleId)
                     .Include(b => b.Folder)
-                    .GroupBy(b => new { b.FolderId, b.Folder.Name })
-                    .Select(g => new BookmarkFolderDistributionDto
+                    .GroupBy(b => b.Folder.Name)
+                    .Select(g => new
                     {
-                        FolderId = g.Key.FolderId,
-                        FolderName = g.Key.Name,
-                        Count = g.Count(),
-                        Percentage = 0 // Will calculate below
+                        FolderName = g.Key,
+                        Count = g.Count()
                     })
-                    .OrderByDescending(f => f.Count)
-                    .Take(5)
                     .ToListAsync();
 
-                // Calculate percentages
-                if (bookmarkCount > 0)
+                // The 5 standard folder names
+                var standardNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    foreach (var folder in folderDistribution)
+                    "Reading", "Completed", "On Hold", "Plan to Read", "Dropped"
+                };
+
+                var distribution = new List<BookmarkFolderDistributionDto>();
+
+                int othersCount = 0;
+
+                foreach (var row in rawDistribution)
+                {
+                    if (standardNames.Contains(row.FolderName))
                     {
-                        folder.Percentage = Math.Round((double)folder.Count / bookmarkCount * 100, 1);
+                        distribution.Add(new BookmarkFolderDistributionDto
+                        {
+                            FolderId = 0,  // not meaningful for cross-user stats
+                            FolderName = row.FolderName,
+                            Count = row.Count,
+                            Percentage = bookmarkCount > 0
+                                ? Math.Round((double)row.Count / bookmarkCount * 100, 1) : 0
+                        });
+                    }
+                    else
+                    {
+                        // Custom folder → accumulate into "Others"
+                        othersCount += row.Count;
                     }
                 }
+
+                // Add the "Others" row only if there are custom-folder bookmarks
+                if (othersCount > 0)
+                {
+                    distribution.Add(new BookmarkFolderDistributionDto
+                    {
+                        FolderId = -1,  // sentinel — no real folder ID
+                        FolderName = "Others",
+                        Count = othersCount,
+                        Percentage = bookmarkCount > 0
+                            ? Math.Round((double)othersCount / bookmarkCount * 100, 1) : 0
+                    });
+                }
+
+                distribution = distribution.OrderByDescending(d => d.Count).ToList();
 
                 return new BookmarkStatsDto
                 {
                     TitleId = titleId,
                     TotalBookmarks = bookmarkCount,
-                    FolderDistribution = folderDistribution
+                    FolderDistribution = distribution
                 };
             }
             catch (Exception ex)
@@ -327,25 +354,40 @@ namespace FallenFaction.Server.Controllers
                     .Where(f => f.UserId == userId)
                     .ToListAsync();
 
-                if (!existingFolders.Any())
+                // The 5 canonical standard folders (name is the key, order is fixed)
+                var standards = new[]
                 {
-                    var defaultFolders = new[]
-                    {
-                        new BookmarkFolder { Name = "Reading", UserId = userId, IsDefault = true, DisplayOrder = 1, CreatedAt = DateTime.UtcNow },
-                        new BookmarkFolder { Name = "Plan to Read", UserId = userId, IsDefault = false, DisplayOrder = 2, CreatedAt = DateTime.UtcNow },
-                        new BookmarkFolder { Name = "Completed", UserId = userId, IsDefault = false, DisplayOrder = 3, CreatedAt = DateTime.UtcNow },
-                        new BookmarkFolder { Name = "Dropped", UserId = userId, IsDefault = false, DisplayOrder = 4, CreatedAt = DateTime.UtcNow },
-                        new BookmarkFolder { Name = "Favorites", UserId = userId, IsDefault = false, DisplayOrder = 5, CreatedAt = DateTime.UtcNow }
-                    };
+                    new { Name = "Reading",      IsDefault = true,  Order = 1 },
+                    new { Name = "Completed",    IsDefault = false, Order = 2 },
+                    new { Name = "On Hold",      IsDefault = false, Order = 3 },
+                    new { Name = "Plan to Read", IsDefault = false, Order = 4 },
+                    new { Name = "Dropped",      IsDefault = false, Order = 5 },
+                };
 
-                    _context.BookmarkFolders.AddRange(defaultFolders);
-                    await _context.SaveChangesAsync();
+                bool changed = false;
+                foreach (var std in standards)
+                {
+                    if (!existingFolders.Any(f => f.Name == std.Name))
+                    {
+                        _context.BookmarkFolders.Add(new BookmarkFolder
+                        {
+                            Name = std.Name,
+                            UserId = userId,
+                            IsDefault = std.IsDefault,
+                            DisplayOrder = std.Order,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                        changed = true;
+                    }
                 }
+
+                if (changed)
+                    await _context.SaveChangesAsync();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error ensuring default folders exist for user {UserId}", userId);
-                throw; // Re-throw to let the caller handle it
+                _logger.LogError(ex, "Error ensuring default folders for user {UserId}", userId);
+                throw;
             }
         }
 
@@ -386,6 +428,7 @@ namespace FallenFaction.Server.Controllers
                         FolderId = b.FolderId,
                         FolderName = b.Folder.Name,
                         TitleName = b.Title.EnglishTitle ?? b.Title.OriginalTitle,
+                        OriginalTitle = b.Title.OriginalTitle,
                         CoverImage = b.Title.CoverImagePath ?? "/img/logo.png",
                         AddedDate = b.AddedDate,
                         LastReadChapter = b.LastReadChapter
@@ -561,7 +604,7 @@ namespace FallenFaction.Server.Controllers
         }
 
         /// <summary>
-        /// Update bookmark status (reading, completed, on-hold, plan-to-read, dropped)
+        /// Update bookmark status AND move to the matching folder.
         /// PUT: api/Bookmarks/UpdateStatus
         /// </summary>
         [HttpPut("UpdateStatus")]
@@ -569,58 +612,86 @@ namespace FallenFaction.Server.Controllers
         public async Task<IActionResult> UpdateStatus([FromBody] UpdateBookmarkStatusRequest request)
         {
             if (!ModelState.IsValid)
-            {
                 return BadRequest(ModelState);
-            }
 
             AppUser? user = null;
             try
             {
                 user = await _userManager.GetUserAsync(User);
                 if (user == null)
-                {
                     return Unauthorized();
-                }
 
-                // Check if title exists
                 var titleExists = await _context.Titles.AnyAsync(t => t.Id == request.TitleId);
                 if (!titleExists)
-                {
                     return NotFound("Title not found");
+
+                // Ensure all default folders exist for this user
+                await EnsureDefaultFoldersExist(user.Id);
+
+                // Map the status string to the matching folder name
+                // Folder names are the canonical source of truth (set in EnsureDefaultFoldersExist)
+                var statusToFolderName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    { "reading",       "Reading"      },
+                    { "completed",     "Completed"    },
+                    { "on-hold",       "On Hold"      },
+                    { "plan-to-read",  "Plan to Read" },
+                    { "dropped",       "Dropped"      },
+                    { "favorites",     "Favorites"    }
+                };
+
+                if (!statusToFolderName.TryGetValue(request.Status, out var targetFolderName))
+                    return BadRequest(new
+                    {
+                        message = $"Unknown status '{request.Status}'. " +
+                        "Valid values: reading, completed, on-hold, plan-to-read, dropped, favorites"
+                    });
+
+                // Find the target folder for this user (must already exist after EnsureDefaultFoldersExist)
+                var targetFolder = await _context.BookmarkFolders
+                    .FirstOrDefaultAsync(f => f.UserId == user.Id && f.Name == targetFolderName);
+
+                if (targetFolder == null)
+                {
+                    // Safety-net: create the folder on the fly (shouldn't normally be needed)
+                    var maxOrder = await _context.BookmarkFolders
+                        .Where(f => f.UserId == user.Id)
+                        .Select(f => (int?)f.DisplayOrder)
+                        .MaxAsync() ?? 0;
+
+                    targetFolder = new BookmarkFolder
+                    {
+                        Name = targetFolderName,
+                        UserId = user.Id,
+                        IsDefault = false,
+                        DisplayOrder = maxOrder + 1,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.BookmarkFolders.Add(targetFolder);
+                    await _context.SaveChangesAsync();
                 }
 
-                // Find existing bookmark
+                // Find or create the bookmark
                 var bookmark = await _context.Bookmarks
                     .FirstOrDefaultAsync(b => b.TitleId == request.TitleId && b.UserId == user.Id);
 
                 if (bookmark == null)
                 {
-                    // If bookmark doesn't exist, create it with the specified status
-                    // First, ensure default folders exist and get one
-                    await EnsureDefaultFoldersExist(user.Id);
-                    var defaultFolder = await _context.BookmarkFolders
-                        .FirstOrDefaultAsync(f => f.UserId == user.Id && f.IsDefault);
-
-                    if (defaultFolder == null)
-                    {
-                        return StatusCode(500, new { message = "Failed to create default folder" });
-                    }
-
                     bookmark = new Bookmark
                     {
                         TitleId = request.TitleId,
-                        FolderId = defaultFolder.Id,
+                        FolderId = targetFolder.Id,  // ← placed directly into the right folder
                         UserId = user.Id,
                         AddedDate = DateTime.UtcNow,
                         LastReadChapter = 0,
                         Status = request.Status
                     };
-
                     _context.Bookmarks.Add(bookmark);
                 }
                 else
                 {
-                    // Update existing bookmark status
+                    // Move to the matching folder AND update the status field
+                    bookmark.FolderId = targetFolder.Id;  // ← THE KEY FIX
                     bookmark.Status = request.Status;
                     _context.Bookmarks.Update(bookmark);
                 }
@@ -630,11 +701,13 @@ namespace FallenFaction.Server.Controllers
                 return Ok(new
                 {
                     success = true,
-                    message = $"Bookmark status updated to {request.Status}",
+                    message = $"Bookmark moved to '{targetFolderName}'",
                     data = new
                     {
                         bookmarkId = bookmark.Id,
                         status = bookmark.Status,
+                        folderId = bookmark.FolderId,
+                        folderName = targetFolderName,
                         titleId = bookmark.TitleId
                     }
                 });

@@ -4,6 +4,9 @@ namespace FallenFaction.Server.Data.Models
 {
     public class AppUser : IdentityUser
     {
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? BannerImagePath { get; set; }
         public bool IsBannedFromComments { get; set; } = false;
         public DateTime LastActive { get; set; } = DateTime.UtcNow;
         public bool IsOnline { get; set; } = false;
@@ -26,7 +29,7 @@ namespace FallenFaction.Server.Data.Models
         public DateTime? DateOfBirth { get; set; } // Made nullable since it's optional
 
         // FIXED: Use HTTPS for default profile picture to prevent mixed content warnings
-        public string ProfilePicturePath { get; set; } = "https://localhost:7217/img/default-avatar.png";
+        public string ProfilePicturePath { get; set; } = "/img/default-avatar.png";
 
         public string? Bio { get; set; }
         public DateTime RegistrationDate { get; set; }

@@ -8,6 +8,7 @@ namespace FallenFaction.Server.DTOs.Bookmarks
         public int FolderId { get; set; }
         public string FolderName { get; set; } = string.Empty;
         public string TitleName { get; set; } = string.Empty;
+        public string OriginalTitle { get; set; } = string.Empty;
         public string CoverImage { get; set; } = string.Empty;
         public DateTime AddedDate { get; set; }
         public int LastReadChapter { get; set; }

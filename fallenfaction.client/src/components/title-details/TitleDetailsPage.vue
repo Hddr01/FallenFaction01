@@ -217,7 +217,18 @@
                         Dropped
                       </Button>
 
-
+                      <!-- Custom (user-created) folders -->
+                      <template v-if="userCustomFolders.length > 0">
+                        <div class="border-t border-white/10 my-2"></div>
+                        <p class="text-xs text-muted-foreground text-left px-1 pb-1">My Lists</p>
+                        <Button v-for="folder in userCustomFolders"
+                                :key="folder.id"
+                                variant="destructive"
+                                class="w-full justify-center bg-[#141414] hover:text-white"
+                                @click="moveToCustomFolder(folder.id, folder.name)">
+                          {{ folder.name }}
+                        </Button>
+                      </template>
                     </div>
 
                     <DrawerFooter>
@@ -415,6 +426,15 @@
                           <DropdownMenuItem @click="changeBookmarkStatus('dropped')">
                             Dropped
                           </DropdownMenuItem>
+                          <!-- Custom (user-created) folders -->
+                          <template v-if="userCustomFolders.length > 0">
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem v-for="folder in userCustomFolders"
+                                              :key="folder.id"
+                                              @click="moveToCustomFolder(folder.id, folder.name)">
+                              {{ folder.name }}
+                            </DropdownMenuItem>
+                          </template>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem variant="destructive" @click="removeBookmark">
                             Remove Bookmark
@@ -475,59 +495,63 @@
                           </button>
                         </DialogTrigger>
 
-                        <DialogContent class="sm:max-w-md bg-black">
-                          <DialogHeader>
-                            <DialogTitle class="text-[var(--color-white)] text-center">Rate this title</DialogTitle>
-                            <DialogDescription class="text-center text-muted-foreground">
+                        <DialogContent class="w-[calc(100vw-2rem)] max-w-xs sm:max-w-sm bg-black border-white/10 p-0 overflow-hidden">
+                          <DialogHeader class="px-5 pt-5 pb-3">
+                            <DialogTitle class="text-[var(--color-white)] text-center text-base">Rate this title</DialogTitle>
+                            <DialogDescription class="text-center text-muted-foreground text-xs">
                               Share your rating with the community
                             </DialogDescription>
                           </DialogHeader>
 
-                          <div class="p-4 space-y-6">
-                            <!-- Star Rating -->
-                            <div class="flex justify-center space-x-2">
+                          <!-- Loading existing rating spinner -->
+                          <div v-if="loadingExistingRating" class="px-5 pb-4 flex justify-center py-6">
+                            <svg class="animate-spin w-6 h-6 text-yellow-400" fill="none" viewBox="0 0 24 24">
+                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                          </div>
+
+                          <div v-else class="px-5 pb-4 space-y-4">
+                            <!-- Star Rating — two rows of 5 on tiny screens, one row on sm+ -->
+                            <div class="flex flex-wrap justify-center gap-1.5">
                               <button v-for="star in 10"
                                       :key="star"
                                       type="button"
                                       @click="setRating(star)"
                                       @mouseover="hoverRating = star"
                                       @mouseleave="hoverRating = 0"
-                                      class="w-8 h-8 transition-all duration-200 transform hover:scale-110"
-                                      :class="{
-                                      'text-yellow-400' : star <= (hoverRating || selectedRating),
-                    'text-gray-600': star > (hoverRating || selectedRating)
-                  }">
-            <svg class="w-full h-full" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-            </svg>
-          </button>
+                                      class="w-9 h-9 sm:w-8 sm:h-8 transition-all duration-150 transform hover:scale-110 active:scale-95"
+                                      :class="star <= (hoverRating || selectedRating) ? 'text-yellow-400' : 'text-gray-600'">
+                                <svg class="w-full h-full" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                                </svg>
+                              </button>
                             </div>
 
-                            <!-- Rating Text -->
-                            <p class="text-white font-medium text-center min-h-6">
+                            <!-- Rating label -->
+                            <p class="text-white font-medium text-center text-sm min-h-5">
                               {{ getRatingText(hoverRating || selectedRating) }}
                             </p>
                           </div>
 
-                          <DialogFooter class="sm:justify-center gap-2">
+                          <DialogFooter class="px-5 pb-5 flex-row gap-2 sm:justify-center">
                             <Button type="button"
-                                    variant="destructive"
-                                    class="bg-[#141414] hover:text-white"
+                                    variant="outline"
+                                    size="sm"
+                                    class="flex-1 bg-[#141414] border-white/10 text-white hover:bg-white/10 hover:text-white"
                                     @click="isRatingDialogOpen = false">
                               Cancel
                             </Button>
                             <Button type="button"
-                                    @click="submitRating"
+                                    size="sm"
                                     :disabled="!selectedRating || submittingRating"
-                                    class="justify-center bg-[#e6e6e6] text-black hover:bg-gray-100 hover:text-black">
-                              <span v-if="submittingRating" class="inline-flex items-center">
-                                <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Submitting...
-                              </span>
-                              <span v-else>Submit Rating</span>
+                                    class="flex-1 justify-center bg-[#e6e6e6] text-black hover:bg-gray-100 hover:text-black"
+                                    @click="submitRating">
+                              <svg v-if="submittingRating" class="animate-spin -ml-1 mr-1.5 h-3.5 w-3.5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              {{ submittingRating ? 'Submitting…' : 'Submit Rating' }}
                             </Button>
                           </DialogFooter>
                         </DialogContent>
@@ -654,6 +678,7 @@
   const initialTab = ref('info')
   const userBookmark = ref(null)
   const bookmarkStatus = ref(null) // Current bookmark status: 'reading', 'completed', etc.
+  const userCustomFolders = ref([]) // User-created folders beyond the 5 standard ones
   const isAuthenticated = ref(false)
   const chaptersData = ref([])
   const loadingChapters = ref(false)
@@ -663,6 +688,21 @@
   const hoverRating = ref(0)
   const submittingRating = ref(false)
   const isRatingDialogOpen = ref(false)
+  const loadingExistingRating = ref(false)
+
+  // Pre-fill dialog with user's existing rating each time it opens
+  watch(isRatingDialogOpen, async (open) => {
+    if (!open || !isAuthenticated.value || !titleData.value?.id) return
+    loadingExistingRating.value = true
+    try {
+      const result = await titleDetailsService.getUserRating(titleData.value.id)
+      selectedRating.value = result.success && result.data?.value ? result.data.value : 0
+    } catch {
+      selectedRating.value = 0
+    } finally {
+      loadingExistingRating.value = false
+    }
+  })
 
   // Computed properties
   const canStartReading = computed(() => {
@@ -1002,21 +1042,24 @@
           showToast(result.error || 'Failed to remove bookmark', 'error')
         }
       } else {
-        // Add bookmark with default status 'reading'
-        const result = await titleDetailsService.addBookmark(titleData.value.id)
+        // Add bookmark with default status 'reading'.
+        // Use UpdateStatus instead of AddBookmark — UpdateStatus resolves the
+        // target folder by name server-side, so no folderId is needed here.
+        const result = await titleDetailsService.updateBookmarkStatus(titleData.value.id, 'reading')
         if (result.success) {
-          // ✅ FIX: Extract the actual bookmark data from nested response
-          const newBookmark = result.data?.data || result.data || { status: 'reading', titleId: titleData.value.id }
-          const status = newBookmark.status || 'reading'
-
-          console.log('New bookmark created:', newBookmark)
-          console.log('Bookmark status:', status)
+          const responseData = result.data?.data || result.data || {}
+          const newBookmark = {
+            titleId: titleData.value.id,
+            status: 'reading',
+            folderId: responseData.folderId ?? null,
+            folderName: responseData.folderName ?? 'Reading',
+            ...responseData
+          }
 
           userBookmark.value = newBookmark
-          bookmarkStatus.value = status
+          bookmarkStatus.value = 'reading'
 
-          // ← NEW: Save to cache
-          saveBookmarkToCache(newBookmark, status)
+          saveBookmarkToCache(newBookmark, 'reading')
 
           showToast('Added to Reading list', 'success')
 
@@ -1040,28 +1083,30 @@
     }
 
     try {
-      // If no bookmark exists, create one first
-      if (!userBookmark.value) {
-        const addResult = await titleDetailsService.addBookmark(titleData.value.id)
-        if (!addResult.success) {
-          showToast('Failed to create bookmark', 'error')
-          return
-        }
-        // ✅ FIX: Extract the actual bookmark data from nested response
-        const bookmarkData = addResult.data?.data || addResult.data || { titleId: titleData.value.id }
-        console.log('Created initial bookmark:', bookmarkData)
-        userBookmark.value = bookmarkData
-      }
-
-      // Update the status
+      // UpdateStatus handles upsert server-side — no need to pre-create the bookmark.
+      // It will find or create the bookmark and move it to the matching folder.
       const result = await titleDetailsService.updateBookmarkStatus(titleData.value.id, status)
 
       if (result.success) {
+        const responseData = result.data?.data || {}
         bookmarkStatus.value = status
-        userBookmark.value = { ...userBookmark.value, status }
+        userBookmark.value = {
+          ...userBookmark.value,
+          status,
+          folderId: responseData.folderId ?? userBookmark.value?.folderId,
+          folderName: responseData.folderName ?? userBookmark.value?.folderName,
+        }
 
-        // ← NEW: Save to cache
+        // Also bump the bookmark count if this was a fresh add
+        if (!userBookmark.value?.id && responseData.bookmarkId) {
+          userBookmark.value.id = responseData.bookmarkId
+          if (titleData.value) {
+            titleData.value.bookmarkCount = (titleData.value.bookmarkCount || 0) + 1
+          }
+        }
+
         saveBookmarkToCache(userBookmark.value, status)
+        await loadBookmarkStats()
 
         const statusMap = {
           'reading': 'Reading',
@@ -1070,8 +1115,7 @@
           'plan-to-read': 'Plan to Read',
           'dropped': 'Dropped'
         }
-
-        showToast(`Changed to ${statusMap[status]}`, 'success')
+        showToast(`Changed to ${statusMap[status] ?? status}`, 'success')
       } else {
         showToast(result.error || 'Failed to update status', 'error')
       }
@@ -1117,9 +1161,48 @@
       const user = localStorage.getItem('authUser')
       isAuthenticated.value = !!(token && user)
       console.log('Auth status check:', { isAuthenticated: isAuthenticated.value })
+      if (isAuthenticated.value) {
+        loadCustomFolders()
+      }
     } catch (err) {
       console.error('Error checking auth status:', err)
       isAuthenticated.value = false
+    }
+  }
+
+  // The 5 standard folders that always appear in the fixed status dropdown
+  const STANDARD_FOLDER_NAMES = new Set(['Reading', 'Completed', 'On Hold', 'Plan to Read', 'Dropped'])
+
+  // Fetch user folders and keep only custom (non-standard) ones for the dropdown
+  const loadCustomFolders = async () => {
+    try {
+      const res = await titleDetailsService.apiClient.get('/Bookmarks/GetFolders')
+      const folders = res.data?.folders ?? []
+      userCustomFolders.value = folders.filter(f => !STANDARD_FOLDER_NAMES.has(f.name))
+    } catch (err) {
+      console.error('Error loading custom folders:', err)
+    }
+  }
+
+  // Move an existing bookmark into a custom (user-created) folder directly via AddBookmark
+  const moveToCustomFolder = async (folderId, folderName) => {
+    if (!isAuthenticated.value || !titleData.value) return
+    try {
+      // If no bookmark exists yet, AddBookmark creates one in the given folder
+      // If it already exists, AddBookmark moves it (server handles upsert)
+      const res = await titleDetailsService.apiClient.post('/Bookmarks/AddBookmark', {
+        titleId: titleData.value.id,
+        folderId: folderId
+      })
+      if (res.data) {
+        userBookmark.value = { ...userBookmark.value, folderId, folderName, status: folderName.toLowerCase() }
+        bookmarkStatus.value = folderName
+        saveBookmarkToCache(userBookmark.value, folderName)
+        showToast(`Moved to "${folderName}"`, 'success')
+      }
+    } catch (err) {
+      console.error('Error moving to custom folder:', err)
+      showToast('Failed to move bookmark', 'error')
     }
   }
 

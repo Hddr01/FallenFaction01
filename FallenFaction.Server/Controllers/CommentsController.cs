@@ -674,6 +674,161 @@ namespace FallenFaction.Server.Controllers
                 return StatusCode(500, new { message = "An error occurred while loading the comment thread" });
             }
         }
+
+        /// <summary>
+        /// Get all comments posted by the currently authenticated user.
+        /// Available to every logged-in user (not admin-only).
+        /// GET: api/Comments/GetMyComments
+        /// </summary>
+        [HttpGet("GetMyComments")]
+        [Authorize]
+        public async Task<ActionResult<UserCommentsResponseDto>> GetMyComments(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string sortBy = "newest")
+        {
+            try
+            {
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
+                    return Unauthorized(new { message = "You must be logged in to view your comments." });
+
+                if (page < 1) page = 1;
+                if (pageSize < 1 || pageSize > 50) pageSize = 20;
+
+                var isAdmin = await _userManager.IsInRoleAsync(currentUser, "Admin");
+
+                // Query all non-deleted top-level comments by this user
+                var query = _context.Comments
+                    .Where(c => c.UserId == currentUser.Id && !c.IsDeleted)
+                    .Include(c => c.User)
+                    .Include(c => c.Reactions)
+                    .Include(c => c.Title)
+                    .Include(c => c.Chapter)
+                        .ThenInclude(ch => ch != null ? ch.Title : null)
+                    .Include(c => c.Chapter)
+                        .ThenInclude(ch => ch != null ? ch.Team : null)
+                    .Include(c => c.ChapterImage)
+                        .ThenInclude(ci => ci != null ? ci.Chapter : null)
+                            .ThenInclude(ch => ch != null ? ch.Title : null)
+                    .Include(c => c.ChapterImage)
+                        .ThenInclude(ci => ci != null ? ci.Chapter : null)
+                            .ThenInclude(ch => ch != null ? ch.Team : null)
+                    .AsQueryable();
+
+                query = sortBy.ToLower() switch
+                {
+                    "oldest" => query.OrderBy(c => c.PostedDate),
+                    "likes" => query.OrderByDescending(c => c.LikesCount),
+                    _ => query.OrderByDescending(c => c.PostedDate) // newest (default)
+                };
+
+                var totalCount = await query.CountAsync();
+                var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
+
+                var rawComments = await query
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                // Map to a lightweight DTO – we purposely don't recurse into replies here
+                // to keep the profile list fast; clicking navigates to the full thread.
+                var commentDtos = rawComments.Select(c => new UserCommentDto
+                {
+                    Id = c.Id,
+                    Content = c.Content,
+                    PostedDate = c.PostedDate,
+                    LikesCount = c.Reactions.Count(r => r.IsLike),      // ← count from Reactions
+                    DislikesCount = c.Reactions.Count(r => !r.IsLike),     // ← count from Reactions
+                    ParentCommentId = c.ParentCommentId,
+
+                    // Target resolution
+                    TargetType = c.TitleId.HasValue ? 1
+                               : c.ChapterId.HasValue ? 2
+                               : 3,
+
+                    TitleId = c.TitleId
+                                 ?? c.Chapter?.TitleId
+                                 ?? c.ChapterImage?.Chapter?.TitleId,
+
+                    TitleName = c.Title?.EnglishTitle
+                                 ?? c.Title?.OriginalTitle
+                                 ?? c.Chapter?.Title?.EnglishTitle
+                                 ?? c.Chapter?.Title?.OriginalTitle
+                                 ?? c.ChapterImage?.Chapter?.Title?.EnglishTitle
+                                 ?? c.ChapterImage?.Chapter?.Title?.OriginalTitle,
+
+                    // IMPORTANT: OriginalTitle is what the Vue router matches in /:titleName
+                    TitleSlug = c.Title?.OriginalTitle
+                                 ?? c.Chapter?.Title?.OriginalTitle
+                                 ?? c.ChapterImage?.Chapter?.Title?.OriginalTitle,
+
+                    // Chapter route components — needed to build /{title}/chapter/{name}/v{vol}/t{team} URLs
+                    ChapterId = c.ChapterId
+                                    ?? c.ChapterImage?.ChapterId,
+                    ChapterName = c.Chapter?.Name
+                                    ?? c.ChapterImage?.Chapter?.Name,
+                    VolumeNumber = c.Chapter?.VolumeNumber
+                                    ?? c.ChapterImage?.Chapter?.VolumeNumber,
+                    TeamId = c.Chapter?.TeamId
+                                    ?? c.ChapterImage?.Chapter?.TeamId,
+                }).ToList();
+
+                return Ok(new UserCommentsResponseDto
+                {
+                    Comments = commentDtos,
+                    Pagination = new PaginationDto
+                    {
+                        TotalCount = totalCount,
+                        Page = page,
+                        PageSize = pageSize,
+                        TotalPages = totalPages,
+                        HasNext = page < totalPages,
+                        HasPrevious = page > 1
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching comments for user");
+                return StatusCode(500, new { message = "An error occurred while loading your comments." });
+            }
+        }
+
+        /// <summary>
+        /// Lightweight endpoint used by CommentThreadView to resolve the title slug
+        /// (OriginalTitle) needed to build the "Back to full discussion" URL.
+        /// GET: api/Comments/GetCommentTitleSlug/{titleId}
+        /// </summary>
+        [HttpGet("GetCommentTitleSlug/{titleId:int}")]
+        [AllowAnonymous]
+        public async Task<ActionResult> GetCommentTitleSlug(int titleId)
+        {
+            try
+            {
+                var title = await _context.Titles
+                    .Where(t => t.Id == titleId)
+                    .Select(t => new { t.OriginalTitle, t.EnglishTitle })
+                    .FirstOrDefaultAsync();
+
+                if (title == null)
+                    return NotFound(new { message = "Title not found" });
+
+                return Ok(new
+                {
+                    originalTitle = title.OriginalTitle,
+                    englishTitle = title.EnglishTitle
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching title slug for titleId {TitleId}", titleId);
+                return StatusCode(500, new { message = "Error fetching title slug" });
+            }
+        }
+
+
+
     }
     public class CommentThreadResponseDto
     {
@@ -689,5 +844,33 @@ namespace FallenFaction.Server.Controllers
         public string UserName { get; set; }
         public string Content { get; set; }
         public bool IsDeleted { get; set; }
+    }
+
+    public class UserCommentDto
+    {
+        public int Id { get; set; }
+        public string Content { get; set; } = string.Empty;
+        public DateTime PostedDate { get; set; }
+        public int LikesCount { get; set; }
+        public int DislikesCount { get; set; }
+        public int? ParentCommentId { get; set; }
+
+        // Target
+        public int TargetType { get; set; }  // 1=Title 2=Chapter 3=ChapterImage
+        public int? TitleId { get; set; }
+        public string? TitleName { get; set; }
+        public string? TitleSlug { get; set; }  // OriginalTitle — matches /:titleName route
+
+        // Chapter context — used to build the chapter reader URL
+        public int? ChapterId { get; set; }
+        public string? ChapterName { get; set; }
+        public int? VolumeNumber { get; set; }
+        public int? TeamId { get; set; }
+    }
+
+    public class UserCommentsResponseDto
+    {
+        public List<UserCommentDto> Comments { get; set; } = new();
+        public PaginationDto Pagination { get; set; } = new();
     }
 }

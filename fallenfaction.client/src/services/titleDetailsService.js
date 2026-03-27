@@ -645,29 +645,24 @@ class TitleDetailsService {
 
   // Helper method to get image URLs
   getImageUrl(imagePath) {
-    if (!imagePath) {
-      const baseUrl = this.getImageBaseUrl();
-      return `${baseUrl}/img/default-cover.png`;
-    }
+    if (!imagePath) return '/img/default-cover.png';
 
-    // Check if the path is already a full URL
+    // Already absolute — return as-is
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
       return imagePath;
     }
 
-    // Check if it's a relative path that starts with /
-    const baseUrl = this.getImageBaseUrl();
-    const fullUrl = imagePath.startsWith('/')
-      ? `${baseUrl}${imagePath}`
-      : `${baseUrl}/${imagePath}`;
-
-    return fullUrl;
+    // Relative path — return as-is. Both Vite dev proxy and nginx proxy
+    // /uploads → backend, so the browser resolves from the current origin.
+    // Never hardcode a hostname here — it breaks mobile/Docker access.
+    return imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
   }
 
   // Get the base URL for images
   getImageBaseUrl() {
+    // Kept for compatibility but no longer used for image URL construction
     const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '/api';
-    return apiBaseUrl.replace('/api', ''); // Remove /api to get base server URL
+    return apiBaseUrl.replace('/api', '');
   }
 
   // Test API connectivity

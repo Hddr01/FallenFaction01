@@ -54,6 +54,8 @@ import ChapterReader from '../components/title-details/ChapterReader.vue';
 
 // cataloge
 import Catalog from '../components/catalog/Catalog.vue';
+import CommentThreadView from '../components/title-details/CommentThreadView.vue';
+
 
 
 const routes = [
@@ -488,6 +490,18 @@ const routes = [
       requiresAuth: true,
       requiresAdmin: true,
       title: 'Admin - Team Management'
+    }
+  },
+  {
+    path: '/thread/:commentId',
+    name: 'CommentThread',
+    component: CommentThreadView,
+    props: route => ({
+      commentId: parseInt(route.params.commentId)
+    }),
+    meta: {
+      title: 'Comment Thread',
+      requiresAuth: false   // publicly accessible (CommentsComponent handles auth gating)
     }
   },
 
