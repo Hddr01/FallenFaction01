@@ -66,12 +66,33 @@ namespace FallenFaction.Server.Controllers
                     .Distinct()
                     .ToListAsync();
 
+                // Also expose GroupType so the frontend can hide personal groups in UI
+                var userTeamsWithType = await _context.UserTeamRoles
+                    .Where(utr => utr.AppUserId == user.Id)
+                    .Include(utr => utr.Team)
+                    .Include(utr => utr.UserTeamRolePermissions)
+                        .ThenInclude(utrp => utrp.UserTeamPermission)
+                    .Where(utr =>
+                        utr.Team.CreatorId == user.Id ||
+                        utr.Role == TeamRole.Admin ||
+                        (utr.Role == TeamRole.Member &&
+                         utr.UserTeamRolePermissions.Any(p => p.UserTeamPermission.PermissionName == "CanAddTitle"))
+                    )
+                    .Select(utr => new {
+                        utr.Team.Id,
+                        utr.Team.Name,
+                        utr.Team.GroupType,
+                        utr.Team.IsPersonal
+                    })
+                    .Distinct()
+                    .ToListAsync();
+
                 var formData = new
                 {
                     Authors = await _context.Set<Author>().Select(a => new { a.Id, a.Name }).ToListAsync(),
                     Artists = await _context.Set<Artist>().Select(a => new { a.Id, a.Name }).ToListAsync(),
                     Publishers = await _context.Set<Publisher>().Select(p => new { p.Id, p.Name }).ToListAsync(),
-                    Teams = userTeams, // Only teams user can add titles to
+                    Teams = userTeamsWithType,
                     Categories = await _context.Set<Category>().Select(c => new { c.Id, c.Name }).ToListAsync(),
                     Tags = await _context.Set<Tag>().Select(t => new { t.Id, t.Name }).ToListAsync(),
                     Formats = await _context.Set<Format>().Select(f => new { f.Id, f.Name }).ToListAsync()
@@ -98,16 +119,45 @@ namespace FallenFaction.Server.Controllers
                     return BadRequest(new { error = "English title is required" });
                 }
 
-                if (request.Teams == null || !request.Teams.Any())
-                {
-                    return BadRequest(new { error = "At least one team must be selected" });
-                }
-
                 var user = await _userManager.GetUserAsync(User);
                 if (user == null)
                 {
                     return Unauthorized(new { error = "User not found" });
                 }
+
+                // For Original/Fanfic: auto-assign personal group; create it if missing (legacy users)
+                var requestedCategory = request.TitleCategory ?? 1;
+                if ((request.Teams == null || !request.Teams.Any()) && requestedCategory is 2 or 3)
+                {
+                    var personalGroup = await _context.Teams
+                        .FirstOrDefaultAsync(t => t.CreatorId == user.Id && t.IsPersonal);
+
+                    if (personalGroup == null)
+                    {
+                        // Legacy user — create their personal group on demand
+                        personalGroup = new Team
+                        {
+                            Name = user.UserName + "'s Studio",
+                            Description = "Personal studio for " + user.UserName,
+                            CreatorId = user.Id,
+                            GroupType = GroupType.Personal,
+                            IsPersonal = true,
+                            CreatedDate = DateTime.UtcNow
+                        };
+                        _context.Teams.Add(personalGroup);
+                        await _context.SaveChangesAsync();
+                        _context.UserTeamRoles.Add(new UserTeamRole
+                        {
+                            AppUserId = user.Id,
+                            TeamId = personalGroup.Id,
+                            Role = TeamRole.Admin
+                        });
+                        await _context.SaveChangesAsync();
+                    }
+                    request.Teams = new List<int> { personalGroup.Id };
+                }
+                if (request.Teams == null || !request.Teams.Any())
+                    return BadRequest(new { error = "At least one group must be selected" });
 
                 // AUTHORIZATION CHECK: Verify user can add titles to all selected teams
                 var authorizedTeamIds = await GetAuthorizedTeamIds(user.Id, "CanAddTitle");
@@ -144,6 +194,8 @@ namespace FallenFaction.Server.Controllers
                     StatusTitle = request.StatusTitle ?? "inproces",
                     StatusTranslation = request.StatusTranslation ?? "inproces",
                     Type = (MangaType)(request.Type ?? 1),
+                    TitleCategory = (TitleCategory)(request.TitleCategory ?? 1),
+                    SourceTitleId = request.SourceTitleId,
                     AgeRestriction = request.AgeRestriction ?? 0,
                     CreatedByUserId = user.Id,
                     CreatedAt = DateTime.UtcNow,
@@ -188,6 +240,9 @@ namespace FallenFaction.Server.Controllers
                         StatusTitle = pendingTitle.StatusTitle,
                         StatusTranslation = pendingTitle.StatusTranslation,
                         Type = pendingTitle.Type,
+                        TitleCategory = pendingTitle.TitleCategory,
+                        SourceTitleId = pendingTitle.SourceTitleId,
+                        SourceTitleName = pendingTitle.SourceTitleName,
                         AgeRestriction = pendingTitle.AgeRestriction,
                         CoverImagePath = pendingTitle.CoverImagePath,
                         BackgroundImagePath = pendingTitle.BackgroundImagePath,
@@ -729,6 +784,25 @@ namespace FallenFaction.Server.Controllers
 
 
         // HELPER METHOD: Get teams user can perform specific action on
+        // GET: api/TitleApi/search?q=...&limit=10 — lightweight fanfic source-title lookup
+        [HttpGet("search")]
+        [AllowAnonymous]
+        public async Task<IActionResult> SearchTitles([FromQuery] string q, [FromQuery] int limit = 10)
+        {
+            if (string.IsNullOrWhiteSpace(q))
+                return Ok(new List<object>());
+
+            var results = await _context.Titles
+                .Where(t => t.IsAvailable &&
+                            (t.EnglishTitle.Contains(q) || t.OriginalTitle.Contains(q)))
+                .OrderBy(t => t.EnglishTitle)
+                .Take(Math.Min(limit, 20))
+                .Select(t => new { t.Id, t.EnglishTitle, t.OriginalTitle, t.CoverImagePath })
+                .ToListAsync();
+
+            return Ok(results);
+        }
+
         private async Task<List<int>> GetAuthorizedTeamIds(string userId, string permission)
         {
             // Admins can work with all teams
@@ -1162,6 +1236,11 @@ namespace FallenFaction.Server.Controllers
         public string? OriginalTitle { get; set; }
         public string? AlternativeNames { get; set; }
         public int? Type { get; set; }
+
+        // Content classification
+        public int? TitleCategory { get; set; }    // 1=Translation, 2=Original, 3=Fanfic
+        public int? SourceTitleId { get; set; }        // Fanfic: in-system source title (optional)
+        public string? SourceTitleName { get; set; }   // Fanfic: free-text source name (fallback)
         public string? ReleaseDate { get; set; }
         public string? Description { get; set; }
         public string? StatusTitle { get; set; }

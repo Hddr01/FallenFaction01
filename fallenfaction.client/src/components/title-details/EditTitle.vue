@@ -90,6 +90,29 @@
             </div>
           </div>
 
+          <!-- Content Category -->
+          <div class="space-y-3">
+            <Label class="text-sm font-medium text-foreground">Content Category</Label>
+            <Select v-model="form.titleCategory">
+              <SelectTrigger class="form-select-bg"><SelectValue /></SelectTrigger>
+              <SelectContent class="select-dropdown-bg">
+                <SelectItem :value="1">Translation &mdash; translated from source</SelectItem>
+                <SelectItem :value="2">Original creation &mdash; your own work</SelectItem>
+                <SelectItem :value="3">Fan fiction &mdash; based on existing IP</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <!-- Fanfic source title (optional free-text) -->
+          <div v-if="form.titleCategory === 3" class="space-y-3">
+            <Label class="text-sm font-medium text-foreground">
+              Based on <span class="text-[var(--color-text-muted)] text-xs font-normal">(optional)</span>
+            </Label>
+            <Input v-model="form.sourceTitleName"
+                   placeholder="Type the source title name"
+                   class="form-input-bg" />
+          </div>
+
           <!-- Type and Release Date -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="space-y-3">
@@ -338,6 +361,8 @@
     englishTitle: '',
     alternativeNames: '',
     type: 1,
+    titleCategory: 1,    // 1=Translation 2=Original 3=Fanfic
+    sourceTitleName: '',
     releaseDate: '',
     description: '',
     statusTitle: 'inproces',
@@ -381,6 +406,8 @@
         englishTitle: titleData.value.englishTitle || '',
         alternativeNames: titleData.value.alternativeNames || '',
         type: titleData.value.type || 1,
+        titleCategory: titleData.value.titleCategory || 1,
+        sourceTitleName: titleData.value.sourceTitleName || '',
         releaseDate: titleData.value.releaseDate || '',
         description: titleData.value.description || '',
         statusTitle: titleData.value.statusTitle || 'inproces',
@@ -444,6 +471,8 @@
         englishTitle: form.value.englishTitle,
         alternativeNames: form.value.alternativeNames,
         type: form.value.type,
+        titleCategory: form.value.titleCategory,
+        sourceTitleName: form.value.sourceTitleName,
         releaseDate: form.value.releaseDate,
         description: form.value.description,
         statusTitle: form.value.statusTitle,

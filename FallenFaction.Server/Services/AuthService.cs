@@ -1,10 +1,11 @@
-// Services/AuthService.cs - UPDATED with HTTPS profile picture migration
+ï»¿// Services/AuthService.cs - UPDATED with HTTPS profile picture migration
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using AutoMapper;
 using FallenFaction.Server.Data.Models;
 using FallenFaction.Server.DTOs.Auth;
 using FallenFaction.Server.Services.Interfaces;
+using FallenFaction.Server.Data;
 
 namespace FallenFaction.Server.Services
 {
@@ -16,6 +17,7 @@ namespace FallenFaction.Server.Services
         private readonly IMapper _mapper;
         private readonly ILogger<AuthService> _logger;
         private readonly IConfiguration _configuration;
+        private readonly ApplicationDbContext _context;
 
         // Concurrent operation tracking
         private readonly Dictionary<string, SemaphoreSlim> _userUpdateSemaphores = new();
@@ -27,7 +29,8 @@ namespace FallenFaction.Server.Services
             ITokenService tokenService,
             IMapper mapper,
             ILogger<AuthService> logger,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            ApplicationDbContext context)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -35,6 +38,7 @@ namespace FallenFaction.Server.Services
             _mapper = mapper;
             _logger = logger;
             _configuration = configuration;
+            _context = context;
         }
 
         private string GetStaticAssetBaseUrl()
@@ -47,9 +51,9 @@ namespace FallenFaction.Server.Services
         private string FixProfilePictureUrl(string? currentUrl)
         {
             if (string.IsNullOrEmpty(currentUrl))
-                return "/img/default-avatar.png";   // relative — works from any origin
+                return "/img/default-avatar.png";   // relative Â— works from any origin
 
-            // Already a clean relative path — return as-is
+            // Already a clean relative path Â— return as-is
             if (currentUrl.StartsWith("/"))
                 return currentUrl;
 
@@ -62,7 +66,7 @@ namespace FallenFaction.Server.Services
             }
             catch
             {
-                // Not a valid URI — return the raw value and let the frontend handle it
+                // Not a valid URI Â— return the raw value and let the frontend handle it
                 return currentUrl;
             }
         }
@@ -124,6 +128,35 @@ namespace FallenFaction.Server.Services
 
                 // Assign default role
                 await _userManager.AddToRoleAsync(user, "User");
+
+                // Auto-create Personal Group on registration
+                try
+                {
+                    var personalGroup = new Team
+                    {
+                        Name = user.UserName + "'s Studio",
+                        Description = "Personal studio for " + user.UserName,
+                        CreatorId = user.Id,
+                        GroupType = GroupType.Personal,
+                        IsPersonal = true,
+                        CreatedDate = DateTime.UtcNow
+                    };
+                    _context.Teams.Add(personalGroup);
+                    await _context.SaveChangesAsync();
+
+                    _context.UserTeamRoles.Add(new UserTeamRole
+                    {
+                        AppUserId = user.Id,
+                        TeamId = personalGroup.Id,
+                        Role = TeamRole.Admin
+                    });
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation("Personal group created for {UserName}", user.UserName);
+                }
+                catch (Exception groupEx)
+                {
+                    _logger.LogError(groupEx, "Failed to create personal group for {UserId}", user.Id);
+                }
 
                 // Generate JWT token
                 var roles = await _userManager.GetRolesAsync(user);

@@ -90,6 +90,58 @@
             </div>
           </div>
 
+          <!-- Content Category (Translation / Original / Fanfic) -->
+          <div class="space-y-3">
+            <Label class="text-sm font-medium text-foreground">
+              Content Category
+            </Label>
+            <Select v-model="formData.titleCategory">
+              <SelectTrigger class="form-select-bg">
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent class="select-dropdown-bg">
+                <SelectItem value="1">Translation &mdash; translated from source</SelectItem>
+                <SelectItem value="2">Original creation &mdash; your own work</SelectItem>
+                <SelectItem value="3">Fan fiction &mdash; based on existing IP</SelectItem>
+              </SelectContent>
+            </Select>
+            <p v-if="formData.titleCategory !== '1'" class="text-xs text-muted-foreground">
+              This will be posted under your personal studio. No group selection needed.
+            </p>
+          </div>
+
+          <!-- Fanfic: source title (optional, free-text with in-system search) -->
+          <div v-if="formData.titleCategory === '3'" class="space-y-3">
+            <Label class="text-sm font-medium text-foreground">
+              Based on <span class="text-[var(--color-text-muted)] text-xs font-normal">(optional)</span>
+            </Label>
+            <div class="relative">
+              <Input v-model="formData.originalTitleSearch"
+                     placeholder="Type the source title name — or leave blank"
+                     class="form-input-bg"
+                     @input="searchOriginalTitle" />
+              <!-- In-system search results dropdown -->
+              <div v-if="originalTitleResults.length > 0"
+                   class="absolute z-50 w-full mt-1 bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-lg shadow-lg overflow-hidden">
+                <button v-for="t in originalTitleResults"
+                        :key="t.id"
+                        type="button"
+                        class="w-full text-left px-4 py-2 text-sm hover:bg-[var(--color-background)] transition-colors"
+                        @click="selectOriginalTitle(t)">
+                  {{ t.englishTitle || t.originalTitle }}
+                  <span class="text-xs text-[var(--color-text-muted)] ml-2">in catalogue</span>
+                </button>
+              </div>
+            </div>
+            <!-- Status line -->
+            <p v-if="formData.sourceTitleId" class="text-xs text-green-500">
+              Linked to: {{ formData.originalTitleSearch }} (found in catalogue)
+            </p>
+            <p v-else-if="formData.originalTitleSearch.trim()" class="text-xs text-[var(--color-text-muted)]">
+              Will be saved as: "{{ formData.originalTitleSearch }}" (not linked — title not in catalogue)
+            </p>
+          </div>
+
           <!-- Type and Release Date -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="space-y-3">
@@ -142,17 +194,17 @@
                          create-new-url="/publisher/Create"
                          create-new-text="Create New Publisher" />
 
-            <!-- Teams - REQUIRED -->
-            <div>
-              <MultiSelect :options="teams"
+            <!-- Groups - only required for Translations -->
+            <div v-if="formData.titleCategory === '1'">
+              <MultiSelect :options="groups"
                            v-model="formData.teams"
-                           placeholder="Select teams"
-                           label="Teams"
+                           placeholder="Select groups"
+                           label="Groups"
                            required="true"
                            create-new-url="/team/Addteam"
-                           create-new-text="Create New Team">
+                           create-new-text="Create New Group">
                 <template #label>
-                  Teams
+                  Group / Team
                   <span class="text-red-500">*</span>
                 </template>
               </MultiSelect>
@@ -302,7 +354,7 @@
 </template>
 
 <script setup>
-  import { ref, reactive, onMounted } from 'vue'
+  import { ref, reactive, computed, onMounted } from 'vue'
   import MultiSelect from './MultiSelect.vue'
   import ImagePlaceholder from './ImagePlaceholder.vue'
   import TagsInputWithSuggestions from './TagsInputWithSuggestions.vue'
@@ -321,6 +373,10 @@
     englishTitle: '',
     alternativeNames: '',
     type: '1',
+    titleCategory: '1',       // 1=Translation 2=Original 3=Fanfic
+    sourceTitleId: null,
+    sourceTitleName: '',       // Free-text when source isn't in the system
+    originalTitleSearch: '',
     releaseDate: '',
     authors: [],
     publishers: [],
@@ -340,6 +396,13 @@
   const artists = ref([])
   const publishers = ref([])
   const teams = ref([])
+  const originalTitleResults = ref([])
+  const searchingOriginal = ref(false)
+
+  // Translation mode: show non-personal groups only; Original/Fanfic: show all (auto-assigned)
+  const groups = computed(() =>
+    teams.value.filter(t => !t.isPersonal)
+  )
   const categories = ref([])
   const tags = ref([])
   const formats = ref([])
@@ -372,8 +435,8 @@
       newErrors.englishTitle = 'English title must be at least 2 characters long'
     }
 
-    if (!formData.teams || formData.teams.length === 0) {
-      newErrors.teams = 'At least one team must be selected'
+    if ((!formData.teams || formData.teams.length === 0) && formData.titleCategory === '1') {
+      newErrors.teams = 'At least one group must be selected for translations'
     }
 
     const invalidLinks = formData.externalLinks.filter(link => {
@@ -399,6 +462,38 @@
 
     return Object.keys(newErrors).length === 0
   }
+
+  // ── Original title search (Fanfic) ─────────────────────────────────────────
+  let searchDebounce = null
+  const searchOriginalTitle = () => {
+    clearTimeout(searchDebounce)
+    // Always keep sourceTitleName in sync with the free-text input
+    formData.sourceTitleName = formData.originalTitleSearch.trim()
+    if (!formData.originalTitleSearch.trim()) {
+      originalTitleResults.value = []
+      formData.sourceTitleId = null
+      return
+    }
+    searchDebounce = setTimeout(async () => {
+      searchingOriginal.value = true
+      try {
+        const result = await titleApi.searchTitles(formData.originalTitleSearch.trim())
+        originalTitleResults.value = result.success ? (result.data || []) : []
+      } catch {
+        originalTitleResults.value = []
+      } finally {
+        searchingOriginal.value = false
+      }
+    }, 300)
+  }
+
+  const selectOriginalTitle = (title) => {
+    formData.sourceTitleId = title.id
+    formData.sourceTitleName = title.englishTitle || title.originalTitle
+    formData.originalTitleSearch = title.englishTitle || title.originalTitle
+    originalTitleResults.value = []
+  }
+  // ────────────────────────────────────────────────────────────────────────────
 
   // Form submission
   const handleSubmit = async () => {

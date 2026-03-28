@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Collections.Generic;
 
@@ -11,6 +11,13 @@ namespace FallenFaction.Server.Data.Models
         Manhua = 3,
         Comic = 4,
         Webtoon = 5
+    }
+
+    public enum TitleCategory
+    {
+        Translation = 1,  // Translated from a source language
+        Original = 2,     // Original work created by the group
+        Fanfic = 3        // Fan fiction based on an existing IP
     }
 
     public class Title
@@ -65,6 +72,18 @@ namespace FallenFaction.Server.Data.Models
         public string StatusTranslation { get; set; } = string.Empty;
 
         public MangaType Type { get; set; }
+
+        // ── Content classification ───────────────────────────────────────────────
+        public TitleCategory TitleCategory { get; set; } = TitleCategory.Translation;
+
+        // For Fanfic: reference to the original title this is based on
+        public int? SourceTitleId { get; set; }          // Optional: if the source exists in-system
+        [ForeignKey("SourceTitleId")]
+        public Title? SourceTitle { get; set; }
+        public ICollection<Title> FanficDerivatives { get; set; } = new List<Title>();
+
+        [StringLength(500)]
+        public string? SourceTitleName { get; set; }  // Free-text fallback when source isn't in-system
 
         public int AgeRestriction { get; set; }
 

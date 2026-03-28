@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Collections.Generic;
 
@@ -17,6 +17,11 @@ namespace FallenFaction.Server.Data.Models
         public string StatusTitle { get; set; } = string.Empty;
         public string StatusTranslation { get; set; } = string.Empty;
         public MangaType Type { get; set; }
+
+        // ── Content classification ───────────────────────────────────────────────
+        public TitleCategory TitleCategory { get; set; } = TitleCategory.Translation;
+        public int? SourceTitleId { get; set; }      // Optional: in-system reference
+        public string? SourceTitleName { get; set; }   // Free-text: source not in system
         public int AgeRestriction { get; set; }
         public ICollection<Category> Categories { get; set; } = new List<Category>();
         public ICollection<Tag> Tags { get; set; } = new List<Tag>();

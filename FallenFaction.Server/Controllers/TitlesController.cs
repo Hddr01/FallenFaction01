@@ -1107,10 +1107,13 @@ namespace FallenFaction.Server.Controllers
             {
                 _logger.LogInformation("Fetching popular titles");
 
-                var popularTitles = await _context.Titles
-                    .Where(t => t.IsAvailable)
+                // Take top 60 by popularity score, then re-sort by most recent chapter date
+                // so the carousel shows popular titles that have been actively updated.
+                // Fanfics (TitleCategory.Fanfic = 3) are excluded from the public carousel.
+                var popularPool = await _context.Titles
+                    .Where(t => t.IsAvailable && t.TitleCategory != TitleCategory.Fanfic)
                     .Include(t => t.Chapters)
-                    .ThenInclude(c => c.Views)
+                        .ThenInclude(c => c.Views)
                     .Include(t => t.Ratings)
                     .Include(t => t.Bookmarks)
                     .Select(t => new
@@ -1120,36 +1123,45 @@ namespace FallenFaction.Server.Controllers
                         ViewCount = t.Chapters.SelectMany(c => c.Views).Count(),
                         AverageRating = t.Ratings.Any() ? t.Ratings.Average(r => r.Value) : 0,
                         BookmarkCount = t.Bookmarks.Count(),
-                        LastChapterDate = t.Chapters.Any() ?
-                            t.Chapters.OrderByDescending(c => c.ReleaseDate).First().ReleaseDate :
-                            DateTime.MinValue,
+                        LastChapterDate = t.Chapters.Any()
+                            ? t.Chapters.OrderByDescending(c => c.ReleaseDate).First().ReleaseDate
+                            : DateTime.MinValue,
+                        LatestChapterNumber = t.Chapters.Any()
+                            ? (double)t.Chapters.OrderByDescending(c => c.ReleaseDate).First().ChapterNumber
+                            : 0,
                         PopularityScore = (t.Chapters.Count() * 2) +
-                                       (t.Chapters.SelectMany(c => c.Views).Count() * 0.1) +
-                                       (t.Ratings.Any() ? t.Ratings.Average(r => r.Value) * 10 : 0) +
-                                       (t.Bookmarks.Count() * 5)
+                                          (t.Chapters.SelectMany(c => c.Views).Count() * 0.1) +
+                                          (t.Ratings.Any() ? t.Ratings.Average(r => r.Value) * 10 : 0) +
+                                          (t.Bookmarks.Count() * 5)
                     })
                     .OrderByDescending(x => x.PopularityScore)
-                    .Take(20)
+                    .Take(60)
                     .ToListAsync();
 
-                var result = popularTitles.Select(item => new TitleListDto
-                {
-                    Id = item.Title.Id,
-                    OriginalTitle = item.Title.OriginalTitle ?? "Unknown Title",
-                    EnglishTitle = item.Title.EnglishTitle ?? item.Title.OriginalTitle ?? "Unknown Title",
-                    CoverImagePath = !string.IsNullOrEmpty(item.Title.CoverImagePath) ? item.Title.CoverImagePath : "/img/logo.png",
-                    Type = item.Title.Type,
-                    LatestChapter = item.ChapterCount > 0 ?
-                        item.ChapterCount.ToString() :
-                        "No chapters",
-                    LastUpdated = item.LastChapterDate != DateTime.MinValue ? item.LastChapterDate : null,
-                    ChapterCount = item.ChapterCount,
-                    AverageRating = item.AverageRating,
-                    BookmarkCount = item.BookmarkCount,
-                    ReleaseDate = item.Title.ReleaseDate ?? "Unknown"
-                }).ToList();
+                // Re-sort the popular pool: most recently updated first
+                var result = popularPool
+                    .OrderByDescending(x => x.LastChapterDate)
+                    .Take(20)
+                    .Select(item => new TitleListDto
+                    {
+                        Id = item.Title.Id,
+                        OriginalTitle = item.Title.OriginalTitle ?? "Unknown Title",
+                        EnglishTitle = item.Title.EnglishTitle ?? item.Title.OriginalTitle ?? "Unknown Title",
+                        CoverImagePath = !string.IsNullOrEmpty(item.Title.CoverImagePath) ? item.Title.CoverImagePath : "/img/logo.png",
+                        Type = item.Title.Type,
+                        TitleCategory = item.Title.TitleCategory,
+                        LatestChapter = item.LatestChapterNumber > 0
+                            ? $"Ch. {item.LatestChapterNumber}"
+                            : null,
+                        LatestChapterNumber = item.LatestChapterNumber,
+                        LastUpdated = item.LastChapterDate != DateTime.MinValue ? item.LastChapterDate : null,
+                        ChapterCount = item.ChapterCount,
+                        AverageRating = item.AverageRating,
+                        BookmarkCount = item.BookmarkCount,
+                        ReleaseDate = item.Title.ReleaseDate ?? "Unknown"
+                    }).ToList();
 
-                _logger.LogInformation($"Returning {result.Count} popular titles");
+                _logger.LogInformation($"Returning {result.Count} popular titles for carousel");
                 return Ok(result);
             }
             catch (Exception ex)
@@ -1739,6 +1751,65 @@ namespace FallenFaction.Server.Controllers
         /// Get catalog titles with filtering, sorting, and pagination
         /// GET: api/Titles/Catalog
         /// </summary>
+        /// <summary>
+        /// Full-text title search for global search.
+        /// GET: api/Titles/Search?query=naruto
+        /// </summary>
+        [HttpGet("Search")]
+        [AllowAnonymous]
+        public async Task<IActionResult> SearchTitles([FromQuery] string query, [FromQuery] int limit = 20)
+        {
+            if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 2)
+                return Ok(new List<object>());
+
+            var q = query.Trim().ToLower();
+            var results = await _context.Titles
+                .Where(t => t.IsAvailable && (
+                    t.EnglishTitle.ToLower().Contains(q) ||
+                    t.OriginalTitle.ToLower().Contains(q) ||
+                    t.AlternativeNames.ToLower().Contains(q)))
+                .Include(t => t.Categories)
+                .OrderBy(t => t.EnglishTitle.ToLower().StartsWith(q) ? 0 : 1)
+                    .ThenBy(t => t.EnglishTitle)
+                .Take(Math.Min(limit, 40))
+                .Select(t => new
+                {
+                    t.Id,
+                    t.EnglishTitle,
+                    t.OriginalTitle,
+                    t.CoverImagePath,
+                    t.Type,
+                    t.TitleCategory,
+                    Categories = t.Categories.Select(c => c.Name).Take(3).ToList()
+                })
+                .ToListAsync();
+
+            return Ok(results);
+        }
+
+        /// <summary>
+        /// Tag search for global search.
+        /// GET: api/Titles/Tags/Search?query=action
+        /// </summary>
+        [HttpGet("Tags/Search")]
+        [AllowAnonymous]
+        public async Task<IActionResult> SearchTags([FromQuery] string query, [FromQuery] int limit = 10)
+        {
+            if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 2)
+                return Ok(new List<object>());
+
+            var q = query.Trim().ToLower();
+            var tags = await _context.Tags
+                .Where(t => t.Name.ToLower().Contains(q))
+                .OrderBy(t => t.Name.ToLower().StartsWith(q) ? 0 : 1)
+                    .ThenBy(t => t.Name)
+                .Take(Math.Min(limit, 20))
+                .Select(t => new { t.Id, t.Name })
+                .ToListAsync();
+
+            return Ok(tags);
+        }
+
         [HttpGet("Catalog")]
         public async Task<ActionResult<CatalogResponseDto>> GetCatalog(
             [FromQuery] int page = 1,

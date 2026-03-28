@@ -93,6 +93,9 @@ const titleApi = {
       submitData.append('originalTitle', formData.originalTitle || '');
       submitData.append('alternativeNames', formData.alternativeNames || '');
       submitData.append('type', formData.type || '1');
+      submitData.append('titleCategory', formData.titleCategory || '1');
+      if (formData.sourceTitleId) submitData.append('sourceTitleId', formData.sourceTitleId);
+      if (formData.sourceTitleName) submitData.append('sourceTitleName', formData.sourceTitleName);
       submitData.append('releaseDate', formData.releaseDate || '');
       submitData.append('description', formData.description || '');
       submitData.append('statusTitle', formData.statusTitle || 'inproces');
@@ -178,6 +181,8 @@ const titleApi = {
       formData.append('originalTitle', updateData.originalTitle || '');
       formData.append('alternativeNames', updateData.alternativeNames || '');
       formData.append('type', updateData.type || '1');
+      if (updateData.titleCategory) formData.append('titleCategory', updateData.titleCategory);
+      if (updateData.sourceTitleName) formData.append('sourceTitleName', updateData.sourceTitleName);
       formData.append('releaseDate', updateData.releaseDate || '');
       formData.append('description', updateData.description || '');
       formData.append('statusTitle', updateData.statusTitle || 'inproces');
@@ -281,6 +286,16 @@ const titleApi = {
         error: error.response?.data?.message || error.message
       };
     }
+  }
+};
+
+// Search titles by name (used for Fanfic original title lookup)
+titleApi.searchTitles = async function (query) {
+  try {
+    const response = await api.get('/TitleApi/search', { params: { q: query, limit: 10 } });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.message, data: [] };
   }
 };
 

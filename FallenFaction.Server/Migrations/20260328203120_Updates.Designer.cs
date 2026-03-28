@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FallenFaction.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260328161909_InitialCore")]
-    partial class InitialCore
+    [Migration("20260328203120_Updates")]
+    partial class Updates
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -882,6 +882,12 @@ namespace FallenFaction.Server.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("SourceTitleId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SourceTitleName")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("StatusTitle")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -889,6 +895,9 @@ namespace FallenFaction.Server.Migrations
                     b.Property<string>("StatusTranslation")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("TitleCategory")
+                        .HasColumnType("int");
 
                     b.Property<int>("Type")
                         .HasColumnType("int");
@@ -1364,6 +1373,12 @@ namespace FallenFaction.Server.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<int>("GroupType")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsPersonal")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -1447,6 +1462,13 @@ namespace FallenFaction.Server.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("SourceTitleId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SourceTitleName")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("StatusTitle")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -1455,12 +1477,17 @@ namespace FallenFaction.Server.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("TitleCategory")
+                        .HasColumnType("int");
+
                     b.Property<int>("Type")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("SourceTitleId");
 
                     b.ToTable("Titles");
                 });
@@ -2509,7 +2536,14 @@ namespace FallenFaction.Server.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
+                    b.HasOne("FallenFaction.Server.Data.Models.Title", "SourceTitle")
+                        .WithMany("FanficDerivatives")
+                        .HasForeignKey("SourceTitleId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.Navigation("CreatedByUser");
+
+                    b.Navigation("SourceTitle");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.TitleChangeLog", b =>
@@ -2848,6 +2882,8 @@ namespace FallenFaction.Server.Migrations
                     b.Navigation("Chapters");
 
                     b.Navigation("Comments");
+
+                    b.Navigation("FanficDerivatives");
 
                     b.Navigation("PendingChapters");
 

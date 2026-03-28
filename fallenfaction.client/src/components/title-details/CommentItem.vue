@@ -38,7 +38,9 @@
               <span v-if="comment.isDeleted" class="deleted-badge">deleted</span>
               <span v-if="comment.isPinned" class="pinned-badge" title="Pinned by team">
                 <Pin :size="12" /> Pinned
-                <template v-if="comment.pinnedByTeamName"> by {{ comment.pinnedByTeamName }}</template>
+                <template v-if="comment.pinnedByTeamName">
+                  by {{ comment.pinnedByTeamName }}
+                </template>
               </span>
             </div>
 
@@ -181,22 +183,18 @@
   </div>
 
   <!-- Report Comment Modal -->
-  <ReportModal
-    :is-open="showReportModal"
-    :target-type="1"
-    :target-id="comment.id"
-    @close="showReportModal = false"
-    @reported="showReportModal = false"
-  />
+  <ReportModal :is-open="showReportModal"
+               :target-type="1"
+               :target-id="comment.id"
+               @close="showReportModal = false"
+               @reported="showReportModal = false" />
 
   <!-- Report User Modal -->
-  <ReportModal
-    :is-open="showReportUserModal"
-    :target-type="4"
-    :target-id="comment.userId"
-    @close="showReportUserModal = false"
-    @reported="showReportUserModal = false"
-  />
+  <ReportModal :is-open="showReportUserModal"
+               :target-type="4"
+               :target-id="comment.userId"
+               @close="showReportUserModal = false"
+               @reported="showReportUserModal = false" />
 </template>
 
 <script setup>
@@ -478,16 +476,21 @@
     try {
       if (props.comment.isPinned) {
         await commentsService.unpinComment(props.comment.id)
-        props.comment.isPinned = false
-        props.comment.pinnedAt = null
-        props.comment.pinnedByUserName = null
-        props.comment.pinnedByTeamName = null
+        emit('comment-updated', {
+          ...props.comment,
+          isPinned: false,
+          pinnedAt: null,
+          pinnedByUserName: null,
+          pinnedByTeamName: null
+        })
       } else {
         await commentsService.pinComment(props.comment.id)
-        props.comment.isPinned = true
-        props.comment.pinnedAt = new Date().toISOString()
+        emit('comment-updated', {
+          ...props.comment,
+          isPinned: true,
+          pinnedAt: new Date().toISOString()
+        })
       }
-      emit('comment-updated', props.comment)
     } catch (error) {
       console.error('Error pinning/unpinning comment:', error)
       alert(error?.response?.data || error.message || 'Failed to pin/unpin comment')
@@ -820,8 +823,15 @@
   }
 
   @keyframes dropdown-in {
-    from { opacity: 0; transform: translateY(-4px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   .report-dropdown-item {
@@ -840,10 +850,10 @@
     transition: background 0.15s ease;
   }
 
-  .report-dropdown-item:hover {
-    background: var(--color-background-mute, #f8f9fa);
-    color: var(--color-accent, #ff6d00);
-  }
+    .report-dropdown-item:hover {
+      background: var(--color-background-mute, #f8f9fa);
+      color: var(--color-accent, #ff6d00);
+    }
 
   .action-btn {
     display: inline-flex;
