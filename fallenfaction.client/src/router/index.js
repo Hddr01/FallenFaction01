@@ -28,6 +28,9 @@ import AdminAuthorManagement from '../components/admin/AdminAuthorManagement.vue
 import AddPublisher from '../components/publisher/AddPublisher.vue';
 import PublisherList from '../components/publisher/PublisherList.vue';
 import AdminPublisherManagement from '../components/admin/AdminPublisherManagement.vue';
+import AdminReportsManagement from '../components/admin/AdminReportsManagement.vue';
+import AdminNotificationsManagement from '../components/admin/AdminNotificationsManagement.vue';
+import StaticPage from '../components/pages/StaticPage.vue';
 import AdminUserManagement from '../components/admin/AdminUserManagement.vue';
 import AdminTeamManagement from '../components/admin/AdminTeamManagement.vue';
 import AdminCommentsManagement from '../components/admin/AdminCommentsManagement.vue';
@@ -43,7 +46,8 @@ import CommentThreadView from '../components/title-details/CommentThreadView.vue
 const SYSTEM_PREFIXES = [
   'api', 'admin', 'account', 'user', 'team', 'novel', 'author',
   'publisher', 'error', 'catalog', 'profile', 'thread', 'title',
-  'teams', 'authors', 'publishers', 'home',
+  'teams', 'authors', 'publishers', 'home', 'dmca', 'faq', 'terms',
+  'about', 'contact', 'privacy', 'pages',
 ]
 
 const routes = [
@@ -127,6 +131,16 @@ const routes = [
   { path: '/admin/comments', name: 'Admin Comments Management', component: AdminCommentsManagement, meta: { requiresAuth: true, requiresAdmin: true, title: 'Admin - Comments Management' } },
   { path: '/admin/users', name: 'Admin User Management', component: AdminUserManagement, meta: { requiresAuth: true, requiresAdmin: true, title: 'Admin - User Management' } },
   { path: '/admin/teams', name: 'Admin Team Management', component: AdminTeamManagement, meta: { requiresAuth: true, requiresAdmin: true, title: 'Admin - Team Management' } },
+  { path: '/admin/reports', name: 'Admin Reports Management', component: AdminReportsManagement, meta: { requiresAuth: true, requiresAdmin: true, title: 'Admin - Reports Management' } },
+  { path: '/admin/notifications', name: 'Admin Notifications Management', component: AdminNotificationsManagement, meta: { requiresAuth: true, requiresAdmin: true, title: 'Admin - Notifications' } },
+
+  // ── Static / Legal Pages ──────────────────────────────────────────────────
+  { path: '/dmca', name: 'DMCA', component: StaticPage, props: { page: 'dmca' }, meta: { title: 'DMCA Policy' } },
+  { path: '/faq', name: 'FAQ', component: StaticPage, props: { page: 'faq' }, meta: { title: 'FAQ' } },
+  { path: '/terms', name: 'Terms', component: StaticPage, props: { page: 'terms' }, meta: { title: 'Terms of Service' } },
+  { path: '/about', name: 'About', component: StaticPage, props: { page: 'about' }, meta: { title: 'About' } },
+  { path: '/contact', name: 'Contact', component: StaticPage, props: { page: 'contact' }, meta: { title: 'Contact Us' } },
+  { path: '/privacy', name: 'Privacy', component: StaticPage, props: { page: 'privacy' }, meta: { title: 'Privacy Policy' } },
 
   // ── Misc ──────────────────────────────────────────────────────────────────
   { path: '/thread/:commentId', name: 'CommentThread', component: CommentThreadView, props: route => ({ commentId: parseInt(route.params.commentId) }), meta: { title: 'Comment Thread', requiresAuth: false } },

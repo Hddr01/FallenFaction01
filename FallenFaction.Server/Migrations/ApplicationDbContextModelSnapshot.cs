@@ -589,6 +589,11 @@ namespace FallenFaction.Server.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
+                    b.Property<bool>("IsPinned")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<int>("LikesCount")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
@@ -596,6 +601,15 @@ namespace FallenFaction.Server.Migrations
 
                     b.Property<int?>("ParentCommentId")
                         .HasColumnType("int");
+
+                    b.Property<DateTime?>("PinnedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("PinnedByTeamId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PinnedByUserId")
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<DateTime>("PostedDate")
                         .ValueGeneratedOnAdd()
@@ -616,6 +630,10 @@ namespace FallenFaction.Server.Migrations
                     b.HasIndex("DeletedByUserId");
 
                     b.HasIndex("ParentCommentId");
+
+                    b.HasIndex("PinnedByTeamId");
+
+                    b.HasIndex("PinnedByUserId");
 
                     b.HasIndex("TitleId");
 
@@ -690,6 +708,74 @@ namespace FallenFaction.Server.Migrations
                             Id = 2,
                             Name = "Print"
                         });
+                });
+
+            modelBuilder.Entity("FallenFaction.Server.Data.Models.Notification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsGlobal")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LinkUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("RelatedChapterId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("RelatedTitleId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ScheduledFor")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<string>("UserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("IsGlobal");
+
+                    b.HasIndex("UserId", "IsRead");
+
+                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.PendingChapter", b =>
@@ -1135,6 +1221,79 @@ namespace FallenFaction.Server.Migrations
                     b.ToTable("RejectedTitleChanges");
                 });
 
+            modelBuilder.Entity("FallenFaction.Server.Data.Models.Report", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AdminNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("Reason")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReporterUserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReviewedByUserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TargetChapterId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TargetCommentId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TargetTitleId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TargetType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TargetUserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("ReporterUserId");
+
+                    b.HasIndex("ReviewedByUserId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("TargetChapterId");
+
+                    b.HasIndex("TargetCommentId");
+
+                    b.HasIndex("TargetTitleId");
+
+                    b.HasIndex("TargetUserId");
+
+                    b.HasIndex("TargetType", "Status");
+
+                    b.ToTable("Reports");
+                });
+
             modelBuilder.Entity("FallenFaction.Server.Data.Models.Tag", b =>
                 {
                     b.Property<int>("Id")
@@ -1358,6 +1517,37 @@ namespace FallenFaction.Server.Migrations
                     b.HasIndex("UpdatedByUserId");
 
                     b.ToTable("TitleChangeLogs");
+                });
+
+            modelBuilder.Entity("FallenFaction.Server.Data.Models.UserNotificationRead", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("IsDismissed")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("NotificationId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NotificationId");
+
+                    b.HasIndex("UserId", "NotificationId")
+                        .IsUnique();
+
+                    b.ToTable("UserNotificationReads");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.UserTeamPermission", b =>
@@ -2004,6 +2194,16 @@ namespace FallenFaction.Server.Migrations
                         .HasForeignKey("ParentCommentId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("FallenFaction.Server.Data.Models.Team", "PinnedByTeam")
+                        .WithMany()
+                        .HasForeignKey("PinnedByTeamId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("FallenFaction.Server.Data.Models.AppUser", "PinnedByUser")
+                        .WithMany()
+                        .HasForeignKey("PinnedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("FallenFaction.Server.Data.Models.Title", "Title")
                         .WithMany("Comments")
                         .HasForeignKey("TitleId")
@@ -2020,6 +2220,10 @@ namespace FallenFaction.Server.Migrations
                     b.Navigation("DeletedByUser");
 
                     b.Navigation("ParentComment");
+
+                    b.Navigation("PinnedByTeam");
+
+                    b.Navigation("PinnedByUser");
 
                     b.Navigation("Title");
 
@@ -2050,6 +2254,23 @@ namespace FallenFaction.Server.Migrations
                     b.HasOne("FallenFaction.Server.Data.Models.RejectedTitle", null)
                         .WithMany("Formats")
                         .HasForeignKey("RejectedTitleId");
+                });
+
+            modelBuilder.Entity("FallenFaction.Server.Data.Models.Notification", b =>
+                {
+                    b.HasOne("FallenFaction.Server.Data.Models.AppUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("FallenFaction.Server.Data.Models.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.PendingChapter", b =>
@@ -2217,6 +2438,52 @@ namespace FallenFaction.Server.Migrations
                     b.Navigation("UpdatedByUser");
                 });
 
+            modelBuilder.Entity("FallenFaction.Server.Data.Models.Report", b =>
+                {
+                    b.HasOne("FallenFaction.Server.Data.Models.AppUser", "ReporterUser")
+                        .WithMany()
+                        .HasForeignKey("ReporterUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("FallenFaction.Server.Data.Models.AppUser", "ReviewedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReviewedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("FallenFaction.Server.Data.Models.Chapter", "TargetChapter")
+                        .WithMany()
+                        .HasForeignKey("TargetChapterId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FallenFaction.Server.Data.Models.Comment", "TargetComment")
+                        .WithMany()
+                        .HasForeignKey("TargetCommentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FallenFaction.Server.Data.Models.Title", "TargetTitle")
+                        .WithMany()
+                        .HasForeignKey("TargetTitleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FallenFaction.Server.Data.Models.AppUser", "TargetUser")
+                        .WithMany()
+                        .HasForeignKey("TargetUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("ReporterUser");
+
+                    b.Navigation("ReviewedByUser");
+
+                    b.Navigation("TargetChapter");
+
+                    b.Navigation("TargetComment");
+
+                    b.Navigation("TargetTitle");
+
+                    b.Navigation("TargetUser");
+                });
+
             modelBuilder.Entity("FallenFaction.Server.Data.Models.Tag", b =>
                 {
                     b.HasOne("FallenFaction.Server.Data.Models.RejectedTitle", null)
@@ -2266,6 +2533,25 @@ namespace FallenFaction.Server.Migrations
                     b.Navigation("Title");
 
                     b.Navigation("UpdatedByUser");
+                });
+
+            modelBuilder.Entity("FallenFaction.Server.Data.Models.UserNotificationRead", b =>
+                {
+                    b.HasOne("FallenFaction.Server.Data.Models.Notification", "Notification")
+                        .WithMany()
+                        .HasForeignKey("NotificationId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("FallenFaction.Server.Data.Models.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Notification");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.UserTeamRole", b =>

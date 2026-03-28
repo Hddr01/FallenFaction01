@@ -46,6 +46,16 @@ namespace FallenFaction.Server.Data.Models
         public Comment ParentComment { get; set; }
         public ICollection<Comment> Replies { get; set; } = new List<Comment>();
 
+        // Pinned comment support (team members with permission can pin)
+        public bool IsPinned { get; set; } = false;
+        public DateTime? PinnedAt { get; set; }
+        public string? PinnedByUserId { get; set; }
+        [ForeignKey("PinnedByUserId")]
+        public AppUser? PinnedByUser { get; set; }
+        public int? PinnedByTeamId { get; set; }
+        [ForeignKey("PinnedByTeamId")]
+        public Team? PinnedByTeam { get; set; }
+
         // User reactions (likes/dislikes)
         public ICollection<CommentReaction> Reactions { get; set; } = new List<CommentReaction>();
 

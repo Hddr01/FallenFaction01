@@ -41,6 +41,13 @@ namespace FallenFaction.Server.Data
         // ── Trust system ─────────────────────────────────────────────────────────
         public DbSet<UserTrustRecord> UserTrustRecords { get; set; }
 
+        // ── Reports system ──────────────────────────────────────────────────────
+        public DbSet<Report> Reports { get; set; }
+
+        // ── Notifications system ────────────────────────────────────────────────
+        public DbSet<Notification> Notifications { get; set; }
+        public DbSet<UserNotificationRead> UserNotificationReads { get; set; }
+
         public IQueryable<Chapter> GetUserChapters(string userId)
         {
             return Chapters.Where(c => c.UpdatedByUserId == userId);
@@ -519,6 +526,111 @@ namespace FallenFaction.Server.Data
                       .HasForeignKey(e => e.UserId)
                       .OnDelete(DeleteBehavior.Cascade);
                 entity.Property(e => e.UserId).IsRequired();
+            });
+
+            // ── Report configuration ────────────────────────────────────────────
+            builder.Entity<Report>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.HasOne(e => e.ReporterUser)
+                      .WithMany()
+                      .HasForeignKey(e => e.ReporterUserId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.TargetComment)
+                      .WithMany()
+                      .HasForeignKey(e => e.TargetCommentId)
+                      .OnDelete(DeleteBehavior.SetNull)
+                      .IsRequired(false);
+
+                entity.HasOne(e => e.TargetTitle)
+                      .WithMany()
+                      .HasForeignKey(e => e.TargetTitleId)
+                      .OnDelete(DeleteBehavior.SetNull)
+                      .IsRequired(false);
+
+                entity.HasOne(e => e.TargetChapter)
+                      .WithMany()
+                      .HasForeignKey(e => e.TargetChapterId)
+                      .OnDelete(DeleteBehavior.SetNull)
+                      .IsRequired(false);
+
+                entity.HasOne(e => e.TargetUser)
+                      .WithMany()
+                      .HasForeignKey(e => e.TargetUserId)
+                      .OnDelete(DeleteBehavior.NoAction)
+                      .IsRequired(false);
+
+                entity.HasOne(e => e.ReviewedByUser)
+                      .WithMany()
+                      .HasForeignKey(e => e.ReviewedByUserId)
+                      .OnDelete(DeleteBehavior.NoAction)
+                      .IsRequired(false);
+
+                entity.HasIndex(e => e.Status);
+                entity.HasIndex(e => e.CreatedAt);
+                entity.HasIndex(e => new { e.TargetType, e.Status });
+            });
+
+            // ── Notification configuration ──────────────────────────────────────
+            builder.Entity<Notification>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.HasOne(e => e.User)
+                      .WithMany()
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.Cascade)
+                      .IsRequired(false);
+
+                entity.HasOne(e => e.CreatedByUser)
+                      .WithMany()
+                      .HasForeignKey(e => e.CreatedByUserId)
+                      .OnDelete(DeleteBehavior.NoAction)
+                      .IsRequired(false);
+
+                entity.HasIndex(e => new { e.UserId, e.IsRead });
+                entity.HasIndex(e => e.IsGlobal);
+                entity.HasIndex(e => e.CreatedAt);
+            });
+
+            // ── UserNotificationRead configuration ──────────────────────────────
+            builder.Entity<UserNotificationRead>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.HasIndex(e => new { e.UserId, e.NotificationId }).IsUnique();
+
+                entity.HasOne(e => e.User)
+                      .WithMany()
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                // NoAction here to avoid multiple cascade paths through AspNetUsers
+                // (User → UserNotificationRead AND User → Notification → UserNotificationRead)
+                entity.HasOne(e => e.Notification)
+                      .WithMany()
+                      .HasForeignKey(e => e.NotificationId)
+                      .OnDelete(DeleteBehavior.NoAction);
+            });
+
+            // ── Comment pinned-by relationships ─────────────────────────────────
+            builder.Entity<Comment>(entity =>
+            {
+                entity.HasOne(c => c.PinnedByUser)
+                      .WithMany()
+                      .HasForeignKey(c => c.PinnedByUserId)
+                      .OnDelete(DeleteBehavior.NoAction)
+                      .IsRequired(false);
+
+                entity.HasOne(c => c.PinnedByTeam)
+                      .WithMany()
+                      .HasForeignKey(c => c.PinnedByTeamId)
+                      .OnDelete(DeleteBehavior.NoAction)
+                      .IsRequired(false);
+
+                entity.Property(c => c.IsPinned).HasDefaultValue(false);
             });
 
             // Call the seed data from LibManga.Data namespace

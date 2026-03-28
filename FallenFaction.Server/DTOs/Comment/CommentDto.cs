@@ -24,5 +24,11 @@
         public DateTime? DeletedAt { get; set; }
         public string? DeletedByUserName { get; set; }
         public string? DeletionReason { get; set; }
+
+        // Pinned comment fields
+        public bool IsPinned { get; set; }
+        public DateTime? PinnedAt { get; set; }
+        public string? PinnedByUserName { get; set; }
+        public string? PinnedByTeamName { get; set; }
     }
 }
