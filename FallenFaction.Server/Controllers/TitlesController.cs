@@ -8,6 +8,7 @@ using FallenFaction.Server.Data.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authorization;
 using FallenFaction.Server.DTOs.Chapter;
+using FallenFaction.Server.Services.Interfaces;
 
 namespace FallenFaction.Server.Controllers
 {
@@ -20,18 +21,21 @@ namespace FallenFaction.Server.Controllers
         private readonly UserManager<AppUser> _userManager;
         private readonly IWebHostEnvironment _hostingEnvironment;
         private readonly Random _random;
+        private readonly ITrustService _trustService;
 
         public TitlesController(
             ApplicationDbContext context,
             ILogger<TitlesController> logger,
             UserManager<AppUser> userManager,
-            IWebHostEnvironment hostingEnvironment)
+            IWebHostEnvironment hostingEnvironment,
+            ITrustService trustService)
         {
             _context = context;
             _logger = logger;
             _userManager = userManager;
             _hostingEnvironment = hostingEnvironment;
             _random = new Random();
+            _trustService = trustService;
         }
 
         #region Chapter Management Methods
@@ -147,6 +151,48 @@ namespace FallenFaction.Server.Controllers
                     return BadRequest(new { message = "Chapter content cannot be empty" });
                 }
 
+                // ── Trust auto-approve check ────────────────────────────────────────
+                bool isTrustedForChapter = await _trustService.IsTrustedAsync(user.Id, TrustActionType.AddChapter);
+
+                if (isTrustedForChapter)
+                {
+                    var autoChapter = new Chapter
+                    {
+                        Name = request.Name,
+                        VolumeNumber = request.VolumeNumber,
+                        ChapterNumber = request.ChapterNumber,
+                        TitleId = titleId,
+                        TeamId = request.TeamId,
+                        UpdatedByUserId = user.Id,
+                        CreatedDate = DateTime.UtcNow,
+                        ReleaseDate = DateTime.UtcNow,
+                        Content = request.Content
+                    };
+                    _context.Chapters.Add(autoChapter);
+                    await _context.SaveChangesAsync();
+
+                    // Write system change log
+                    var autoLog = new TitleChangeLog
+                    {
+                        TitleId = titleId,
+                        UpdatedByUserId = user.Id,
+                        ReviewedByUserId = null,
+                        CreatedAt = DateTime.UtcNow,
+                        ReviewedAt = DateTime.UtcNow,
+                        ChangeType = "Add Chapter",
+                        OldValue = "",
+                        NewValue = $"Ch.{request.ChapterNumber} - {request.Name}",
+                        AdminComment = "Auto-approved by system (trusted user)",
+                        Status = ChangeLogStatus.AutoApproved,
+                    };
+                    _context.TitleChangeLogs.Add(autoLog);
+                    await _context.SaveChangesAsync();
+
+                    _logger.LogInformation("Chapter auto-approved for trusted user {User}: Ch.{Num}", user.UserName, request.ChapterNumber);
+                    return Ok(new { message = "Chapter auto-approved and published!", chapterId = autoChapter.Id, autoApproved = true });
+                }
+
+                // ── Standard pending flow ────────────────────────────────────────────
                 // Create pending chapter
                 var pendingChapter = new PendingChapter
                 {
@@ -412,7 +458,26 @@ namespace FallenFaction.Server.Controllers
                     _context.PendingChapters.Remove(pendingChapter);
                     await _context.SaveChangesAsync();
 
+                    // Write change log entry
+                    var approveLog = new TitleChangeLog
+                    {
+                        TitleId = pendingChapter.TitleId,
+                        UpdatedByUserId = pendingChapter.UpdatedByUserId,
+                        ReviewedByUserId = user.Id,
+                        CreatedAt = pendingChapter.CreatedDate,
+                        ReviewedAt = DateTime.UtcNow,
+                        ChangeType = "Add Chapter",
+                        OldValue = "",
+                        NewValue = $"Ch.{pendingChapter.ChapterNumber} - {pendingChapter.Name}",
+                        AdminComment = "Approved by admin",
+                        Status = ChangeLogStatus.Approved,
+                    };
+                    _context.TitleChangeLogs.Add(approveLog);
+                    await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
+
+                    // Record trust approval
+                    await _trustService.RecordApprovalAsync(pendingChapter.UpdatedByUserId, TrustActionType.AddChapter);
 
                     // Load the chapter with all relationships for DTO mapping
                     var fullChapter = await _context.Chapters
@@ -488,6 +553,9 @@ namespace FallenFaction.Server.Controllers
                     // Remove the pending chapter
                     _context.PendingChapters.Remove(pendingChapter);
                     await _context.SaveChangesAsync();
+
+                    // Record rejection → resets AddChapter trust counter
+                    await _trustService.RecordRejectionAsync(pendingChapter.UpdatedByUserId, TrustActionType.AddChapter);
 
                     await transaction.CommitAsync();
 
@@ -1957,101 +2025,6 @@ namespace FallenFaction.Server.Controllers
             {
                 _logger.LogError(ex, "Error fetching catalog: {Error}", ex.Message);
                 return StatusCode(500, new { message = "Error fetching catalog", error = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Quick tag search for global search bar (public).
-        /// GET: api/Titles/Tags/Search?query=...
-        /// </summary>
-        [HttpGet("Tags/Search")]
-        public async Task<ActionResult<IEnumerable<object>>> SearchTags([FromQuery] string query)
-        {
-            try
-            {
-                var q = (query ?? "").Trim().ToLower();
-                var tags = await _context.Tags
-                    .Where(t => string.IsNullOrEmpty(q) || t.Name.ToLower().Contains(q))
-                    .Select(t => new { t.Id, t.Name })
-                    .OrderBy(t => t.Name)
-                    .Take(20)
-                    .ToListAsync();
-                return Ok(tags);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error searching tags with query: {Query}", query);
-                return StatusCode(500, new { message = "Error searching tags", error = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Quick title search for global search bar.
-        /// GET: api/Titles/Search?query=...
-        /// Returns up to 20 TitleCatalogDto items matching the query.
-        /// </summary>
-        [HttpGet("Search")]
-        public async Task<ActionResult<IEnumerable<TitleCatalogDto>>> SearchTitles([FromQuery] string query)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 2)
-                    return Ok(new List<TitleCatalogDto>());
-
-                var q = query.Trim().ToLower();
-
-                var titleIds = await _context.Titles
-                    .Where(t =>
-                        t.OriginalTitle.ToLower().Contains(q) ||
-                        (t.EnglishTitle != null && t.EnglishTitle.ToLower().Contains(q)) ||
-                        (t.AlternativeNames != null && t.AlternativeNames.ToLower().Contains(q)))
-                    .OrderByDescending(t => t.Chapters.Count)
-                    .Take(20)
-                    .Select(t => t.Id)
-                    .ToListAsync();
-
-                var titles = await _context.Titles
-                    .Where(t => titleIds.Contains(t.Id))
-                    .Include(t => t.Chapters)
-                    .ToListAsync();
-
-                var results = titles.Select(title =>
-                {
-                    var latestChapter = title.Chapters
-                        .OrderByDescending(c => c.ReleaseDate)
-                        .FirstOrDefault();
-
-                    return new TitleCatalogDto
-                    {
-                        Id = title.Id,
-                        OriginalTitle = title.OriginalTitle ?? "Unknown Title",
-                        EnglishTitle = title.EnglishTitle ?? title.OriginalTitle ?? "",
-                        CoverImagePath = !string.IsNullOrEmpty(title.CoverImagePath)
-                            ? title.CoverImagePath : "/img/logo.png",
-                        Type = title.Type,
-                        StatusTitle = title.StatusTitle ?? "Unknown",
-                        StatusTranslation = title.StatusTranslation ?? "Unknown",
-                        AgeRestriction = title.AgeRestriction,
-                        Description = title.Description != null && title.Description.Length > 200
-                            ? title.Description.Substring(0, 200) + "..."
-                            : title.Description ?? "",
-                        LatestChapter = latestChapter != null
-                            ? $"Ch. {latestChapter.ChapterNumber}" : null,
-                        ChapterCount = title.Chapters.Count,
-                        ReleaseDate = title.ReleaseDate ?? "Unknown",
-                        LastUpdated = latestChapter?.ReleaseDate,
-                    };
-                })
-                // Re-apply order to match original titleIds ranking
-                .OrderBy(t => titleIds.IndexOf(t.Id))
-                .ToList();
-
-                return Ok(results);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error searching titles with query: {Query}", query);
-                return StatusCode(500, new { message = "Error searching titles", error = ex.Message });
             }
         }
 

@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Http;
 using System.Collections.Generic;
+using FallenFaction.Server.Services.Interfaces;
 
 namespace FallenFaction.Server.Controllers.Api
 {
@@ -25,16 +26,20 @@ namespace FallenFaction.Server.Controllers.Api
         private readonly ILogger<AdminTitleController> _logger;
         private readonly UserManager<AppUser> _userManager;
 
+        private readonly ITrustService _trustService;
+
         public AdminTitleController(
             ApplicationDbContext context,
             IWebHostEnvironment hostingEnvironment,
             ILogger<AdminTitleController> logger,
-            UserManager<AppUser> userManager)
+            UserManager<AppUser> userManager,
+            ITrustService trustService)
         {
             _context = context;
             _hostingEnvironment = hostingEnvironment;
             _logger = logger;
             _userManager = userManager;
+            _trustService = trustService;
         }
 
         /// <summary>
@@ -581,13 +586,17 @@ namespace FallenFaction.Server.Controllers.Api
                                   (users.TryGetValue(tc.UpdatedByUserId ?? "", out var updatedUserName) ? updatedUserName : null) ??
                                   "Unknown User"
                     },
-                    ReviewedByUser = !string.IsNullOrEmpty(tc.ReviewedByUserId) ? new
-                    {
-                        Id = tc.ReviewedByUserId,
-                        UserName = tc.ReviewedByUser?.UserName ??
-                                  (users.TryGetValue(tc.ReviewedByUserId, out var reviewedUserName) ? reviewedUserName : null) ??
-                                  "Unknown Reviewer"
-                    } : null
+                    ReviewedByUser = !string.IsNullOrEmpty(tc.ReviewedByUserId)
+                        ? new
+                        {
+                            Id = tc.ReviewedByUserId,
+                            UserName = tc.ReviewedByUser?.UserName ??
+                                      (users.TryGetValue(tc.ReviewedByUserId, out var reviewedUserName) ? reviewedUserName : null) ??
+                                      "Unknown Reviewer"
+                        }
+                        : tc.Status == ChangeLogStatus.AutoApproved
+                            ? new { Id = (string?)null, UserName = "System" }
+                            : null
                 }).ToList();
 
                 _logger.LogInformation("Returning {Count} change log entries for title {TitleId}", result.Count, titleId);
@@ -1343,6 +1352,11 @@ namespace FallenFaction.Server.Controllers.Api
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
 
+                    // Record EditTitle trust approval for each unique submitter
+                    var submitterIds = pendingChanges.Select(c => c.UpdatedByUserId).Distinct();
+                    foreach (var submitterId in submitterIds)
+                        await _trustService.RecordApprovalAsync(submitterId, TrustActionType.EditTitle);
+
                     _logger.LogInformation("Approved {ChangeCount} changes for title {TitleId} by admin {AdminId}",
                         appliedChanges.Count, titleId, adminUser.Id);
 
@@ -1417,6 +1431,11 @@ namespace FallenFaction.Server.Controllers.Api
                 }
 
                 await _context.SaveChangesAsync();
+
+                // Record EditTitle trust rejection for each unique submitter
+                var rejectedSubmitterIds = pendingChanges.Select(c => c.UpdatedByUserId).Distinct();
+                foreach (var submitterId in rejectedSubmitterIds)
+                    await _trustService.RecordRejectionAsync(submitterId, TrustActionType.EditTitle);
 
                 _logger.LogInformation("Rejected {ChangeCount} changes for title {TitleId} by admin {AdminId}",
                     pendingChanges.Count, titleId, adminUser.Id);
