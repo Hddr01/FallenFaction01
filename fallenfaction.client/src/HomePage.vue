@@ -25,12 +25,15 @@
                    @load="onImageLoad(manga.originalTitle, manga.coverImagePath)"
                    @error="onImageError($event, manga.originalTitle, manga.coverImagePath)" />
               <div v-if="manga.latestChapter" class="chapter-badge">
-                Chapter {{ manga.latestChapter }}
+                {{ manga.latestChapter }}
               </div>
             </div>
             <div class="carousel-manga-info">
-              <div class="carousel-manga-title">{{ manga.originalTitle }}</div>
+              <div class="carousel-manga-title">{{ manga.englishTitle || manga.originalTitle }}</div>
               <div class="carousel-manga-type">{{ getMangaType(manga.type) }}</div>
+              <div v-if="manga.lastUpdated" class="carousel-manga-updated">
+                {{ formatTimeAgo(manga.lastUpdated) }}
+              </div>
             </div>
           </router-link>
         </CarouselItem>
@@ -250,6 +253,19 @@
         return types[type] || 'Unknown';
       };
 
+      const formatTimeAgo = (dateStr) => {
+        if (!dateStr) return '';
+        const diff = Date.now() - new Date(dateStr).getTime();
+        const mins = Math.floor(diff / 60000);
+        if (mins < 1) return 'just now';
+        if (mins < 60) return `${mins}m ago`;
+        const h = Math.floor(mins / 60);
+        if (h < 24) return `${h}h ago`;
+        const d = Math.floor(h / 24);
+        if (d < 7) return `${d}d ago`;
+        return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      };
+
       const getImageUrl = (path) => {
         if (!path) return '/img/default-cover.png';
         if (path.startsWith('http://') || path.startsWith('https://')) {
@@ -389,6 +405,7 @@
         loading,
         error,
         getMangaType,
+        formatTimeAgo,
         getImageUrl,
         getTitleUrl,
         onImageLoad,
@@ -482,6 +499,12 @@
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+  }
+
+  .carousel-manga-updated {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-top: 2px;
   }
 
   .carousel-manga-type {

@@ -144,7 +144,7 @@ export const contentService = {
   // Get user's teams
   async getUserTeams() {
     try {
-      const response = await api.get('/Teams/UserTeams');
+      const response = await api.get('/Team/my-teams');
       return {
         success: true,
         data: response.data
@@ -163,7 +163,7 @@ export const contentService = {
   async getPendingContent() {
     try {
       const [titlesResponse, chaptersResponse] = await Promise.all([
-        api.get('/TitleApi/pending'),
+        api.get('/AdminTitle/PendingTitles'),
         api.get('/Titles/chapters/pending')
       ]);
 

@@ -29,19 +29,48 @@
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" class="dropdown-menu-content" :sideOffset="5">
-              <DropdownMenuLabel class="dropdown-menu-label">More</DropdownMenuLabel>
+              <DropdownMenuLabel class="dropdown-menu-label">Info</DropdownMenuLabel>
               <DropdownMenuSeparator class="dropdown-menu-separator" />
               <DropdownMenuGroup>
                 <DropdownMenuItem as-child class="dropdown-menu-item">
-                  <router-link to="/home/fqa" class="dropdown-item-link">
+                  <router-link to="/about" class="dropdown-item-link">
+                    <Info :size="16" class="mr-2" />
+                    About
+                  </router-link>
+                </DropdownMenuItem>
+                <DropdownMenuItem as-child class="dropdown-menu-item">
+                  <router-link to="/faq" class="dropdown-item-link">
                     <HelpCircle :size="16" class="mr-2" />
                     FAQ
                   </router-link>
                 </DropdownMenuItem>
                 <DropdownMenuItem as-child class="dropdown-menu-item">
-                  <router-link to="/home/privacy" class="dropdown-item-link">
+                  <router-link to="/contact" class="dropdown-item-link">
+                    <Mail :size="16" class="mr-2" />
+                    Contact
+                  </router-link>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator class="dropdown-menu-separator" />
+              <DropdownMenuLabel class="dropdown-menu-label">Legal</DropdownMenuLabel>
+              <DropdownMenuSeparator class="dropdown-menu-separator" />
+              <DropdownMenuGroup>
+                <DropdownMenuItem as-child class="dropdown-menu-item">
+                  <router-link to="/privacy" class="dropdown-item-link">
                     <Shield :size="16" class="mr-2" />
-                    Privacy
+                    Privacy Policy
+                  </router-link>
+                </DropdownMenuItem>
+                <DropdownMenuItem as-child class="dropdown-menu-item">
+                  <router-link to="/terms" class="dropdown-item-link">
+                    <FileText :size="16" class="mr-2" />
+                    Terms of Service
+                  </router-link>
+                </DropdownMenuItem>
+                <DropdownMenuItem as-child class="dropdown-menu-item">
+                  <router-link to="/dmca" class="dropdown-item-link">
+                    <Copyright :size="16" class="mr-2" />
+                    DMCA
                   </router-link>
                 </DropdownMenuItem>
               </DropdownMenuGroup>
@@ -150,9 +179,7 @@
             </DropdownMenu>
 
             <div class="nav-item">
-              <router-link to="/home/notification" class="nav-link">
-                <Bell class="nav-icon-lucide" :size="20" />
-              </router-link>
+              <NotificationDropdown />
             </div>
 
             <!-- Profile Dropdown -->
@@ -289,15 +316,39 @@
               </CollapsibleTrigger>
               <CollapsibleContent class="sidebar-submenu">
                 <Button variant="ghost" as-child class="sidebar-submenu-item">
-                  <router-link to="/home/fqa" @click="closeMobileSidebar">
+                  <router-link to="/about" @click="closeMobileSidebar">
+                    <Info :size="16" class="mr-2" />
+                    About
+                  </router-link>
+                </Button>
+                <Button variant="ghost" as-child class="sidebar-submenu-item">
+                  <router-link to="/faq" @click="closeMobileSidebar">
                     <HelpCircle :size="16" class="mr-2" />
                     FAQ
                   </router-link>
                 </Button>
                 <Button variant="ghost" as-child class="sidebar-submenu-item">
-                  <router-link to="/home/privacy" @click="closeMobileSidebar">
+                  <router-link to="/contact" @click="closeMobileSidebar">
+                    <Mail :size="16" class="mr-2" />
+                    Contact
+                  </router-link>
+                </Button>
+                <Button variant="ghost" as-child class="sidebar-submenu-item">
+                  <router-link to="/privacy" @click="closeMobileSidebar">
                     <Shield :size="16" class="mr-2" />
-                    Privacy
+                    Privacy Policy
+                  </router-link>
+                </Button>
+                <Button variant="ghost" as-child class="sidebar-submenu-item">
+                  <router-link to="/terms" @click="closeMobileSidebar">
+                    <FileText :size="16" class="mr-2" />
+                    Terms of Service
+                  </router-link>
+                </Button>
+                <Button variant="ghost" as-child class="sidebar-submenu-item">
+                  <router-link to="/dmca" @click="closeMobileSidebar">
+                    <Copyright :size="16" class="mr-2" />
+                    DMCA
                   </router-link>
                 </Button>
               </CollapsibleContent>
@@ -401,12 +452,9 @@
 
             <!-- Notifications -->
             <div class="sidebar-section">
-              <Button variant="ghost" as-child class="sidebar-item">
-                <router-link to="/home/notification" @click="closeMobileSidebar">
-                  <Bell :size="20" class="mr-3" />
-                  <span>Notifications</span>
-                </router-link>
-              </Button>
+              <div class="sidebar-notification-wrapper">
+                <NotificationDropdown :mobile="true" @close-sidebar="closeMobileSidebar" />
+              </div>
             </div>
 
             <Separator class="sidebar-divider" />
@@ -469,7 +517,6 @@
     MoreHorizontal,
     Layers,
     Grid3x3,
-    Bell,
     UserCircle,
     LogOut,
     LogIn,
@@ -485,12 +532,17 @@
     BookPlus,
     Building2,
     Palette,
+    Info,
+    Mail,
+    FileText,
+    Copyright,
   } from 'lucide-vue-next';
 
   // ============================================
   // IMPORT GLOBAL SEARCH COMPONENT
   // ============================================
   import GlobalSearch from '@/components/search/GlobalSearch.vue';
+  import NotificationDropdown from '@/components/shared/NotificationDropdown.vue';
 
   const router = useRouter();
   const authStore = useAuthStore();
@@ -953,6 +1005,30 @@
     background-color: rgba(255, 255, 255, 0.1);
     margin: 10px 0;
   }
+
+  .sidebar-notification-wrapper {
+    padding: 0 12px;
+  }
+
+    .sidebar-notification-wrapper :deep(.notification-trigger) {
+      width: 100%;
+      justify-content: flex-start;
+      padding: 15px 8px;
+      font-size: 15px;
+      border-radius: 6px;
+    }
+
+    .sidebar-notification-wrapper :deep(.notification-dropdown) {
+      position: fixed;
+      top: 80px;
+      right: 0;
+      left: 0;
+      width: 100%;
+      max-height: 60vh;
+      border-radius: 0;
+      border-left: none;
+      border-right: none;
+    }
 
   .logout-item {
     color: #ff6b6b;

@@ -791,6 +791,10 @@ namespace FallenFaction.Server.Controllers.Api
                 existingTitle.StatusTitle = request.StatusTitle ?? "inproces";
                 existingTitle.StatusTranslation = request.StatusTranslation ?? "inproces";
                 existingTitle.Type = (MangaType)(request.Type ?? 1);
+                if (request.TitleCategory.HasValue)
+                    existingTitle.TitleCategory = (TitleCategory)request.TitleCategory.Value;
+                if (request.SourceTitleName != null)
+                    existingTitle.SourceTitleName = request.SourceTitleName;
                 existingTitle.AgeRestriction = request.AgeRestriction ?? 0;
                 existingTitle.IsAvailable = request.IsAvailable ?? true;
                 existingTitle.AreCommentsEnabled = request.AreCommentsEnabled ?? true;
@@ -1477,6 +1481,8 @@ namespace FallenFaction.Server.Controllers.Api
             public string? StatusTitle { get; set; }
             public string? StatusTranslation { get; set; }
             public int? Type { get; set; }
+            public int? TitleCategory { get; set; }
+            public string? SourceTitleName { get; set; }
             public int? AgeRestriction { get; set; }
             public bool? IsAvailable { get; set; }
             public bool? AreCommentsEnabled { get; set; }

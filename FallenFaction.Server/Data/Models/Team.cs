@@ -1,10 +1,17 @@
-// Data/Models/Team.cs - Updated with Avatar and Background images
+﻿// Data/Models/Team.cs - Updated with Avatar and Background images
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Collections.Generic;
 
 namespace FallenFaction.Server.Data.Models
 {
+    public enum GroupType
+    {
+        Personal = 1,     // Auto-created on registration — represents the user's personal studio
+        Translation = 2,  // Scanlation / translation group
+        Creator = 3       // Original content studio / doujin circle
+    }
+
     public class Team
     {
         public int Id { get; set; }
@@ -28,6 +35,12 @@ namespace FallenFaction.Server.Data.Models
 
         // Add creation date for better tracking
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+
+        // ── Group classification ─────────────────────────────────────────────────
+        public GroupType GroupType { get; set; } = GroupType.Translation;
+
+        // Quick filter flag — Personal groups are hidden from the public "Groups" listing
+        public bool IsPersonal { get; set; } = false;
 
         // Navigation properties
         public ICollection<Title> Titles { get; set; } = new List<Title>();

@@ -16,5 +16,7 @@ namespace FallenFaction.Server.DTOs.Title
         public int ChapterCount { get; set; }
         public double AverageRating { get; set; }
         public int BookmarkCount { get; set; }
+        public TitleCategory TitleCategory { get; set; }
+        public double LatestChapterNumber { get; set; }
     }
 }

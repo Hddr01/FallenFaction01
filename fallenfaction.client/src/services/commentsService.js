@@ -94,6 +94,10 @@ const mapCommentFromDto = (dto) => {
     deletedByUserName: dto.deletedByUserName || dto.DeletedByUserName,
     deletionReason: dto.deletionReason || dto.DeletionReason,
     parentCommentId: dto.parentCommentId || dto.ParentCommentId,
+    isPinned: dto.isPinned ?? dto.IsPinned ?? false,
+    pinnedAt: dto.pinnedAt || dto.PinnedAt || null,
+    pinnedByUserName: dto.pinnedByUserName || dto.PinnedByUserName || null,
+    pinnedByTeamName: dto.pinnedByTeamName || dto.PinnedByTeamName || null,
     // Recursively map all nested replies (infinite depth support!)
     replies: dto.replies?.map(mapCommentFromDto) || dto.Replies?.map(mapCommentFromDto) || []
   };

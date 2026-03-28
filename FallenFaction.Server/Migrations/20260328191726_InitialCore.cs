@@ -261,6 +261,8 @@ namespace FallenFaction.Server.Migrations
                     StatusTitle = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     StatusTranslation = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Type = table.Column<int>(type: "int", nullable: false),
+                    TitleCategory = table.Column<int>(type: "int", nullable: false),
+                    SourceTitleId = table.Column<int>(type: "int", nullable: true),
                     AgeRestriction = table.Column<int>(type: "int", nullable: false),
                     CreatedByUserId = table.Column<string>(type: "nvarchar(450)", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
@@ -325,6 +327,8 @@ namespace FallenFaction.Server.Migrations
                     StatusTitle = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     StatusTranslation = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Type = table.Column<int>(type: "int", nullable: false),
+                    TitleCategory = table.Column<int>(type: "int", nullable: false),
+                    SourceTitleId = table.Column<int>(type: "int", nullable: true),
                     AgeRestriction = table.Column<int>(type: "int", nullable: false),
                     IsAvailable = table.Column<bool>(type: "bit", nullable: false),
                     AreCommentsEnabled = table.Column<bool>(type: "bit", nullable: false),
@@ -341,6 +345,11 @@ namespace FallenFaction.Server.Migrations
                         name: "FK_Titles_AspNetUsers_CreatedByUserId",
                         column: x => x.CreatedByUserId,
                         principalTable: "AspNetUsers",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_Titles_Titles_SourceTitleId",
+                        column: x => x.SourceTitleId,
+                        principalTable: "Titles",
                         principalColumn: "Id");
                 });
 
@@ -526,6 +535,8 @@ namespace FallenFaction.Server.Migrations
                     AvatarImagePath = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
                     BackgroundImagePath = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
                     CreatedDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    GroupType = table.Column<int>(type: "int", nullable: false),
+                    IsPersonal = table.Column<bool>(type: "bit", nullable: false),
                     RejectedTitleId = table.Column<int>(type: "int", nullable: true)
                 },
                 constraints: table =>
@@ -1945,6 +1956,11 @@ namespace FallenFaction.Server.Migrations
                 name: "IX_Titles_CreatedByUserId",
                 table: "Titles",
                 column: "CreatedByUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Titles_SourceTitleId",
+                table: "Titles",
+                column: "SourceTitleId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_TitleTags_TitlesId",

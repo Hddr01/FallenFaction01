@@ -12,33 +12,39 @@
             </h3>
             <ul class="space-y-3">
               <li>
-                <router-link to="/home/privacy"
+                <router-link to="/about"
                              class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
-                  Privacy Policy
+                  About
                 </router-link>
               </li>
               <li>
-                <router-link to="/home/fqa"
+                <router-link to="/faq"
                              class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
                   FAQ
                 </router-link>
               </li>
               <li>
-                <router-link to="/home/terms"
+                <router-link to="/contact"
                              class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
-                  Terms of Usage
+                  Contact
                 </router-link>
               </li>
               <li>
-                <router-link to="/home/dmca"
+                <router-link to="/privacy"
+                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Privacy Policy
+                </router-link>
+              </li>
+              <li>
+                <router-link to="/terms"
+                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Terms of Service
+                </router-link>
+              </li>
+              <li>
+                <router-link to="/dmca"
                              class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
                   DMCA
-                </router-link>
-              </li>
-              <li>
-                <router-link to="/home/book-issuing"
-                             class="text-[var(--color-text)] hover:text-[var(--vt-c-indigo)] hover:pl-2 transition-all duration-200 text-sm block py-1">
-                  Book Issuing
                 </router-link>
               </li>
             </ul>
@@ -188,6 +194,12 @@
                   Manage Reports
                 </router-link>
               </li>
+              <li>
+                <router-link to="/admin/notifications"
+                             class="text-[var(--color-text)] hover:text-red-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Manage Notifications
+                </router-link>
+              </li>
             </ul>
           </div>
 
@@ -210,12 +222,12 @@
           <div class="flex items-center gap-2 text-[var(--color-text)] opacity-60 text-sm">
             <span class="bg-[var(--color-background-mute)] px-2 py-1 rounded-full text-xs">v2.0</span>
             <span class="opacity-50">•</span>
-            <router-link to="/home/privacy"
+            <router-link to="/privacy"
                          class="text-[var(--color-text)] opacity-75 hover:text-[var(--vt-c-indigo)] transition-colors duration-200 no-underline">
               Privacy
             </router-link>
             <span class="opacity-50">•</span>
-            <router-link to="/home/terms"
+            <router-link to="/terms"
                          class="text-[var(--color-text)] opacity-75 hover:text-[var(--vt-c-indigo)] transition-colors duration-200 no-underline">
               Terms
             </router-link>

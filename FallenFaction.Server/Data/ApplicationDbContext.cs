@@ -74,6 +74,14 @@ namespace FallenFaction.Server.Data
                 .HasForeignKey(t => t.CreatedByUserId)
                 .OnDelete(DeleteBehavior.NoAction);
 
+            // ── TitleCategory: self-referencing FK for fanfic derivations ─────────
+            builder.Entity<Title>()
+                .HasOne(t => t.SourceTitle)
+                .WithMany(t => t.FanficDerivatives)
+                .HasForeignKey(t => t.SourceTitleId)
+                .OnDelete(DeleteBehavior.NoAction)
+                .IsRequired(false);
+
             // Configure PendingTitle -> AppUser relationship with NO ACTION on delete
             builder.Entity<PendingTitle>()
                 .HasOne(pt => pt.CreatedByUser)
