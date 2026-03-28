@@ -182,6 +182,12 @@
                   Manage Publishers
                 </router-link>
               </li>
+              <li>
+                <router-link to="/admin/reports"
+                             class="text-[var(--color-text)] hover:text-red-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Manage Reports
+                </router-link>
+              </li>
             </ul>
           </div>
 

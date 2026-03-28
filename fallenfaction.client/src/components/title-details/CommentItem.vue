@@ -87,10 +87,25 @@
               <MessageSquare :size="14" />
               Reply
             </button>
-            <button @click="handleReport" class="action-btn" v-if="isAuthenticated && !comment.isDeleted">
-              <Flag :size="14" />
-              Report
-            </button>
+
+            <!-- Report dropdown -->
+            <div v-if="isAuthenticated && !comment.isDeleted" class="report-dropdown-wrapper" ref="reportDropdownRef">
+              <button @click="showReportDropdown = !showReportDropdown" class="action-btn">
+                <Flag :size="14" />
+                Report
+              </button>
+              <div v-if="showReportDropdown" class="report-dropdown">
+                <button @click="openCommentReport" class="report-dropdown-item">
+                  <MessageSquare :size="13" />
+                  Report Comment
+                </button>
+                <button @click="openUserReport" class="report-dropdown-item">
+                  <UserX :size="13" />
+                  Report User
+                </button>
+              </div>
+            </div>
+
             <button @click="handleDelete" class="action-btn" v-if="canDelete">
               <Trash2 :size="14" />
               Delete
@@ -164,12 +179,31 @@
       </div>
     </div>
   </div>
+
+  <!-- Report Comment Modal -->
+  <ReportModal
+    :is-open="showReportModal"
+    :target-type="1"
+    :target-id="comment.id"
+    @close="showReportModal = false"
+    @reported="showReportModal = false"
+  />
+
+  <!-- Report User Modal -->
+  <ReportModal
+    :is-open="showReportUserModal"
+    :target-type="4"
+    :target-id="comment.userId"
+    @close="showReportUserModal = false"
+    @reported="showReportUserModal = false"
+  />
 </template>
 
 <script setup>
-  import { ref, computed, watch } from 'vue'
-  import { ChevronUp, ChevronDown, MessageSquare, Flag, Trash2, Pin } from 'lucide-vue-next'
+  import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+  import { ChevronUp, ChevronDown, MessageSquare, Flag, Trash2, Pin, UserX } from 'lucide-vue-next'
   import { commentsService } from '../../services/commentsService'
+  import ReportModal from '../shared/ReportModal.vue'
 
   const props = defineProps({
     comment: {
@@ -222,6 +256,10 @@
 
   // State
   const isCollapsed = ref(false)
+  const showReportModal = ref(false)
+  const showReportUserModal = ref(false)
+  const showReportDropdown = ref(false)
+  const reportDropdownRef = ref(null)
   const isTextCollapsed = ref(true)
   const showReplyForm = ref(false)
   const replyContent = ref('')
@@ -382,15 +420,36 @@
     showReplyForm.value = false
   }
 
-  const handleReport = () => {
+  const openCommentReport = () => {
+    showReportDropdown.value = false
     if (!props.isAuthenticated) {
       alert('You must be logged in to report comments')
       return
     }
-
-    // TODO: Implement report functionality
-    alert('Report functionality not yet implemented')
+    showReportModal.value = true
   }
+
+  const openUserReport = () => {
+    showReportDropdown.value = false
+    if (!props.isAuthenticated) {
+      alert('You must be logged in to report users')
+      return
+    }
+    showReportUserModal.value = true
+  }
+
+  // Keep old handleReport for any other callers
+  const handleReport = openCommentReport
+
+  // Close report dropdown when clicking outside
+  const handleOutsideClick = (e) => {
+    if (reportDropdownRef.value && !reportDropdownRef.value.contains(e.target)) {
+      showReportDropdown.value = false
+    }
+  }
+
+  onMounted(() => document.addEventListener('click', handleOutsideClick, true))
+  onUnmounted(() => document.removeEventListener('click', handleOutsideClick, true))
 
   const handleDelete = async () => {
     if (!canDelete.value) return
@@ -739,6 +798,51 @@
     align-items: center;
     gap: 12px;
     margin-top: 8px;
+  }
+
+  /* Report dropdown */
+  .report-dropdown-wrapper {
+    position: relative;
+  }
+
+  .report-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 50;
+    min-width: 160px;
+    background: var(--color-background, #fff);
+    border: 1px solid var(--color-border, #e5e5e5);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    overflow: hidden;
+    animation: dropdown-in 0.1s ease;
+  }
+
+  @keyframes dropdown-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .report-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 9px 14px;
+    background: none;
+    border: none;
+    color: var(--color-text, #212529);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s ease;
+  }
+
+  .report-dropdown-item:hover {
+    background: var(--color-background-mute, #f8f9fa);
+    color: var(--color-accent, #ff6d00);
   }
 
   .action-btn {
