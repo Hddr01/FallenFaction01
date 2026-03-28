@@ -683,6 +683,22 @@ export const commentsService = {
     }
 
     return false;
+  },
+
+  /**
+   * Pin a comment (requires team permission or admin role)
+   */
+  async pinComment(commentId) {
+    const response = await api.put(`/Comments/${commentId}/pin`);
+    return response.data;
+  },
+
+  /**
+   * Unpin a comment
+   */
+  async unpinComment(commentId) {
+    const response = await api.put(`/Comments/${commentId}/unpin`);
+    return response.data;
   }
 };
 

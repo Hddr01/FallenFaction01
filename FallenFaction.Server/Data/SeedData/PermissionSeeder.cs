@@ -20,7 +20,8 @@ namespace FallenFaction.Server.Data.SeedData
                 "CanAddChapter",    // New permission for chapters
                 "CanEditChapter",   // New permission for chapters
                 "CanDeleteChapter", // New permission for chapters
-                "CanViewAnalytics"  // New permission for analytics
+                "CanViewAnalytics", // New permission for analytics
+                "CanPinComment"     // New permission for pinning comments
             };
 
             // Add permissions if they don't exist

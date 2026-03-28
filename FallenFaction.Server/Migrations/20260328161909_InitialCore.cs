@@ -209,6 +209,43 @@ namespace FallenFaction.Server.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Notifications",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: true),
+                    Type = table.Column<int>(type: "int", nullable: false),
+                    Title = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
+                    Message = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: false),
+                    LinkUrl = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    RelatedTitleId = table.Column<int>(type: "int", nullable: true),
+                    RelatedChapterId = table.Column<int>(type: "int", nullable: true),
+                    IsRead = table.Column<bool>(type: "bit", nullable: false),
+                    IsGlobal = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedByUserId = table.Column<string>(type: "nvarchar(450)", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ReadAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ScheduledFor = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ExpiresAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Notifications", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Notifications_AspNetUsers_CreatedByUserId",
+                        column: x => x.CreatedByUserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_Notifications_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "PendingTitles",
                 columns: table => new
                 {
@@ -329,6 +366,33 @@ namespace FallenFaction.Server.Migrations
                         principalTable: "AspNetUsers",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "UserNotificationReads",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    NotificationId = table.Column<int>(type: "int", nullable: false),
+                    ReadAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    IsDismissed = table.Column<bool>(type: "bit", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserNotificationReads", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_UserNotificationReads_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_UserNotificationReads_Notifications_NotificationId",
+                        column: x => x.NotificationId,
+                        principalTable: "Notifications",
+                        principalColumn: "Id");
                 });
 
             migrationBuilder.CreateTable(
@@ -1254,7 +1318,11 @@ namespace FallenFaction.Server.Migrations
                     DeletionReason = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     TitleId = table.Column<int>(type: "int", nullable: true),
                     ChapterId = table.Column<int>(type: "int", nullable: true),
-                    ParentCommentId = table.Column<int>(type: "int", nullable: true)
+                    ParentCommentId = table.Column<int>(type: "int", nullable: true),
+                    IsPinned = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
+                    PinnedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    PinnedByUserId = table.Column<string>(type: "nvarchar(450)", nullable: true),
+                    PinnedByTeamId = table.Column<int>(type: "int", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1265,6 +1333,11 @@ namespace FallenFaction.Server.Migrations
                         principalTable: "AspNetUsers",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_Comments_AspNetUsers_PinnedByUserId",
+                        column: x => x.PinnedByUserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id");
                     table.ForeignKey(
                         name: "FK_Comments_AspNetUsers_UserId",
                         column: x => x.UserId,
@@ -1281,6 +1354,11 @@ namespace FallenFaction.Server.Migrations
                         principalTable: "Comments",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Comments_Teams_PinnedByTeamId",
+                        column: x => x.PinnedByTeamId,
+                        principalTable: "Teams",
+                        principalColumn: "Id");
                     table.ForeignKey(
                         name: "FK_Comments_Titles_TitleId",
                         column: x => x.TitleId,
@@ -1339,6 +1417,64 @@ namespace FallenFaction.Server.Migrations
                         principalTable: "Comments",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Reports",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    ReporterUserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    TargetType = table.Column<int>(type: "int", nullable: false),
+                    TargetCommentId = table.Column<int>(type: "int", nullable: true),
+                    TargetTitleId = table.Column<int>(type: "int", nullable: true),
+                    TargetChapterId = table.Column<int>(type: "int", nullable: true),
+                    TargetUserId = table.Column<string>(type: "nvarchar(450)", nullable: true),
+                    Reason = table.Column<int>(type: "int", nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    Status = table.Column<int>(type: "int", nullable: false),
+                    ReviewedByUserId = table.Column<string>(type: "nvarchar(450)", nullable: true),
+                    AdminNote = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ReviewedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Reports", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Reports_AspNetUsers_ReporterUserId",
+                        column: x => x.ReporterUserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_Reports_AspNetUsers_ReviewedByUserId",
+                        column: x => x.ReviewedByUserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_Reports_AspNetUsers_TargetUserId",
+                        column: x => x.TargetUserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_Reports_Chapters_TargetChapterId",
+                        column: x => x.TargetChapterId,
+                        principalTable: "Chapters",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_Reports_Comments_TargetCommentId",
+                        column: x => x.TargetCommentId,
+                        principalTable: "Comments",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_Reports_Titles_TargetTitleId",
+                        column: x => x.TargetTitleId,
+                        principalTable: "Titles",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.InsertData(
@@ -1534,6 +1670,16 @@ namespace FallenFaction.Server.Migrations
                 column: "ParentCommentId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Comments_PinnedByTeamId",
+                table: "Comments",
+                column: "PinnedByTeamId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Comments_PinnedByUserId",
+                table: "Comments",
+                column: "PinnedByUserId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Comments_TitleId",
                 table: "Comments",
                 column: "TitleId");
@@ -1547,6 +1693,26 @@ namespace FallenFaction.Server.Migrations
                 name: "IX_Formats_RejectedTitleId",
                 table: "Formats",
                 column: "RejectedTitleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Notifications_CreatedAt",
+                table: "Notifications",
+                column: "CreatedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Notifications_CreatedByUserId",
+                table: "Notifications",
+                column: "CreatedByUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Notifications_IsGlobal",
+                table: "Notifications",
+                column: "IsGlobal");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Notifications_UserId_IsRead",
+                table: "Notifications",
+                columns: new[] { "UserId", "IsRead" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_PendingChapters_TeamId",
@@ -1681,6 +1847,51 @@ namespace FallenFaction.Server.Migrations
                 column: "CreatedByUserId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Reports_CreatedAt",
+                table: "Reports",
+                column: "CreatedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Reports_ReporterUserId",
+                table: "Reports",
+                column: "ReporterUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Reports_ReviewedByUserId",
+                table: "Reports",
+                column: "ReviewedByUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Reports_Status",
+                table: "Reports",
+                column: "Status");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Reports_TargetChapterId",
+                table: "Reports",
+                column: "TargetChapterId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Reports_TargetCommentId",
+                table: "Reports",
+                column: "TargetCommentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Reports_TargetTitleId",
+                table: "Reports",
+                column: "TargetTitleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Reports_TargetType_Status",
+                table: "Reports",
+                columns: new[] { "TargetType", "Status" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Reports_TargetUserId",
+                table: "Reports",
+                column: "TargetUserId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Tags_RejectedTitleId",
                 table: "Tags",
                 column: "RejectedTitleId");
@@ -1744,6 +1955,17 @@ namespace FallenFaction.Server.Migrations
                 name: "IX_TitleTeams_TitlesId",
                 table: "TitleTeams",
                 column: "TitlesId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserNotificationReads_NotificationId",
+                table: "UserNotificationReads",
+                column: "NotificationId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserNotificationReads_UserId_NotificationId",
+                table: "UserNotificationReads",
+                columns: new[] { "UserId", "NotificationId" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_UserTeamRolePermissions_PermissionId",
@@ -1835,6 +2057,9 @@ namespace FallenFaction.Server.Migrations
                 name: "RejectedTitleChanges");
 
             migrationBuilder.DropTable(
+                name: "Reports");
+
+            migrationBuilder.DropTable(
                 name: "TitleArtists");
 
             migrationBuilder.DropTable(
@@ -1859,6 +2084,9 @@ namespace FallenFaction.Server.Migrations
                 name: "TitleTeams");
 
             migrationBuilder.DropTable(
+                name: "UserNotificationReads");
+
+            migrationBuilder.DropTable(
                 name: "UserTeamRolePermissions");
 
             migrationBuilder.DropTable(
@@ -1871,10 +2099,10 @@ namespace FallenFaction.Server.Migrations
                 name: "BookmarkFolders");
 
             migrationBuilder.DropTable(
-                name: "Comments");
+                name: "PendingTitles");
 
             migrationBuilder.DropTable(
-                name: "PendingTitles");
+                name: "Comments");
 
             migrationBuilder.DropTable(
                 name: "Artists");
@@ -1893,6 +2121,9 @@ namespace FallenFaction.Server.Migrations
 
             migrationBuilder.DropTable(
                 name: "Tags");
+
+            migrationBuilder.DropTable(
+                name: "Notifications");
 
             migrationBuilder.DropTable(
                 name: "UserTeamPermissions");

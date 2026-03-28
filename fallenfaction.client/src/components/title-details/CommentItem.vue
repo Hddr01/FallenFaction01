@@ -36,6 +36,10 @@
                 {{ formatTimeAgo(comment.postedDate) }}
               </time>
               <span v-if="comment.isDeleted" class="deleted-badge">deleted</span>
+              <span v-if="comment.isPinned" class="pinned-badge" title="Pinned by team">
+                <Pin :size="12" /> Pinned
+                <template v-if="comment.pinnedByTeamName"> by {{ comment.pinnedByTeamName }}</template>
+              </span>
             </div>
 
             <div class="vote-controls">
@@ -90,6 +94,12 @@
             <button @click="handleDelete" class="action-btn" v-if="canDelete">
               <Trash2 :size="14" />
               Delete
+            </button>
+            <button @click="handlePin" class="action-btn"
+                    v-if="isAuthenticated && !comment.isDeleted && !comment.parentCommentId"
+                    :disabled="isPinning">
+              <Pin :size="14" />
+              {{ comment.isPinned ? 'Unpin' : 'Pin' }}
             </button>
           </div>
 
@@ -158,7 +168,7 @@
 
 <script setup>
   import { ref, computed, watch } from 'vue'
-  import { ChevronUp, ChevronDown, MessageSquare, Flag, Trash2 } from 'lucide-vue-next'
+  import { ChevronUp, ChevronDown, MessageSquare, Flag, Trash2, Pin } from 'lucide-vue-next'
   import { commentsService } from '../../services/commentsService'
 
   const props = defineProps({
@@ -217,6 +227,7 @@
   const replyContent = ref('')
   const isVoting = ref(false)
   const submittingReply = ref(false)
+  const isPinning = ref(false)
   const openChildId = ref(null) // Track which child comment is currently open
 
   // Computed
@@ -403,6 +414,29 @@
     }
   }
 
+  const handlePin = async () => {
+    isPinning.value = true
+    try {
+      if (props.comment.isPinned) {
+        await commentsService.unpinComment(props.comment.id)
+        props.comment.isPinned = false
+        props.comment.pinnedAt = null
+        props.comment.pinnedByUserName = null
+        props.comment.pinnedByTeamName = null
+      } else {
+        await commentsService.pinComment(props.comment.id)
+        props.comment.isPinned = true
+        props.comment.pinnedAt = new Date().toISOString()
+      }
+      emit('comment-updated', props.comment)
+    } catch (error) {
+      console.error('Error pinning/unpinning comment:', error)
+      alert(error?.response?.data || error.message || 'Failed to pin/unpin comment')
+    } finally {
+      isPinning.value = false
+    }
+  }
+
   const getTotalRepliesCount = () => {
     const countReplies = (replies) => {
       if (!replies || replies.length === 0) return 0
@@ -580,6 +614,18 @@
     color: white;
     border-radius: 3px;
     text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .pinned-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    padding: 2px 8px;
+    background: #f59e0b;
+    color: white;
+    border-radius: 3px;
     font-weight: 600;
   }
 

@@ -123,14 +123,16 @@ namespace FallenFaction.Server.Controllers
                     _ => throw new ArgumentException("Invalid target type")
                 };
 
-                query = query.Include(c => c.User);
+                query = query.Include(c => c.User)
+                             .Include(c => c.PinnedByUser)
+                             .Include(c => c.PinnedByTeam);
 
-                // Apply sorting
+                // Apply sorting — pinned comments always come first
                 query = sortBy.ToLower() switch
                 {
-                    "oldest" => query.OrderBy(c => c.PostedDate),
-                    "likes" => query.OrderByDescending(c => c.Reactions.Count(r => r.IsLike)),
-                    _ => query.OrderByDescending(c => c.PostedDate) // newest (default)
+                    "oldest" => query.OrderByDescending(c => c.IsPinned).ThenBy(c => c.PostedDate),
+                    "likes" => query.OrderByDescending(c => c.IsPinned).ThenByDescending(c => c.Reactions.Count(r => r.IsLike)),
+                    _ => query.OrderByDescending(c => c.IsPinned).ThenByDescending(c => c.PostedDate) // newest (default)
                 };
 
                 // Get total count
@@ -202,6 +204,10 @@ namespace FallenFaction.Server.Controllers
                 DeletedAt = comment.DeletedAt,
                 DeletedByUserName = isAdmin ? comment.DeletedByUser?.UserName : null,
                 DeletionReason = isAdmin ? comment.DeletionReason : null,
+                IsPinned = comment.IsPinned,
+                PinnedAt = comment.PinnedAt,
+                PinnedByUserName = comment.PinnedByUser?.UserName,
+                PinnedByTeamName = comment.PinnedByTeam?.Name,
                 ParentCommentId = comment.ParentCommentId,
                 TitleId = comment.TitleId,
                 ChapterId = comment.ChapterId,
@@ -214,6 +220,8 @@ namespace FallenFaction.Server.Controllers
                 .Include(c => c.User)
                 .Include(c => c.Reactions)
                 .Include(c => c.DeletedByUser)
+                .Include(c => c.PinnedByUser)
+                .Include(c => c.PinnedByTeam)
                 .OrderBy(c => c.PostedDate) // Replies sorted by oldest first (like Reddit)
                 .ToListAsync();
 
@@ -807,6 +815,142 @@ namespace FallenFaction.Server.Controllers
             }
         }
 
+        // ── Pin / Unpin Comment ─────────────────────────────────────────────────
+        // Team members with CanEditTitle permission (or admin) can pin comments on their title's comment section.
+
+        /// <summary>
+        /// Pin a comment. Requires team permission (CanEditTitle) on the title, or Admin role.
+        /// PUT: api/Comments/{commentId}/pin
+        /// </summary>
+        [HttpPut("{commentId}/pin")]
+        [Authorize]
+        public async Task<ActionResult> PinComment(int commentId)
+        {
+            try
+            {
+                var userId = _userManager.GetUserId(User);
+                if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+                var comment = await _context.Comments
+                    .Include(c => c.Title).ThenInclude(t => t.Teams)
+                    .FirstOrDefaultAsync(c => c.Id == commentId);
+
+                if (comment == null) return NotFound("Comment not found.");
+                if (comment.IsDeleted) return BadRequest("Cannot pin a deleted comment.");
+                if (comment.ParentCommentId != null) return BadRequest("Only top-level comments can be pinned.");
+
+                var user = await _userManager.FindByIdAsync(userId);
+                var isAdmin = user != null && await _userManager.IsInRoleAsync(user, "Admin");
+
+                int? teamId = null;
+
+                if (!isAdmin)
+                {
+                    // Check if user belongs to a team that owns this title and has permission
+                    var titleId = comment.TitleId;
+                    if (titleId == null) return BadRequest("Comment is not on a title.");
+
+                    var titleTeamIds = comment.Title?.Teams?.Select(t => t.Id).ToList() ?? new List<int>();
+
+                    var userTeamRole = await _context.UserTeamRoles
+                        .Include(utr => utr.UserTeamRolePermissions)
+                            .ThenInclude(p => p.UserTeamPermission)
+                        .Where(utr => utr.AppUserId == userId && titleTeamIds.Contains(utr.TeamId))
+                        .FirstOrDefaultAsync();
+
+                    if (userTeamRole == null)
+                        return Forbid("You are not a member of any team that owns this title.");
+
+                    var hasPermission = userTeamRole.Role == TeamRole.Admin ||
+                        userTeamRole.UserTeamRolePermissions.Any(p =>
+                            p.UserTeamPermission.PermissionName == "CanEditTitle");
+
+                    if (!hasPermission)
+                        return Forbid("You don't have permission to pin comments.");
+
+                    teamId = userTeamRole.TeamId;
+                }
+
+                comment.IsPinned = true;
+                comment.PinnedAt = DateTime.UtcNow;
+                comment.PinnedByUserId = userId;
+                comment.PinnedByTeamId = teamId;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("User {UserId} pinned comment {CommentId}", userId, commentId);
+                return Ok(new { message = "Comment pinned." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error pinning comment {CommentId}", commentId);
+                return StatusCode(500, "An error occurred.");
+            }
+        }
+
+        /// <summary>
+        /// Unpin a comment.
+        /// PUT: api/Comments/{commentId}/unpin
+        /// </summary>
+        [HttpPut("{commentId}/unpin")]
+        [Authorize]
+        public async Task<ActionResult> UnpinComment(int commentId)
+        {
+            try
+            {
+                var userId = _userManager.GetUserId(User);
+                if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+                var comment = await _context.Comments
+                    .Include(c => c.Title).ThenInclude(t => t.Teams)
+                    .FirstOrDefaultAsync(c => c.Id == commentId);
+
+                if (comment == null) return NotFound();
+                if (!comment.IsPinned) return BadRequest("Comment is not pinned.");
+
+                var user = await _userManager.FindByIdAsync(userId);
+                var isAdmin = user != null && await _userManager.IsInRoleAsync(user, "Admin");
+
+                if (!isAdmin)
+                {
+                    var titleId = comment.TitleId;
+                    if (titleId == null) return BadRequest("Comment is not on a title.");
+
+                    var titleTeamIds = comment.Title?.Teams?.Select(t => t.Id).ToList() ?? new List<int>();
+
+                    var userTeamRole = await _context.UserTeamRoles
+                        .Include(utr => utr.UserTeamRolePermissions)
+                            .ThenInclude(p => p.UserTeamPermission)
+                        .Where(utr => utr.AppUserId == userId && titleTeamIds.Contains(utr.TeamId))
+                        .FirstOrDefaultAsync();
+
+                    if (userTeamRole == null)
+                        return Forbid("Not a team member.");
+
+                    var hasPermission = userTeamRole.Role == TeamRole.Admin ||
+                        userTeamRole.UserTeamRolePermissions.Any(p =>
+                            p.UserTeamPermission.PermissionName == "CanEditTitle");
+
+                    if (!hasPermission)
+                        return Forbid("No permission to unpin.");
+                }
+
+                comment.IsPinned = false;
+                comment.PinnedAt = null;
+                comment.PinnedByUserId = null;
+                comment.PinnedByTeamId = null;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("User {UserId} unpinned comment {CommentId}", userId, commentId);
+                return Ok(new { message = "Comment unpinned." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error unpinning comment {CommentId}", commentId);
+                return StatusCode(500, "An error occurred.");
+            }
+        }
 
 
     }
