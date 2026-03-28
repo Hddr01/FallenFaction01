@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FallenFaction.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260327153247_InitialCore")]
+    [Migration("20260328120203_InitialCore")]
     partial class InitialCore
     {
         /// <inheritdoc />
@@ -1466,6 +1466,41 @@ namespace FallenFaction.Server.Migrations
                     b.ToTable("UserTeamRolePermissions");
                 });
 
+            modelBuilder.Entity("FallenFaction.Server.Data.Models.UserTrustRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ActionType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AdminApprovedCount")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsTrusted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("TrustedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "ActionType")
+                        .IsUnique();
+
+                    b.ToTable("UserTrustRecords");
+                });
+
             modelBuilder.Entity("FormatPendingTitle", b =>
                 {
                     b.Property<int>("FormatsId")
@@ -2272,6 +2307,17 @@ namespace FallenFaction.Server.Migrations
                     b.Navigation("UserTeamPermission");
 
                     b.Navigation("UserTeamRole");
+                });
+
+            modelBuilder.Entity("FallenFaction.Server.Data.Models.UserTrustRecord", b =>
+                {
+                    b.HasOne("FallenFaction.Server.Data.Models.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("FormatPendingTitle", b =>

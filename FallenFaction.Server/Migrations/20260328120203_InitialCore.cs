@@ -308,6 +308,30 @@ namespace FallenFaction.Server.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "UserTrustRecords",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    ActionType = table.Column<int>(type: "int", nullable: false),
+                    AdminApprovedCount = table.Column<int>(type: "int", nullable: false),
+                    IsTrusted = table.Column<bool>(type: "bit", nullable: false),
+                    TrustedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserTrustRecords", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_UserTrustRecords_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Artists",
                 columns: table => new
                 {
@@ -1730,6 +1754,12 @@ namespace FallenFaction.Server.Migrations
                 name: "IX_UserTeamRoles_TeamId",
                 table: "UserTeamRoles",
                 column: "TeamId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserTrustRecords_UserId_ActionType",
+                table: "UserTrustRecords",
+                columns: new[] { "UserId", "ActionType" },
+                unique: true);
         }
 
         /// <inheritdoc />
@@ -1830,6 +1860,9 @@ namespace FallenFaction.Server.Migrations
 
             migrationBuilder.DropTable(
                 name: "UserTeamRolePermissions");
+
+            migrationBuilder.DropTable(
+                name: "UserTrustRecords");
 
             migrationBuilder.DropTable(
                 name: "AspNetRoles");
