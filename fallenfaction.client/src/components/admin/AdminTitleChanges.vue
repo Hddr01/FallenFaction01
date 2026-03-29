@@ -143,7 +143,7 @@
       </div>
 
       <!-- Approve Dialog -->
-      <div v-if="showApproveDialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div v-if="showApproveDialog" class="fixed inset-0 bg-[var(--color-background)] bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div class="bg-[var(--color-background-soft)] rounded-lg shadow-xl max-w-md w-full">
           <div class="px-6 py-4 border-b border-[var(--color-border)]">
             <h3 class="text-lg font-semibold text-[var(--color-heading)]">Approve Changes</h3>
@@ -172,7 +172,7 @@
       </div>
 
       <!-- Reject Dialog -->
-      <div v-if="showRejectDialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div v-if="showRejectDialog" class="fixed inset-0 bg-[var(--color-background)] bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div class="bg-[var(--color-background-soft)] rounded-lg shadow-xl max-w-md w-full">
           <div class="px-6 py-4 border-b border-[var(--color-border)]">
             <h3 class="text-lg font-semibold text-[var(--color-heading)]">Reject Changes</h3>

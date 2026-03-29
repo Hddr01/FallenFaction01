@@ -279,7 +279,11 @@
   }
 
   const getChapterUrl = (chapter) => {
-    return `/${props.titleSlug}/chapter/${chapter.name}/v${chapter.volumeNumber}/t${chapter.teamId || 0}`
+    // Fall back to chapterNumber when name is empty so the URL never has an empty segment
+    const slug = chapter.name?.trim()
+      ? encodeURIComponent(chapter.name.trim())
+      : chapter.chapterNumber.toString()
+    return `/${props.titleSlug}/chapter/${slug}/v${chapter.volumeNumber}/t${chapter.teamId || 0}`
   }
 
   const formatDate = (dateString) => {

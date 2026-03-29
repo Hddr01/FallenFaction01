@@ -107,7 +107,7 @@
           <div class="text-center">
             <!-- English Title with Rating Button -->
             <div class="flex items-center justify-center gap-2">
-              <h1 class="text-2xl font-bold text-gray-200 leading-tight">{{ titleData.englishTitle }}</h1>
+              <h1 class="text-2xl font-bold text-[var(--color-text)] leading-tight">{{ titleData.englishTitle }}</h1>
 
               <!-- Rating Button -->
               <button v-if="isAuthenticated"
@@ -147,7 +147,7 @@
             <!-- Start Reading Button -->
             <Button v-if="canStartReading"
                     size="sm"
-                    class="w-full bg-black hover:bg-gray-900 text-white reading-action-button"
+                    class="w-full bg-[var(--color-heading)] hover:bg-[var(--color-heading)]/90 text-white reading-action-button"
                     @click="$router.push(getFirstChapterUrl())">
               <BookOpenIcon class="w-4 h-4 mr-2" />
               Start Reading
@@ -157,7 +157,7 @@
             <!-- Continue Reading Button -->
             <Button v-if="canContinueReading"
                     size="sm"
-                    class="w-full bg-black hover:bg-gray-900 text-white reading-action-button"
+                    class="w-full bg-[var(--color-heading)] hover:bg-[var(--color-heading)]/90 text-white reading-action-button"
                     @click="$router.push(getContinueReadingUrl())">
               <PlayIcon class="w-4 h-4 mr-2" />
               Continue (Ch. {{ userBookmark?.lastReadChapter || readingProgress?.lastReadChapter }})
@@ -185,7 +185,7 @@
                   </Button>
                 </DrawerTrigger>
 
-                <DrawerContent class="bg-black">
+                <DrawerContent class="bg-[var(--color-background-soft)]">
                   <div class="mx-auto w-full max-w-sm ">
                     <DrawerHeader>
                       <DrawerTitle class="text-[var(--color-white)] text-center">Bookmark Status</DrawerTitle>
@@ -196,31 +196,31 @@
 
                     <div class="text-center p-4 pb-0 space-y-2">
                       <Button variant="destructive"
-                              class="w-full justify-center bg-[#141414] hover:text-white"
+                              class="w-full justify-center bg-[var(--color-input-bg)] hover:text-white"
                               @click="changeBookmarkStatus('reading')">
                         Reading
                       </Button>
 
                       <Button variant="destructive"
-                              class="w-full justify-center bg-[#141414] hover:text-white"
+                              class="w-full justify-center bg-[var(--color-input-bg)] hover:text-white"
                               @click="changeBookmarkStatus('completed')">
                         Completed
                       </Button>
 
                       <Button variant="destructive"
-                              class="w-full justify-center bg-[#141414] hover:text-white"
+                              class="w-full justify-center bg-[var(--color-input-bg)] hover:text-white"
                               @click="changeBookmarkStatus('on-hold')">
                         On Hold
                       </Button>
 
                       <Button variant="destructive"
-                              class="w-full justify-center bg-[#141414] hover:text-white"
+                              class="w-full justify-center bg-[var(--color-input-bg)] hover:text-white"
                               @click="changeBookmarkStatus('plan-to-read')">
                         Plan to Read
                       </Button>
 
                       <Button variant="destructive"
-                              class="w-full justify-center bg-[#141414] hover:text-white"
+                              class="w-full justify-center bg-[var(--color-input-bg)] hover:text-white"
                               @click="changeBookmarkStatus('dropped')">
                         Dropped
                       </Button>
@@ -232,7 +232,7 @@
                         <Button v-for="folder in userCustomFolders"
                                 :key="folder.id"
                                 variant="destructive"
-                                class="w-full justify-center bg-[#141414] hover:text-white"
+                                class="w-full justify-center bg-[var(--color-input-bg)] hover:text-white"
                                 @click="moveToCustomFolder(folder.id, folder.name)">
                           {{ folder.name }}
                         </Button>
@@ -255,7 +255,7 @@
                 </DrawerContent>
               </Drawer>
             </ButtonGroup>
-            <Button v-else size="sm" variant="outline" class="w-full bg-black hover:bg-gray-900 text-white border-0" @click="goToLogin">
+            <Button v-else size="sm" variant="outline" class="w-full bg-[var(--color-heading)] hover:bg-[var(--color-heading)]/90 text-white border-0" @click="goToLogin">
               <BookmarkIcon class="w-4 h-4 mr-2" />
               Sign in to bookmark
             </Button>
@@ -394,7 +394,7 @@
                     <!-- Start Reading Button -->
                     <Button v-if="canStartReading"
                             size="sm"
-                            class="w-full bg-black hover:bg-gray-900 text-white border-0"
+                            class="w-full bg-[var(--color-heading)] hover:bg-[var(--color-heading)]/90 text-white border-0"
                             @click="$router.push(getFirstChapterUrl())">
                       <BookOpenIcon class="w-4 h-4 mr-2" />
                       Start Reading
@@ -403,7 +403,7 @@
                     <!-- Continue Reading Button -->
                     <Button v-if="canContinueReading"
                             size="sm"
-                            class="w-full bg-black hover:bg-gray-900 text-white border-0"
+                            class="w-full bg-[var(--color-heading)] hover:bg-[var(--color-heading)]/90 text-white border-0"
                             @click="$router.push(getContinueReadingUrl())">
                       <PlayIcon class="w-4 h-4 mr-2" />
                       Continue (Ch. {{ userBookmark?.lastReadChapter || readingProgress?.lastReadChapter }})
@@ -458,7 +458,7 @@
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </ButtonGroup>
-                    <Button v-else size="sm" variant="outline" class="w-full bg-black hover:bg-gray-900 text-white border-0" @click="goToLogin">
+                    <Button v-else size="sm" variant="outline" class="w-full bg-[var(--color-heading)] hover:bg-[var(--color-heading)]/90 text-white border-0" @click="goToLogin">
                       <BookmarkIcon class="w-4 h-4 mr-2" />
                       Sign in to bookmark
                     </Button>
@@ -511,7 +511,7 @@
                           </button>
                         </DialogTrigger>
 
-                        <DialogContent class="w-[calc(100vw-2rem)] max-w-xs sm:max-w-sm bg-black border-white/10 p-0 overflow-hidden">
+                        <DialogContent class="w-[calc(100vw-2rem)] max-w-xs sm:max-w-sm bg-[var(--color-background-soft)] border-[var(--color-border)] p-0 overflow-hidden">
                           <DialogHeader class="px-5 pt-5 pb-3">
                             <DialogTitle class="text-[var(--color-white)] text-center text-base">Rate this title</DialogTitle>
                             <DialogDescription class="text-center text-muted-foreground text-xs">
@@ -554,7 +554,7 @@
                             <Button type="button"
                                     variant="outline"
                                     size="sm"
-                                    class="flex-1 bg-[#141414] border-white/10 text-white hover:bg-white/10 hover:text-white"
+                                    class="flex-1 bg-[var(--color-background-mute)] border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-background-soft)] hover:text-[var(--color-heading)]"
                                     @click="isRatingDialogOpen = false">
                               Cancel
                             </Button>

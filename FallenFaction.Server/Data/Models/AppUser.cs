@@ -35,6 +35,9 @@ namespace FallenFaction.Server.Data.Models
         public DateTime RegistrationDate { get; set; }
         public DateTime LastLoginDate { get; set; }
         public string? SocialMediaLinks { get; set; }
+
+        public DateTime? AcceptedTermsAt { get; set; }
+        public string? AcceptedTermsVersion { get; set; }
         public bool IsActive { get; set; }
         public bool IsVerified { get; set; }
 

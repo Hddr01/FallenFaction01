@@ -64,6 +64,46 @@ namespace FallenFaction.Server.Controllers
             }
         }
 
+        [HttpPost("accept-terms")]
+        [AllowAnonymous]
+        public async Task<ActionResult<AuthResponseDto>> AcceptTerms([FromBody] AcceptTermsDto dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new AuthResponseDto
+                {
+                    Success = false,
+                    Message = "Invalid input data",
+                    Errors = ModelState.Values
+                        .SelectMany(v => v.Errors)
+                        .Select(e => e.ErrorMessage)
+                        .ToList()
+                });
+            }
+
+            try
+            {
+                var result = await _authService.AcceptTermsAndLoginAsync(dto);
+
+                if (result.Success)
+                {
+                    return Ok(result);
+                }
+
+                return Unauthorized(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during accept terms");
+                return StatusCode(500, new AuthResponseDto
+                {
+                    Success = false,
+                    Message = "An error occurred",
+                    Errors = new List<string> { "Internal server error" }
+                });
+            }
+        }
+
         [HttpPost("login")]
         public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginDto loginDto)
         {

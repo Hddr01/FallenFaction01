@@ -1,7 +1,7 @@
 <template>
-  <div class="min-h-screen bg-black flex items-center justify-center py-8">
+  <div class="min-h-screen bg-[var(--color-background)] flex items-center justify-center py-8">
     <div class="max-w-4xl w-full mx-auto px-4">
-      <div class="bg-black rounded-lg shadow-md border border-[var(--color-border)]">
+      <div class="bg-[var(--color-background)] rounded-lg shadow-md border border-[var(--color-border)]">
         <div class="px-6 py-4 border-b border-[var(--color-border)]">
           <h3 class="text-lg font-semibold text-[var(--color-heading)]">Edit Title</h3>
         </div>
@@ -518,7 +518,7 @@
   }
 
   .select-dropdown-bg {
-    background-color: #141414 !important;
+    background-color: var(--color-input-bg) !important;
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
   }
 
@@ -534,32 +534,32 @@
 </style>
 
 <style scoped>
-  /* Custom styling for form inputs with #141414 background */
+  /* Custom styling for form inputs — uses --color-input-bg */
   .form-input-bg {
-    background-color: #141414;
+    background-color: var(--color-input-bg);
     border-color: rgba(255, 255, 255, 0.1);
   }
 
     .form-input-bg:hover {
-      background-color: #1a1a1a;
+      background-color: var(--color-input-bg-hover);
     }
 
     .form-input-bg:focus {
-      background-color: #141414;
+      background-color: var(--color-input-bg);
       border-color: rgba(255, 255, 255, 0.2);
     }
 
   .form-select-bg {
-    background-color: #141414;
+    background-color: var(--color-input-bg);
     border-color: rgba(255, 255, 255, 0.1);
   }
 
     .form-select-bg:hover {
-      background-color: #1a1a1a;
+      background-color: var(--color-input-bg-hover);
     }
 
   .select-dropdown-bg {
-    background-color: #141414 !important;
+    background-color: var(--color-input-bg) !important;
     border-color: rgba(255, 255, 255, 0.1) !important;
   }
 
@@ -577,16 +577,16 @@
     }
 
   .form-textarea-bg {
-    background-color: #141414;
+    background-color: var(--color-input-bg);
     border-color: rgba(255, 255, 255, 0.1);
   }
 
     .form-textarea-bg:hover {
-      background-color: #1a1a1a;
+      background-color: var(--color-input-bg-hover);
     }
 
     .form-textarea-bg:focus {
-      background-color: #141414;
+      background-color: var(--color-input-bg);
       border-color: rgba(255, 255, 255, 0.2);
     }
 </style>

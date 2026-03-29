@@ -102,7 +102,7 @@ defineExpose({
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #000000 100%);
+  background: linear-gradient(135deg, var(--color-background) 0%, var(--color-background-soft) 50%, var(--color-background) 100%);
   display: flex;
   justify-content: center;
   align-items: center;

@@ -413,7 +413,7 @@
     top: 100%;
     right: 0;
     margin-top: 5px;
-    background-color: #1c1c1c;
+    background-color: var(--color-input-bg);
     min-width: 200px;
     border-radius: 5px;
     border: 1px solid #333;
@@ -439,7 +439,7 @@
   }
 
     .bookmark-item:hover:not(.disabled):not(.error-item):not(.current-folder) {
-      background-color: #2a2a2a;
+      background-color: var(--color-input-bg-hover);
     }
 
     .bookmark-item.current-folder {

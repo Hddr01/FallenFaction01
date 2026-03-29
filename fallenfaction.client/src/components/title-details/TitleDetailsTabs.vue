@@ -5,7 +5,7 @@
       <div class="flex w-full overflow-x-auto whitespace-nowrap bg-transparent p-1.5 gap-1 scrollbar-hide">
         <a v-for="tab in tabs"
            :key="tab.key"
-           class="flex-shrink-0 block cursor-pointer bg-transparent rounded-md transition-all duration-300 ease-out no-underline text-gray-400 relative overflow-visible hover:text-gray-100 hover:-translate-y-0.5"
+           class="flex-shrink-0 block cursor-pointer bg-transparent rounded-md transition-all duration-300 ease-out no-underline text-gray-400 relative overflow-visible hover:text-[var(--color-heading)] hover:-translate-y-0.5"
            :class="{ 'text-purple-500': activeTab === tab.key }"
            href="#"
            @click.prevent="switchTab(tab.key)">
@@ -40,7 +40,7 @@
             <!-- Description -->
             <div class="mb-6 px-2">
               <div class="text-base leading-relaxed">
-                <div class="transition-all duration-300 ease-in-out text-gray-100"
+                <div class="transition-all duration-300 ease-in-out text-[var(--color-heading)]"
                      style="word-break: break-all; overflow-wrap: anywhere;"
                      :class="descriptionExpanded ? '' : 'line-clamp-3'">
                   {{ titleData.description }}
@@ -73,7 +73,7 @@
                       variant="outline"
                       size="sm"
                       as-child
-                      class="transition-all duration-300 bg-[#141414] hover:-translate-y-0.5">
+                      class="transition-all duration-300 bg-[var(--color-input-bg)] hover:-translate-y-0.5">
                 <a :href="`/catalog?category=${encodeURIComponent(category)}`">
                   {{ category }}
                 </a>
@@ -85,7 +85,7 @@
                       variant="outline"
                       size="sm"
                       as-child
-                      class="transition-all duration-300 bg-[#141414] hover:-translate-y-0.5">
+                      class="transition-all duration-300 bg-[var(--color-input-bg)] hover:-translate-y-0.5">
                 <a :href="`/catalog?tag=${encodeURIComponent(tag)}`">
                   {{ tag }}
                 </a>
@@ -104,7 +104,7 @@
             <!-- Translators Section - CAROUSEL VERSION -->
             <div v-if="titleData.teams && titleData.teams.length > 0" class="px-2 mt-8">
               <div class="mb-4">
-                <h2 class="text-lg font-semibold text-gray-100">
+                <h2 class="text-lg font-semibold text-[var(--color-heading)]">
                 {{ (props.titleData.titleCategory === 2 || props.titleData.titleCategory === 3)
                    ? 'Creators Group'
                    : 'Translation Groups' }}
@@ -128,7 +128,7 @@
                                 class="pl-4 basis-auto">
                     <Button variant="outline"
                             as-child
-                            class="bg-[#141414] h-auto p-0 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+                            class="bg-[var(--color-input-bg)] h-auto p-0 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
                       <a :href="`/team/${team.id}`"
                          class="flex flex-col items-center w-32">
                         <!-- Avatar Section -->
@@ -229,7 +229,7 @@
                             Rate this Title
                           </Button>
                         </DialogTrigger>
-                        <DialogContent class="w-[calc(100vw-2rem)] max-w-xs sm:max-w-sm bg-black border-white/10 p-0 overflow-hidden">
+                        <DialogContent class="w-[calc(100vw-2rem)] max-w-xs sm:max-w-sm bg-[var(--color-background-soft)] border-[var(--color-border)] p-0 overflow-hidden">
                           <DialogHeader class="px-5 pt-5 pb-3">
                             <DialogTitle class="text-[var(--color-white)] text-center text-base">Rate this title</DialogTitle>
                             <DialogDescription class="text-center text-muted-foreground text-xs">
@@ -272,7 +272,7 @@
                             <Button type="button"
                                     variant="outline"
                                     size="sm"
-                                    class="flex-1 bg-[#141414] border-white/10 text-white hover:bg-white/10 hover:text-white"
+                                    class="flex-1 bg-[var(--color-background-mute)] border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-background-soft)] hover:text-[var(--color-heading)]"
                                     @click="isRatingDialogOpen = false">
                               Cancel
                             </Button>
@@ -356,13 +356,13 @@
             </div>
           </template>
 
-          <div v-else-if="tabData.info.error" class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 bg-gray-900 rounded-b-lg">
+          <div v-else-if="tabData.info.error" class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 bg-[var(--color-background-soft)] rounded-b-lg">
             <i class="fas fa-exclamation-triangle text-6xl mb-8 text-red-500"></i>
             <p class="text-base mb-4">{{ tabData.info.error }}</p>
             <button @click="loadTabContent('info')" class="px-4 py-2 bg-transparent border border-gray-600 rounded text-gray-300 hover:bg-gray-800 transition-colors">Retry</button>
           </div>
 
-          <div v-else class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 bg-gray-900 rounded-b-lg">
+          <div v-else class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 bg-[var(--color-background-soft)] rounded-b-lg">
             <i class="fas fa-spinner fa-spin text-6xl mb-8 text-purple-500"></i>
             <p class="text-base mb-4">Loading title information...</p>
           </div>
@@ -425,13 +425,13 @@
                                @chapter-unlocked="onChapterUnlocked" />
           </template>
 
-          <div v-else-if="tabData.chapters.error" class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 bg-gray-900 rounded-b-lg">
+          <div v-else-if="tabData.chapters.error" class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 bg-[var(--color-background-soft)] rounded-b-lg">
             <i class="fas fa-exclamation-triangle text-6xl mb-8 text-red-500"></i>
             <p class="text-base mb-4">{{ tabData.chapters.error }}</p>
             <button @click="loadTabContent('chapters')" class="px-4 py-2 bg-transparent border border-gray-600 rounded text-gray-300 hover:bg-gray-800 transition-colors">Retry</button>
           </div>
 
-          <div v-else class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 bg-gray-900 rounded-b-lg">
+          <div v-else class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 bg-[var(--color-background-soft)] rounded-b-lg">
             <i class="fas fa-spinner fa-spin text-6xl mb-8 text-purple-500"></i>
             <p class="text-base mb-4">Loading chapters...</p>
           </div>
@@ -453,13 +453,13 @@
             </div>
           </template>
 
-          <div v-else-if="tabData.comments.error" class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 bg-gray-900 rounded-b-lg">
+          <div v-else-if="tabData.comments.error" class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 bg-[var(--color-background-soft)] rounded-b-lg">
             <i class="fas fa-exclamation-triangle text-6xl mb-8 text-red-500"></i>
             <p class="text-base mb-4">{{ tabData.comments.error }}</p>
             <button @click="loadTabContent('comments')" class="px-4 py-2 bg-transparent border border-gray-600 rounded text-gray-300 hover:bg-gray-800 transition-colors">Retry</button>
           </div>
 
-          <div v-else class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 bg-gray-900 rounded-b-lg">
+          <div v-else class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 bg-[var(--color-background-soft)] rounded-b-lg">
             <i class="fas fa-spinner fa-spin text-6xl mb-8 text-purple-500"></i>
             <p class="text-base mb-4">Loading comments...</p>
           </div>
@@ -473,7 +473,7 @@
                 :transition="{ duration: 0.2 }">
           <div class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 rounded-b-lg">
             <i class="fas fa-palette text-6xl mb-8 text-purple-500 opacity-70"></i>
-            <h3 class="mb-4 text-gray-100 text-2xl font-semibold">Art Gallery</h3>
+            <h3 class="mb-4 text-[var(--color-heading)] text-2xl font-semibold">Art Gallery</h3>
             <p class="text-base opacity-80 max-w-md leading-6">Fan art and official artwork will be displayed here soon!</p>
           </div>
         </Motion>
@@ -486,7 +486,7 @@
                 :transition="{ duration: 0.2 }">
           <div class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 rounded-b-lg">
             <i class="fas fa-link text-6xl mb-8 text-purple-500 opacity-70"></i>
-            <h3 class="mb-4 text-gray-100 text-2xl font-semibold">Related Titles</h3>
+            <h3 class="mb-4 text-[var(--color-heading)] text-2xl font-semibold">Related Titles</h3>
             <p class="text-base opacity-80 max-w-md leading-6">Discover similar manga and related series here!</p>
           </div>
         </Motion>

@@ -8,7 +8,7 @@
       <span class="flex items-center gap-1 text-sm font-semibold text-yellow-400">
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
           <circle cx="12" cy="12" r="10"/>
-          <text x="12" y="16" text-anchor="middle" font-size="11" fill="#1a1a1a" font-family="serif" font-weight="bold">G</text>
+          <text x="12" y="16" text-anchor="middle" font-size="11" fill="var(--color-heading)" font-family="serif" font-weight="bold">G</text>
         </svg>
         {{ wallet ? formatBal(wallet.goldBalance) : '–' }}
       </span>
@@ -17,7 +17,7 @@
       <span class="flex items-center gap-1 text-sm font-semibold text-slate-300">
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
           <circle cx="12" cy="12" r="10"/>
-          <text x="12" y="16" text-anchor="middle" font-size="11" fill="#1a1a1a" font-family="serif" font-weight="bold">S</text>
+          <text x="12" y="16" text-anchor="middle" font-size="11" fill="var(--color-heading)" font-family="serif" font-weight="bold">S</text>
         </svg>
         {{ wallet ? formatBal(wallet.silverBalance) : '–' }}
       </span>

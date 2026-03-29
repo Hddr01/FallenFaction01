@@ -4,13 +4,14 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Force pure black everywhere */
+/* Base page background — driven by CSS theme variables (see base.css) */
 html, body {
-  background: hsl(20 14.3% 4.1%); /* Dark background from theme */
+  background: var(--color-background);
   color: var(--color-text);
   min-height: 100vh;
   margin: 0;
   padding: 0;
+  transition: background 0.25s ease, color 0.25s ease;
 }
 
 /* Remove container styling from #app for full-width pages */
@@ -22,17 +23,43 @@ html, body {
   width: 100%;
 }
 
+/* ─── Light-mode Tailwind safety net ─────────────────────────────────────────
+   Catches any remaining hardcoded bg-black / bg-gray-9xx classes that were
+   not individually patched in component templates. Modal overlays (bg-black/xx)
+   are exempt because they include a "/" in the class name, so they don't match.
+   The !important is needed to beat Tailwind's generated CSS.
+   ────────────────────────────────────────────────────────────────────────── */
+html:not(.dark) .bg-black   { background-color: var(--color-background)      !important; }
+html:not(.dark) .bg-gray-950,
+html:not(.dark) .bg-gray-900 { background-color: var(--color-background-soft) !important; }
+html:not(.dark) .bg-gray-800 { background-color: var(--color-background-mute) !important; }
+html:not(.dark) .bg-zinc-950,
+html:not(.dark) .bg-zinc-900 { background-color: var(--color-background-soft) !important; }
+html:not(.dark) .bg-neutral-950,
+html:not(.dark) .bg-neutral-900 { background-color: var(--color-background-soft) !important; }
+
+/* Input / select overrides for light mode */
+html:not(.dark) input,
+html:not(.dark) select,
+html:not(.dark) textarea {
+  background-color: var(--color-input-bg);
+  color: var(--color-text);
+}
+
+/* Ensure white text on dark heading-color backgrounds stays white */
+html:not(.dark) .bg-\[var\(--color-heading\)\] { color: #ffffff !important; }
+
 a,
 .green {
   text-decoration: none;
-  color: hsl(0 0% 100%);
+  color: var(--color-text);
   transition: 0.4s;
   padding: 3px;
 }
 
 @media (hover: hover) {
   a:hover {
-    color: hsl(0 0% 100%);
+    color: var(--vt-c-indigo);
   }
 }
 

@@ -164,7 +164,7 @@
       </div>
 
       <!-- Chapter Details Modal -->
-      <div v-if="showDetailsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div v-if="showDetailsModal" class="fixed inset-0 bg-[var(--color-background)] bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div class="bg-[var(--color-background-soft)] rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
           <div class="px-6 py-4 border-b border-[var(--color-border)] flex justify-between items-center">
             <h3 class="text-lg font-semibold text-[var(--color-heading)]">Chapter Details</h3>
@@ -260,7 +260,7 @@
       </div>
 
       <!-- Reject Modal -->
-      <div v-if="showRejectModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-60">
+      <div v-if="showRejectModal" class="fixed inset-0 bg-[var(--color-background)] bg-opacity-50 flex items-center justify-center p-4 z-60">
         <div class="bg-[var(--color-background-soft)] rounded-lg shadow-xl max-w-md w-full">
           <div class="px-6 py-4 border-b border-[var(--color-border)]">
             <h3 class="text-lg font-semibold text-[var(--color-heading)]">Reject Chapter</h3>
