@@ -88,21 +88,21 @@ namespace FallenFaction.Server.Controllers
                 return StatusCode(502, "Failed to get Patreon tokens.");
 
             // Get Patreon identity
-            var identity = await GetPatreonIdentityAsync(tokenResponse.AccessToken);
+            var identity = await GetPatreonIdentityAsync(tokenResponse.Value.AccessToken);
             if (identity == null)
                 return StatusCode(502, "Failed to get Patreon identity.");
 
             // Store tokens on user
-            user.PatreonUserId       = identity.PatreonUserId;
-            user.PatreonAccessToken  = tokenResponse.AccessToken;
-            user.PatreonRefreshToken = tokenResponse.RefreshToken;
-            user.PatreonLinkedAt     = DateTime.UtcNow;
-            user.PatreonTierName     = identity.TierName;
-            user.PatreonMonthlyAmount = identity.MonthlyAmount;
+            user.PatreonUserId        = identity.Value.PatreonUserId;
+            user.PatreonAccessToken   = tokenResponse.Value.AccessToken;
+            user.PatreonRefreshToken  = tokenResponse.Value.RefreshToken;
+            user.PatreonLinkedAt      = DateTime.UtcNow;
+            user.PatreonTierName      = identity.Value.TierName;
+            user.PatreonMonthlyAmount = identity.Value.MonthlyAmount;
 
             // Grant initial Gold tickets for the current tier
-            if (!string.IsNullOrEmpty(identity.TierName))
-                await GrantPatreonTicketsAsync(user, identity.TierName, "Initial Patreon link grant");
+            if (!string.IsNullOrEmpty(identity.Value.TierName))
+                await GrantPatreonTicketsAsync(user, identity.Value.TierName, "Initial Patreon link grant");
 
             await _userManager.UpdateAsync(user);
 

@@ -122,6 +122,12 @@ const routes = [
     component: () => import('../components/admin/AdminRequestsManagement.vue'),
     meta: { requiresAuth: true, requiresAdmin: true, title: 'Translation Requests' }
   },
+  {
+    path: '/admin/grant-tickets',
+    name: 'AdminGrantTickets',
+    component: () => import('../components/admin/AdminGrantTickets.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Admin - Grant Tickets' }
+  },
 
   // ── Content management ────────────────────────────────────────────────────
   { path: '/user/content', name: 'Content Management', component: ContentManagement, meta: { requiresAuth: true, title: 'Content Management' } },
