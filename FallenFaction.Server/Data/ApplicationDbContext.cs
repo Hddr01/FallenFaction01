@@ -54,6 +54,9 @@ namespace FallenFaction.Server.Data
         public DbSet<TranslationRequest> TranslationRequests { get; set; }
         public DbSet<AIChapterUnlock> AIChapterUnlocks { get; set; }
         public DbSet<TranslationRequestVote> TranslationRequestVotes { get; set; }
+        public DbSet<TitleTeamJoinRequest> TitleTeamJoinRequests { get; set; }
+
+
 
         public IQueryable<Chapter> GetUserChapters(string userId)
         {
@@ -788,6 +791,33 @@ namespace FallenFaction.Server.Data
                       .WithMany()
                       .HasForeignKey(e => e.ReleasedTeamId)
                       .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            builder.Entity<TitleTeamJoinRequest>(entity =>
+            {
+                entity.HasOne(e => e.Title)
+                      .WithMany()
+                      .HasForeignKey(e => e.TitleId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.RequestingTeam)
+                      .WithMany()
+                      .HasForeignKey(e => e.RequestingTeamId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.RequestedByUser)
+                      .WithMany()
+                      .HasForeignKey(e => e.RequestedByUserId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.ReviewedByUser)
+                      .WithMany()
+                      .HasForeignKey(e => e.ReviewedByUserId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                // Prevent duplicate pending requests from the same team for the same title
+                entity.HasIndex(e => new { e.TitleId, e.RequestingTeamId, e.Status })
+                      .HasDatabaseName("IX_TitleTeamJoinRequests_TitleId_TeamId_Status");
             });
 
             // Call the seed data from LibManga.Data namespace

@@ -38,6 +38,7 @@ import AdminTitleChanges from '../components/admin/AdminTitleChanges.vue';
 import ContentManagement from '../components/content/ContentManagement.vue';
 import TitleChangeHistory from '../components/title-details/TitleChangeHistory.vue';
 import AddChapter from '../components/title-details/AddChapter.vue';
+import BulkAddChapters from '../components/title-details/BulkAddChapters.vue';
 import ChapterReader from '../components/title-details/ChapterReader.vue';
 import Catalog from '../components/catalog/Catalog.vue';
 import CommentThreadView from '../components/title-details/CommentThreadView.vue';
@@ -143,6 +144,7 @@ const routes = [
   // ── Titles ────────────────────────────────────────────────────────────────
   { path: '/novel/addtitle', name: 'Add Title', component: AddTitle, meta: { requiresAuth: true, title: 'Add Title' } },
   { path: '/:titleSlug/AddChapter', name: 'Add Chapter', component: AddChapter, meta: { requiresAuth: true, title: 'Add Chapter' } },
+  { path: '/:titleSlug/BulkAddChapters', name: 'Bulk Add Chapters', component: BulkAddChapters, meta: { requiresAuth: true, title: 'Bulk Upload Chapters' } },
   { path: '/Title/Edit/:id', name: 'Edit Title', component: () => import('../components/title-details/EditTitle.vue'), props: route => ({ id: parseInt(route.params.id) }), meta: { requiresAuth: true, title: 'Edit Title' } },
 
   // ── Teams ─────────────────────────────────────────────────────────────────

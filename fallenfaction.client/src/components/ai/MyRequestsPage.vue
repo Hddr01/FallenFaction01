@@ -144,7 +144,27 @@
               <div>
                 <label class="block text-sm font-medium text-[var(--color-text)] mb-1">Proposed English Title *</label>
                 <input v-model="form.proposedTitle" type="text" required placeholder="Solo Leveling"
+                  @input="checkDuplicateTitle(form.proposedTitle)"
                   class="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]" />
+                <!-- Duplicate warning -->
+                <div v-if="duplicateWarning.length > 0"
+                  class="mt-2 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-xs text-yellow-300 space-y-1.5">
+                  <p class="font-semibold flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                    </svg>
+                    Similar titles already exist in our system:
+                  </p>
+                  <a v-for="t in duplicateWarning" :key="t.id"
+                    :href="'/' + (t.slug || t.id)" target="_blank"
+                    class="flex items-center justify-between px-2 py-1 rounded bg-yellow-500/10 hover:bg-yellow-500/20 transition">
+                    <span>{{ t.englishTitle || t.originalTitle }}</span>
+                    <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                    </svg>
+                  </a>
+                  <p class="opacity-60">You can still submit — admins will review for duplicates.</p>
+                </div>
               </div>
               <div>
                 <label class="block text-sm font-medium text-[var(--color-text)] mb-1">Original Title</label>
@@ -203,7 +223,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
-import { getMyRequests, createTranslationRequest } from '@/services/aiTranslationService';
+import { getMyRequests, createTranslationRequest, searchExistingTitles } from '@/services/aiTranslationService';
 
 const requests  = ref([]);
 const loading   = ref(false);
@@ -214,6 +234,20 @@ const activeTab = ref('All');
 const showForm  = ref(false);
 const submitting = ref(false);
 const formError  = ref('');
+const duplicateWarning = ref([]);  // existing titles that look like duplicates
+let dupSearchTimer = null;
+
+async function checkDuplicateTitle(query) {
+  clearTimeout(dupSearchTimer);
+  duplicateWarning.value = [];
+  if (!query || query.trim().length < 2) return;
+  dupSearchTimer = setTimeout(async () => {
+    try {
+      const res = await searchExistingTitles(query.trim());
+      duplicateWarning.value = (res.data || []).slice(0, 3);
+    } catch { /* silent */ }
+  }, 400);
+}
 
 const tabs = [
   { label: 'All',           value: 'All',           count: null },

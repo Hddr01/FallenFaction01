@@ -18,7 +18,11 @@ namespace FallenFaction.Server.Data.Models
         CommentReply = 20,
         CommentMention = 21,
         TeamInvite = 30,
-        ReportResolved = 40
+        ReportResolved = 40,
+
+        TitleJoinRequest = 31,
+        TitleJoinApproved = 32,
+        TitleJoinRejected = 33
     }
 
     public class Notification

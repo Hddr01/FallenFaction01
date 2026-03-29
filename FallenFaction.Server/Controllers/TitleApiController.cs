@@ -127,7 +127,22 @@ namespace FallenFaction.Server.Controllers
 
                 // For Original/Fanfic: auto-assign personal group; create it if missing (legacy users)
                 var requestedCategory = request.TitleCategory ?? 1;
-                if ((request.Teams == null || !request.Teams.Any()) && requestedCategory is 2 or 3)
+
+                // Category 4 = AI Translation — admin-only, auto-assign to the system AI/TL team
+                if (requestedCategory == 4)
+                {
+                    if (!await _userManager.IsInRoleAsync(user, "Admin"))
+                        return StatusCode(403, new { error = "Only admins can create AI Translation titles." });
+
+                    var aiTeam = await _context.Teams
+                        .FirstOrDefaultAsync(t => t.IsSystemTeam && t.GroupType == GroupType.AITranslation);
+
+                    if (aiTeam == null)
+                        return BadRequest(new { error = "AI/TL system team not found. Run the seeder first or restart the app." });
+
+                    request.Teams = new List<int> { aiTeam.Id };
+                }
+                else if ((request.Teams == null || !request.Teams.Any()) && requestedCategory is 2 or 3)
                 {
                     var personalGroup = await _context.Teams
                         .FirstOrDefaultAsync(t => t.CreatorId == user.Id && t.IsPersonal);
@@ -222,7 +237,9 @@ namespace FallenFaction.Server.Controllers
                 }
 
                 // ── Trust auto-approve check ────────────────────────────────────────
-                bool isTrustedForTitle = await _trustService.IsTrustedAsync(user.Id, TrustActionType.AddTitle);
+                // AI Translation titles created by admins always auto-approve (bypass pending queue)
+                bool isAiTranslation = requestedCategory == 4;
+                bool isTrustedForTitle = isAiTranslation || await _trustService.IsTrustedAsync(user.Id, TrustActionType.AddTitle);
                 bool hasDuplicate = await _context.Titles
                     .AnyAsync(t => t.OriginalTitle.ToLower() == (request.OriginalTitle ?? "").ToLower()
                                || t.EnglishTitle.ToLower() == request.EnglishTitle.ToLower());
