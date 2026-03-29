@@ -280,9 +280,19 @@ namespace FallenFaction.Server.Migrations
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("bit");
 
+                    b.Property<int>("UserLevel")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
                     b.Property<string>("UserName")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
+
+                    b.Property<int>("XpPoints")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.HasKey("Id");
 
@@ -1444,6 +1454,11 @@ namespace FallenFaction.Server.Migrations
                     b.Property<bool>("IsPersonal")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsSystemTeam")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -1734,6 +1749,9 @@ namespace FallenFaction.Server.Migrations
                     b.Property<DateTime?>("ReleasedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("ReleasedTeamId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("ReleasedTitleId")
                         .HasColumnType("int");
 
@@ -1763,10 +1781,17 @@ namespace FallenFaction.Server.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("VoteCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedAt")
                         .HasDatabaseName("IX_TranslationRequests_CreatedAt");
+
+                    b.HasIndex("ReleasedTeamId");
 
                     b.HasIndex("ReleasedTitleId");
 
@@ -1779,6 +1804,39 @@ namespace FallenFaction.Server.Migrations
                         .HasDatabaseName("IX_TranslationRequests_Status");
 
                     b.ToTable("TranslationRequests");
+                });
+
+            modelBuilder.Entity("FallenFaction.Server.Data.Models.TranslationRequestVote", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("RequestId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("VotedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RequestId")
+                        .HasDatabaseName("IX_TranslationRequestVotes_RequestId");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_TranslationRequestVotes_UserId");
+
+                    b.HasIndex("RequestId", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_TranslationRequestVotes_RequestId_UserId");
+
+                    b.ToTable("TranslationRequestVotes");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.UserNotificationRead", b =>
@@ -2888,6 +2946,11 @@ namespace FallenFaction.Server.Migrations
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.TranslationRequest", b =>
                 {
+                    b.HasOne("FallenFaction.Server.Data.Models.Team", "ReleasedTeam")
+                        .WithMany()
+                        .HasForeignKey("ReleasedTeamId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("FallenFaction.Server.Data.Models.Title", "ReleasedTitle")
                         .WithMany()
                         .HasForeignKey("ReleasedTitleId")
@@ -2904,11 +2967,32 @@ namespace FallenFaction.Server.Migrations
                         .HasForeignKey("ReviewedByUserId")
                         .OnDelete(DeleteBehavior.NoAction);
 
+                    b.Navigation("ReleasedTeam");
+
                     b.Navigation("ReleasedTitle");
 
                     b.Navigation("RequestedByUser");
 
                     b.Navigation("ReviewedByUser");
+                });
+
+            modelBuilder.Entity("FallenFaction.Server.Data.Models.TranslationRequestVote", b =>
+                {
+                    b.HasOne("FallenFaction.Server.Data.Models.TranslationRequest", "Request")
+                        .WithMany("Votes")
+                        .HasForeignKey("RequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FallenFaction.Server.Data.Models.AppUser", "User")
+                        .WithMany("TranslationRequestVotes")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Request");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.UserNotificationRead", b =>
@@ -3177,6 +3261,8 @@ namespace FallenFaction.Server.Migrations
 
                     b.Navigation("TicketTransactions");
 
+                    b.Navigation("TranslationRequestVotes");
+
                     b.Navigation("TranslationRequests");
 
                     b.Navigation("UserTeamRoles");
@@ -3252,6 +3338,11 @@ namespace FallenFaction.Server.Migrations
                     b.Navigation("RejectedChapters");
 
                     b.Navigation("RejectedTitleChanges");
+                });
+
+            modelBuilder.Entity("FallenFaction.Server.Data.Models.TranslationRequest", b =>
+                {
+                    b.Navigation("Votes");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.UserTeamPermission", b =>

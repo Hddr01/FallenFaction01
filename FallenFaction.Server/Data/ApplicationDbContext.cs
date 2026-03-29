@@ -53,6 +53,7 @@ namespace FallenFaction.Server.Data
         public DbSet<TicketTransaction> TicketTransactions { get; set; }
         public DbSet<TranslationRequest> TranslationRequests { get; set; }
         public DbSet<AIChapterUnlock> AIChapterUnlocks { get; set; }
+        public DbSet<TranslationRequestVote> TranslationRequestVotes { get; set; }
 
         public IQueryable<Chapter> GetUserChapters(string userId)
         {
@@ -740,6 +741,53 @@ namespace FallenFaction.Server.Data
                       .OnDelete(DeleteBehavior.NoAction);
 
                 entity.HasIndex(e => e.TitleId).HasDatabaseName("IX_AIChapterUnlocks_TitleId");
+            });
+
+            builder.Entity<TranslationRequestVote>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                // One user can only vote on a request once
+                entity.HasIndex(e => new { e.RequestId, e.UserId })
+                      .IsUnique()
+                      .HasDatabaseName("IX_TranslationRequestVotes_RequestId_UserId");
+
+                entity.HasOne(e => e.Request)
+                      .WithMany(r => r.Votes)
+                      .HasForeignKey(e => e.RequestId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.User)
+                      .WithMany(u => u.TranslationRequestVotes)
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasIndex(e => e.RequestId).HasDatabaseName("IX_TranslationRequestVotes_RequestId");
+                entity.HasIndex(e => e.UserId).HasDatabaseName("IX_TranslationRequestVotes_UserId");
+            });
+
+            // ── AppUser: XP / Level columns ─────────────────────────────────────
+            builder.Entity<AppUser>(entity =>
+            {
+                entity.Property(e => e.XpPoints).HasDefaultValue(0);
+                entity.Property(e => e.UserLevel).HasDefaultValue(1);
+            });
+
+            // ── Team: IsSystemTeam column ────────────────────────────────────────
+            builder.Entity<Team>(entity =>
+            {
+                entity.Property(e => e.IsSystemTeam).HasDefaultValue(false);
+            });
+
+            // ── TranslationRequest: VoteCount + ReleasedTeamId ───────────────────
+            builder.Entity<TranslationRequest>(entity =>
+            {
+                entity.Property(e => e.VoteCount).HasDefaultValue(0);
+
+                entity.HasOne(e => e.ReleasedTeam)
+                      .WithMany()
+                      .HasForeignKey(e => e.ReleasedTeamId)
+                      .OnDelete(DeleteBehavior.SetNull);
             });
 
             // Call the seed data from LibManga.Data namespace

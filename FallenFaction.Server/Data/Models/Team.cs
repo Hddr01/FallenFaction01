@@ -1,4 +1,4 @@
-﻿// Data/Models/Team.cs - Updated with Avatar and Background images
+// Data/Models/Team.cs - Updated with AITranslation group type
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Collections.Generic;
@@ -7,9 +7,10 @@ namespace FallenFaction.Server.Data.Models
 {
     public enum GroupType
     {
-        Personal = 1,     // Auto-created on registration — represents the user's personal studio
-        Translation = 2,  // Scanlation / translation group
-        Creator = 3       // Original content studio / doujin circle
+        Personal = 1,       // Auto-created on registration — represents the user's personal studio
+        Translation = 2,    // Scanlation / translation group
+        Creator = 3,        // Original content studio / doujin circle
+        AITranslation = 4   // System-owned AI translation team — managed by admins only
     }
 
     public class Team
@@ -41,6 +42,12 @@ namespace FallenFaction.Server.Data.Models
 
         // Quick filter flag — Personal groups are hidden from the public "Groups" listing
         public bool IsPersonal { get; set; } = false;
+
+        /// <summary>
+        /// System-managed team (e.g. AI/TL). Cannot be edited or deleted by regular users.
+        /// Only the admin panel can manage titles/members for a system team.
+        /// </summary>
+        public bool IsSystemTeam { get; set; } = false;
 
         // Navigation properties
         public ICollection<Title> Titles { get; set; } = new List<Title>();

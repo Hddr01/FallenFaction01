@@ -42,6 +42,12 @@ import ChapterReader from '../components/title-details/ChapterReader.vue';
 import Catalog from '../components/catalog/Catalog.vue';
 import CommentThreadView from '../components/title-details/CommentThreadView.vue';
 
+import MyRequestsPage from '../components/ai/MyRequestsPage.vue';
+import VotingPage     from '../components/ai/VotingPage.vue';
+import WalletPage     from '../components/ai/WalletPage.vue';
+import AdminRequestsManagement from '../components/admin/AdminRequestsManagement.vue';
+
+
 // ── System route prefixes — never matched as title slugs ────────────────────
 const SYSTEM_PREFIXES = [
   'api', 'admin', 'account', 'user', 'team', 'novel', 'author',
@@ -86,6 +92,35 @@ const routes = [
     component: TitleChangeHistory,
     props: route => ({ titleId: parseInt(route.params.titleId) }),
     meta: { requiresAuth: true, title: 'Change History' }
+  },
+  // ── AI Translation: User routes ──────────────────────────────────────
+  {
+    path: '/profile/requests',
+    name: 'MyRequests',
+    component: () => import('../components/ai/MyRequestsPage.vue'),
+    meta: { requiresAuth: true, title: 'My Requests' }
+  },
+  {
+    path: '/profile/wallet',
+    name: 'Wallet',
+    component: () => import('../components/ai/WalletPage.vue'),
+    meta: { requiresAuth: true, title: 'Ticket Wallet' }
+  },
+
+  // ── AI Translation: Public voting page ───────────────────────────────
+  {
+    path: '/novel/voting',
+    name: 'NovelVoting',
+    component: () => import('../components/ai/VotingPage.vue'),
+    meta: { title: 'Novel Voting' }
+  },
+
+  // ── AI Translation: Admin queue ───────────────────────────────────────
+  {
+    path: '/admin/translation-requests',
+    name: 'AdminTranslationRequests',
+    component: () => import('../components/admin/AdminRequestsManagement.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Translation Requests' }
   },
 
   // ── Content management ────────────────────────────────────────────────────

@@ -1,0 +1,28 @@
+// ════════════════════════════════════════════════════════════════════════
+// Program.cs  —  THREE PLACES TO PATCH
+// ════════════════════════════════════════════════════════════════════════
+
+// ── PATCH 1: Register background services ────────────────────────────────
+// ADD after the existing:
+//   builder.Services.AddHostedService<OnlineStatusCleanupService>();
+//
+//   builder.Services.AddHostedService<SilverTicketExpiryService>();
+//   builder.Services.AddHostedService<AutoReleaseService>();
+
+
+// ── PATCH 2: Add using directives at top of file ─────────────────────────
+// ADD at top:
+//   using FallenFaction.Server.Services;
+//   using FallenFaction.Server.Data.SeedData;
+
+
+// ── PATCH 3: Run AITeamSeeder after admin user is seeded ──────────────────
+// ADD at the very bottom, after the admin user creation block:
+//
+//   // Seed the AI/TL system team
+//   using (var scope = app.Services.CreateScope())
+//   {
+//       var context     = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+//       var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+//       await AITeamSeeder.SeedAsync(context, userManager);
+//   }

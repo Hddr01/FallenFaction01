@@ -46,6 +46,14 @@ namespace FallenFaction.Server.Migrations
                     SocialMediaLinks = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     IsActive = table.Column<bool>(type: "bit", nullable: false),
                     IsVerified = table.Column<bool>(type: "bit", nullable: false),
+                    XpPoints = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
+                    UserLevel = table.Column<int>(type: "int", nullable: false, defaultValue: 1),
+                    PatreonUserId = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    PatreonAccessToken = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    PatreonRefreshToken = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    PatreonLinkedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    PatreonTierName = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    PatreonMonthlyAmount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     UserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
                     NormalizedUserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
                     Email = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
@@ -263,6 +271,7 @@ namespace FallenFaction.Server.Migrations
                     Type = table.Column<int>(type: "int", nullable: false),
                     TitleCategory = table.Column<int>(type: "int", nullable: false),
                     SourceTitleId = table.Column<int>(type: "int", nullable: true),
+                    SourceTitleName = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     AgeRestriction = table.Column<int>(type: "int", nullable: false),
                     CreatedByUserId = table.Column<string>(type: "nvarchar(450)", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
@@ -312,6 +321,42 @@ namespace FallenFaction.Server.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "TicketTransactions",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    TicketType = table.Column<int>(type: "int", nullable: false),
+                    TransactionType = table.Column<int>(type: "int", nullable: false),
+                    Amount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    BalanceAfter = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    RelatedTitleId = table.Column<int>(type: "int", nullable: true),
+                    RelatedChapterId = table.Column<int>(type: "int", nullable: true),
+                    RelatedRequestId = table.Column<int>(type: "int", nullable: true),
+                    ExpiresAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    PatreonTierName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    PerformedByUserId = table.Column<string>(type: "nvarchar(450)", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_TicketTransactions", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_TicketTransactions_AspNetUsers_PerformedByUserId",
+                        column: x => x.PerformedByUserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_TicketTransactions_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Titles",
                 columns: table => new
                 {
@@ -329,6 +374,7 @@ namespace FallenFaction.Server.Migrations
                     Type = table.Column<int>(type: "int", nullable: false),
                     TitleCategory = table.Column<int>(type: "int", nullable: false),
                     SourceTitleId = table.Column<int>(type: "int", nullable: true),
+                    SourceTitleName = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     AgeRestriction = table.Column<int>(type: "int", nullable: false),
                     IsAvailable = table.Column<bool>(type: "bit", nullable: false),
                     AreCommentsEnabled = table.Column<bool>(type: "bit", nullable: false),
@@ -351,6 +397,29 @@ namespace FallenFaction.Server.Migrations
                         column: x => x.SourceTitleId,
                         principalTable: "Titles",
                         principalColumn: "Id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "UserTickets",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    GoldBalance = table.Column<decimal>(type: "decimal(18,2)", nullable: false, defaultValue: 0m),
+                    SilverBalance = table.Column<decimal>(type: "decimal(18,2)", nullable: false, defaultValue: 0m),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserTickets", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_UserTickets_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -537,6 +606,7 @@ namespace FallenFaction.Server.Migrations
                     CreatedDate = table.Column<DateTime>(type: "datetime2", nullable: false),
                     GroupType = table.Column<int>(type: "int", nullable: false),
                     IsPersonal = table.Column<bool>(type: "bit", nullable: false),
+                    IsSystemTeam = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
                     RejectedTitleId = table.Column<int>(type: "int", nullable: true)
                 },
                 constraints: table =>
@@ -1114,7 +1184,9 @@ namespace FallenFaction.Server.Migrations
                     ReleaseDate = table.Column<DateTime>(type: "datetime2", nullable: false),
                     LastUpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     UpdatedByUserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    Content = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                    Content = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    IsAILocked = table.Column<bool>(type: "bit", nullable: false),
+                    CharacterCount = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -1261,6 +1333,61 @@ namespace FallenFaction.Server.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "TranslationRequests",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    RequestedByUserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    SourceUrl = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
+                    ProposedTitle = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
+                    OriginalLanguageTitle = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
+                    Description = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: true),
+                    Genres = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    Tags = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
+                    CoverImageUrl = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    EstimatedChapterCount = table.Column<int>(type: "int", nullable: true),
+                    VoteCount = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
+                    Status = table.Column<int>(type: "int", nullable: false),
+                    ReviewedByUserId = table.Column<string>(type: "nvarchar(450)", nullable: true),
+                    RejectionReason = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    AdminNotes = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    ReleasedTitleId = table.Column<int>(type: "int", nullable: true),
+                    ReleasedTeamId = table.Column<int>(type: "int", nullable: true),
+                    ReleaseTicketCost = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ReviewedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ReleasedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_TranslationRequests", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_TranslationRequests_AspNetUsers_RequestedByUserId",
+                        column: x => x.RequestedByUserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_TranslationRequests_AspNetUsers_ReviewedByUserId",
+                        column: x => x.ReviewedByUserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_TranslationRequests_Teams_ReleasedTeamId",
+                        column: x => x.ReleasedTeamId,
+                        principalTable: "Teams",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_TranslationRequests_Titles_ReleasedTitleId",
+                        column: x => x.ReleasedTitleId,
+                        principalTable: "Titles",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "UserTeamRoles",
                 columns: table => new
                 {
@@ -1281,6 +1408,40 @@ namespace FallenFaction.Server.Migrations
                         name: "FK_UserTeamRoles_Teams_TeamId",
                         column: x => x.TeamId,
                         principalTable: "Teams",
+                        principalColumn: "Id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AIChapterUnlocks",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    ChapterId = table.Column<int>(type: "int", nullable: false),
+                    TitleId = table.Column<int>(type: "int", nullable: false),
+                    UnlockedByUserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    TicketCost = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    TicketTypeUsed = table.Column<int>(type: "int", nullable: false),
+                    CharacterCount = table.Column<int>(type: "int", nullable: false),
+                    UnlockedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AIChapterUnlocks", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_AIChapterUnlocks_AspNetUsers_UnlockedByUserId",
+                        column: x => x.UnlockedByUserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_AIChapterUnlocks_Chapters_ChapterId",
+                        column: x => x.ChapterId,
+                        principalTable: "Chapters",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_AIChapterUnlocks_Titles_TitleId",
+                        column: x => x.TitleId,
+                        principalTable: "Titles",
                         principalColumn: "Id");
                 });
 
@@ -1375,6 +1536,32 @@ namespace FallenFaction.Server.Migrations
                         column: x => x.TitleId,
                         principalTable: "Titles",
                         principalColumn: "Id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "TranslationRequestVotes",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    RequestId = table.Column<int>(type: "int", nullable: false),
+                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    VotedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_TranslationRequestVotes", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_TranslationRequestVotes_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_TranslationRequestVotes_TranslationRequests_RequestId",
+                        column: x => x.RequestId,
+                        principalTable: "TranslationRequests",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -1532,6 +1719,22 @@ namespace FallenFaction.Server.Migrations
                     { 8, "CanDeleteChapter" },
                     { 9, "CanViewAnalytics" }
                 });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AIChapterUnlocks_ChapterId",
+                table: "AIChapterUnlocks",
+                column: "ChapterId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AIChapterUnlocks_TitleId",
+                table: "AIChapterUnlocks",
+                column: "TitleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AIChapterUnlocks_UnlockedByUserId",
+                table: "AIChapterUnlocks",
+                column: "UnlockedByUserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ApprovedTitleChanges_ReviewedByUserId",
@@ -1913,6 +2116,31 @@ namespace FallenFaction.Server.Migrations
                 column: "RejectedTitleId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_TicketTransactions_CreatedAt",
+                table: "TicketTransactions",
+                column: "CreatedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TicketTransactions_ExpiresAt",
+                table: "TicketTransactions",
+                column: "ExpiresAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TicketTransactions_PerformedByUserId",
+                table: "TicketTransactions",
+                column: "PerformedByUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TicketTransactions_UserId",
+                table: "TicketTransactions",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TicketTransactions_UserId_Type",
+                table: "TicketTransactions",
+                columns: new[] { "UserId", "TicketType" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_TitleArtists_TitlesId",
                 table: "TitleArtists",
                 column: "TitlesId");
@@ -1973,6 +2201,52 @@ namespace FallenFaction.Server.Migrations
                 column: "TitlesId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_TranslationRequests_CreatedAt",
+                table: "TranslationRequests",
+                column: "CreatedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TranslationRequests_ReleasedTeamId",
+                table: "TranslationRequests",
+                column: "ReleasedTeamId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TranslationRequests_ReleasedTitleId",
+                table: "TranslationRequests",
+                column: "ReleasedTitleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TranslationRequests_RequestedBy",
+                table: "TranslationRequests",
+                column: "RequestedByUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TranslationRequests_ReviewedByUserId",
+                table: "TranslationRequests",
+                column: "ReviewedByUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TranslationRequests_Status",
+                table: "TranslationRequests",
+                column: "Status");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TranslationRequestVotes_RequestId",
+                table: "TranslationRequestVotes",
+                column: "RequestId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TranslationRequestVotes_RequestId_UserId",
+                table: "TranslationRequestVotes",
+                columns: new[] { "RequestId", "UserId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TranslationRequestVotes_UserId",
+                table: "TranslationRequestVotes",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_UserNotificationReads_NotificationId",
                 table: "UserNotificationReads",
                 column: "NotificationId");
@@ -1994,6 +2268,12 @@ namespace FallenFaction.Server.Migrations
                 column: "TeamId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_UserTickets_UserId",
+                table: "UserTickets",
+                column: "UserId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_UserTrustRecords_UserId_ActionType",
                 table: "UserTrustRecords",
                 columns: new[] { "UserId", "ActionType" },
@@ -2003,6 +2283,9 @@ namespace FallenFaction.Server.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "AIChapterUnlocks");
+
             migrationBuilder.DropTable(
                 name: "ApprovedTitleChanges");
 
@@ -2076,6 +2359,9 @@ namespace FallenFaction.Server.Migrations
                 name: "Reports");
 
             migrationBuilder.DropTable(
+                name: "TicketTransactions");
+
+            migrationBuilder.DropTable(
                 name: "TitleArtists");
 
             migrationBuilder.DropTable(
@@ -2100,10 +2386,16 @@ namespace FallenFaction.Server.Migrations
                 name: "TitleTeams");
 
             migrationBuilder.DropTable(
+                name: "TranslationRequestVotes");
+
+            migrationBuilder.DropTable(
                 name: "UserNotificationReads");
 
             migrationBuilder.DropTable(
                 name: "UserTeamRolePermissions");
+
+            migrationBuilder.DropTable(
+                name: "UserTickets");
 
             migrationBuilder.DropTable(
                 name: "UserTrustRecords");
@@ -2137,6 +2429,9 @@ namespace FallenFaction.Server.Migrations
 
             migrationBuilder.DropTable(
                 name: "Tags");
+
+            migrationBuilder.DropTable(
+                name: "TranslationRequests");
 
             migrationBuilder.DropTable(
                 name: "Notifications");

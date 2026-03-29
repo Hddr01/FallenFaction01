@@ -6,16 +6,17 @@ namespace FallenFaction.Server.Data.Models
     public enum TranslationRequestStatus
     {
         Pending = 1,        // User submitted, awaiting admin review
-        Approved = 2,       // Admin approved, queued for processing
-        PreProcessing = 3,  // Being scraped/prepared
+        Approved = 2,       // Admin approved — eligible for community voting
+        PreProcessing = 3,  // Being scraped/prepared after auto-release trigger
         Released = 4,       // Live on the platform as an AI Translation title
         Rejected = 5        // Admin rejected with reason
     }
 
     /// <summary>
-    /// A user's request to have a novel added to the platform for AI translation.
+    /// A user's request to have a novel added for AI translation.
     /// Mirrors WTR-Lab's Series Request system.
     /// Flow: Pending → Approved → PreProcessing → Released (or Rejected at any stage).
+    /// Highest-voted Approved request auto-releases every 2 hours via background job.
     /// </summary>
     public class TranslationRequest
     {
@@ -65,6 +66,16 @@ namespace FallenFaction.Server.Data.Models
         /// <summary>Approximate total chapter count from the source, if known.</summary>
         public int? EstimatedChapterCount { get; set; }
 
+        // ── Voting ───────────────────────────────────────────────────────────
+        /// <summary>
+        /// Denormalized vote count — updated on every vote/unvote for fast sorting.
+        /// Only Approved requests accumulate votes.
+        /// </summary>
+        public int VoteCount { get; set; } = 0;
+
+        /// <summary>All individual vote records for this request.</summary>
+        public ICollection<TranslationRequestVote> Votes { get; set; } = new HashSet<TranslationRequestVote>();
+
         // ── Status & workflow ────────────────────────────────────────────────
         public TranslationRequestStatus Status { get; set; } = TranslationRequestStatus.Pending;
 
@@ -87,6 +98,12 @@ namespace FallenFaction.Server.Data.Models
 
         [ForeignKey("ReleasedTitleId")]
         public Title? ReleasedTitle { get; set; }
+
+        /// <summary>The AI/TL team that owns the released title.</summary>
+        public int? ReleasedTeamId { get; set; }
+
+        [ForeignKey("ReleasedTeamId")]
+        public Team? ReleasedTeam { get; set; }
 
         /// <summary>How many tickets were spent to release this (if fast-released by user).</summary>
         [Column(TypeName = "decimal(18,2)")]
