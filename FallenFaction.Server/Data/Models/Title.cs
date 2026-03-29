@@ -17,7 +17,8 @@ namespace FallenFaction.Server.Data.Models
     {
         Translation = 1,  // Translated from a source language
         Original = 2,     // Original work created by the group
-        Fanfic = 3        // Fan fiction based on an existing IP
+        Fanfic = 3,       // Fan fiction based on an existing IP
+        AITranslation = 4 // AI-translated novel (admin-only, ticket-gated chapters)
     }
 
     public class Title

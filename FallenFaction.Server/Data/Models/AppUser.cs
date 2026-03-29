@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FallenFaction.Server.Data.Models
 {
@@ -46,5 +47,20 @@ namespace FallenFaction.Server.Data.Models
         public ICollection<ChapterView> ChapterViews { get; set; }
         public ICollection<Comment> Comments { get; set; }
         public ICollection<CommentReaction> CommentReactions { get; set; }
+
+        // ── Ticket system ────────────────────────────────────────────────────
+        public UserTicket? Wallet { get; set; }
+        public ICollection<TicketTransaction> TicketTransactions { get; set; } = new HashSet<TicketTransaction>();
+        public ICollection<TranslationRequest> TranslationRequests { get; set; } = new HashSet<TranslationRequest>();
+        public ICollection<AIChapterUnlock> AIChapterUnlocks { get; set; } = new HashSet<AIChapterUnlock>();
+
+        // ── Patreon integration ──────────────────────────────────────────────
+        public string? PatreonUserId { get; set; }
+        public string? PatreonAccessToken { get; set; }
+        public string? PatreonRefreshToken { get; set; }
+        public DateTime? PatreonLinkedAt { get; set; }
+        public string? PatreonTierName { get; set; }
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal PatreonMonthlyAmount { get; set; } = 0;
     }
 }
