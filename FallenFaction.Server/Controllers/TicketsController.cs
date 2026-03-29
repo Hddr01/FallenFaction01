@@ -39,12 +39,12 @@ namespace FallenFaction.Server.Controllers
 
             return Ok(new WalletDto
             {
-                GoldBalance   = wallet?.GoldBalance   ?? 0,
+                GoldBalance = wallet?.GoldBalance ?? 0,
                 SilverBalance = wallet?.SilverBalance ?? 0,
-                TotalBalance  = (wallet?.GoldBalance ?? 0) + (wallet?.SilverBalance ?? 0),
-                CanVote   = canVote,
+                TotalBalance = (wallet?.GoldBalance ?? 0) + (wallet?.SilverBalance ?? 0),
+                CanVote = canVote,
                 UserLevel = user.UserLevel,
-                XpPoints  = user.XpPoints
+                XpPoints = user.XpPoints
             });
         }
 
@@ -65,17 +65,17 @@ namespace FallenFaction.Server.Controllers
                 .Take(pageSize)
                 .Select(t => new TransactionDto
                 {
-                    Id              = t.Id,
-                    TicketType      = t.TicketType.ToString(),
+                    Id = t.Id,
+                    TicketType = t.TicketType.ToString(),
                     TransactionType = t.TransactionType.ToString(),
-                    Amount          = t.Amount,
-                    BalanceAfter    = t.BalanceAfter,
-                    Description     = t.Description,
-                    RelatedTitleId  = t.RelatedTitleId,
+                    Amount = t.Amount,
+                    BalanceAfter = t.BalanceAfter,
+                    Description = t.Description,
+                    RelatedTitleId = t.RelatedTitleId,
                     RelatedChapterId = t.RelatedChapterId,
-                    ExpiresAt        = t.ExpiresAt,
-                    PatreonTierName  = t.PatreonTierName,
-                    CreatedAt        = t.CreatedAt
+                    ExpiresAt = t.ExpiresAt,
+                    PatreonTierName = t.PatreonTierName,
+                    CreatedAt = t.CreatedAt
                 })
                 .ToListAsync();
 
@@ -98,9 +98,9 @@ namespace FallenFaction.Server.Controllers
             var cost = ComputeUnlockCost(chapter.CharacterCount);
             return Ok(new ChapterUnlockCostDto
             {
-                ChapterId         = chapterId,
-                CharacterCount    = chapter.CharacterCount,
-                Cost              = cost,
+                ChapterId = chapterId,
+                CharacterCount = chapter.CharacterCount,
+                Cost = cost,
                 IsAlreadyUnlocked = !chapter.IsAILocked
             });
         }
@@ -156,9 +156,9 @@ namespace FallenFaction.Server.Controllers
                 else
                 {
                     silverSpent = wallet.SilverBalance;
-                    goldSpent   = cost - silverSpent;
+                    goldSpent = cost - silverSpent;
                     wallet.SilverBalance = 0;
-                    wallet.GoldBalance  -= goldSpent;
+                    wallet.GoldBalance -= goldSpent;
                 }
                 wallet.UpdatedAt = DateTime.UtcNow;
 
@@ -166,41 +166,41 @@ namespace FallenFaction.Server.Controllers
                 if (silverSpent > 0)
                     _context.TicketTransactions.Add(new TicketTransaction
                     {
-                        UserId          = userId!,
-                        TicketType      = TicketType.Silver,
+                        UserId = userId!,
+                        TicketType = TicketType.Silver,
                         TransactionType = TicketTransactionType.ChapterUnlock,
-                        Amount          = -silverSpent,
-                        BalanceAfter    = wallet.SilverBalance,
-                        Description     = $"Unlocked Ch.{chapter.ChapterNumber} of {chapter.Title?.EnglishTitle}",
+                        Amount = -silverSpent,
+                        BalanceAfter = wallet.SilverBalance,
+                        Description = $"Unlocked Ch.{chapter.ChapterNumber} of {chapter.Title?.EnglishTitle}",
                         RelatedChapterId = chapter.Id,
-                        RelatedTitleId   = chapter.TitleId,
-                        CreatedAt        = DateTime.UtcNow
+                        RelatedTitleId = chapter.TitleId,
+                        CreatedAt = DateTime.UtcNow
                     });
 
                 if (goldSpent > 0)
                     _context.TicketTransactions.Add(new TicketTransaction
                     {
-                        UserId          = userId!,
-                        TicketType      = TicketType.Gold,
+                        UserId = userId!,
+                        TicketType = TicketType.Gold,
                         TransactionType = TicketTransactionType.ChapterUnlock,
-                        Amount          = -goldSpent,
-                        BalanceAfter    = wallet.GoldBalance,
-                        Description     = $"Unlocked Ch.{chapter.ChapterNumber} of {chapter.Title?.EnglishTitle}",
+                        Amount = -goldSpent,
+                        BalanceAfter = wallet.GoldBalance,
+                        Description = $"Unlocked Ch.{chapter.ChapterNumber} of {chapter.Title?.EnglishTitle}",
                         RelatedChapterId = chapter.Id,
-                        RelatedTitleId   = chapter.TitleId,
-                        CreatedAt        = DateTime.UtcNow
+                        RelatedTitleId = chapter.TitleId,
+                        CreatedAt = DateTime.UtcNow
                     });
 
                 // Record unlock event
                 _context.AIChapterUnlocks.Add(new AIChapterUnlock
                 {
-                    ChapterId        = chapter.Id,
-                    TitleId          = chapter.TitleId,
+                    ChapterId = chapter.Id,
+                    TitleId = chapter.TitleId,
                     UnlockedByUserId = userId!,
-                    TicketCost       = cost,
-                    TicketTypeUsed   = goldSpent > 0 ? TicketType.Gold : TicketType.Silver,
-                    CharacterCount   = chapter.CharacterCount,
-                    UnlockedAt       = DateTime.UtcNow
+                    TicketCost = cost,
+                    TicketTypeUsed = goldSpent > 0 ? TicketType.Gold : TicketType.Silver,
+                    CharacterCount = chapter.CharacterCount,
+                    UnlockedAt = DateTime.UtcNow
                 });
 
                 // Flip the lock permanently
@@ -214,9 +214,9 @@ namespace FallenFaction.Server.Controllers
 
                 return Ok(new UnlockChapterResponseDto
                 {
-                    Success       = true,
-                    TicketsSpent  = cost,
-                    NewGoldBalance   = wallet.GoldBalance,
+                    Success = true,
+                    TicketsSpent = cost,
+                    NewGoldBalance = wallet.GoldBalance,
                     NewSilverBalance = wallet.SilverBalance,
                     Message = $"Chapter unlocked! Spent {cost:F2} tickets."
                 });
@@ -260,15 +260,15 @@ namespace FallenFaction.Server.Controllers
 
             _context.TicketTransactions.Add(new TicketTransaction
             {
-                UserId              = dto.UserId,
-                TicketType          = ticketType,
-                TransactionType     = TicketTransactionType.AdminGrant,
-                Amount              = dto.Amount,
-                BalanceAfter        = ticketType == TicketType.Silver ? wallet.SilverBalance : wallet.GoldBalance,
-                Description         = dto.Description,
-                PerformedByUserId   = adminId,
-                ExpiresAt           = expiresAt,
-                CreatedAt           = DateTime.UtcNow
+                UserId = dto.UserId,
+                TicketType = ticketType,
+                TransactionType = TicketTransactionType.AdminGrant,
+                Amount = dto.Amount,
+                BalanceAfter = ticketType == TicketType.Silver ? wallet.SilverBalance : wallet.GoldBalance,
+                Description = dto.Description,
+                PerformedByUserId = adminId,
+                ExpiresAt = expiresAt,
+                CreatedAt = DateTime.UtcNow
             });
 
             await _context.SaveChangesAsync();
@@ -283,6 +283,55 @@ namespace FallenFaction.Server.Controllers
             await AwardXpAsync(dto.UserId, dto.Amount, dto.Reason);
             await _context.SaveChangesAsync();
             return Ok(new { message = $"Awarded {dto.Amount} XP to {dto.UserId}." });
+        }
+
+        // ── GET /api/tickets/admin/grant-log  [Admin] ────────────────────────
+        /// <summary>Returns the most recent AdminGrant transactions across all users.</summary>
+        [HttpGet("admin/grant-log")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> AdminGrantLog([FromQuery] int limit = 20)
+        {
+            var rows = await _context.TicketTransactions
+                .Where(t => t.TransactionType == TicketTransactionType.AdminGrant)
+                .OrderByDescending(t => t.CreatedAt)
+                .Take(Math.Min(limit, 100))
+                .Select(t => new
+                {
+                    t.Id,
+                    t.UserId,
+                    UserName = _context.Users
+                        .Where(u => u.Id == t.UserId)
+                        .Select(u => u.UserName)
+                        .FirstOrDefault(),
+                    TicketType = t.TicketType.ToString(),
+                    t.Amount,
+                    t.Description,
+                    t.PerformedByUserId,
+                    t.ExpiresAt,
+                    t.CreatedAt
+                })
+                .ToListAsync();
+
+            return Ok(rows);
+        }
+
+        // ── GET /api/tickets/admin/user-search  [Admin] ──────────────────────
+        /// <summary>Quick user lookup for the grant UI — returns id, userName, email.</summary>
+        [HttpGet("admin/search")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> AdminUserSearch([FromQuery] string q, [FromQuery] int limit = 8)
+        {
+            if (string.IsNullOrWhiteSpace(q) || q.Length < 2)
+                return Ok(Array.Empty<object>());
+
+            var lower = q.ToLower();
+            var users = await _context.Users
+                .Where(u => u.UserName!.ToLower().Contains(lower) || u.Email!.ToLower().Contains(lower))
+                .Take(Math.Min(limit, 20))
+                .Select(u => new { u.Id, u.UserName, u.Email })
+                .ToListAsync();
+
+            return Ok(users);
         }
 
         // ── Internal: AwardXp ────────────────────────────────────────────────

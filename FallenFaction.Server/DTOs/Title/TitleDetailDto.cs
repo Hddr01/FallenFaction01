@@ -29,5 +29,13 @@ namespace FallenFaction.Server.DTOs.Title
         public List<string> Artists { get; set; } = new List<string>();
         public List<string> Categories { get; set; } = new List<string>();
         public List<string> Tags { get; set; } = new List<string>();
+
+        // ── AI Translation fields ─────────────────────────────────────────────
+        /// <summary>1=Translation, 2=Original, 3=Fanfic, 4=AITranslation</summary>
+        public int TitleCategory { get; set; } = 1;
+        /// <summary>How many AI chapters are still locked (IsAILocked=true).</summary>
+        public int LockedChapterCount { get; set; } = 0;
+        /// <summary>How many AI chapters are already unlocked by the community.</summary>
+        public int UnlockedChapterCount { get; set; } = 0;
     }
 }

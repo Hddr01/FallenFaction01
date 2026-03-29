@@ -1,4 +1,4 @@
-﻿// Controllers/RatingsController.cs
+// Controllers/RatingsController.cs
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -143,6 +143,10 @@ namespace FallenFaction.Server.Controllers
 
                 _logger.LogInformation("User {UserId} added rating {Value} for title {TitleId}",
                     user.Id, request.Value, request.TitleId);
+
+                // Award XP for rating a title (first time only, handled by duplicate check above)
+                await AwardXpAsync(user.Id, 5, "Rated a title");
+                await _context.SaveChangesAsync();
 
                 // Return updated statistics
                 var stats = await GetRatingStatistics(request.TitleId, user.Id);
@@ -474,5 +478,15 @@ namespace FallenFaction.Server.Controllers
         }
 
         #endregion
+
+        // ── XP helper ────────────────────────────────────────────────────────
+        private async Task AwardXpAsync(string userId, int xpAmount, string reason)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return;
+            user.XpPoints += xpAmount;
+            user.UserLevel = AppUser.ComputeLevel(user.XpPoints);
+            _logger.LogDebug("XP +{Xp} → {UserId} ({Reason})", xpAmount, userId, reason);
+        }
     }
 }

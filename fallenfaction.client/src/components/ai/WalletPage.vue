@@ -100,6 +100,9 @@
         </a>
       </div>
 
+      <!-- Patreon integration -->
+      <PatreonSection />
+
       <!-- Transaction history -->
       <div class="rounded-xl bg-[var(--color-background-soft)] border border-[var(--color-border)] overflow-hidden">
         <div class="px-5 py-4 border-b border-[var(--color-border)] flex items-center justify-between">
@@ -171,6 +174,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import { getWallet, getTransactions } from '@/services/aiTranslationService';
+import PatreonSection from '@/components/ai/PatreonSection.vue';
 
 const wallet   = ref(null);
 const loading  = ref(false);

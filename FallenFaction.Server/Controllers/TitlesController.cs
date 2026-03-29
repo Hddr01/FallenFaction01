@@ -800,6 +800,15 @@ namespace FallenFaction.Server.Controllers
                     };
 
                     _context.ChapterViews.Add(chapterView);
+
+                    // Award XP for reading a new chapter
+                    var reader = await _context.Users.FindAsync(userId);
+                    if (reader != null)
+                    {
+                        reader.XpPoints += 3;
+                        reader.UserLevel = AppUser.ComputeLevel(reader.XpPoints);
+                    }
+
                     await _context.SaveChangesAsync();
                 }
             }
