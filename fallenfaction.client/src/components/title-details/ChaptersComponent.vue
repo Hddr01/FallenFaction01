@@ -186,6 +186,10 @@
     chaptersPerPage: {
       type: Number,
       default: 20
+    },
+    filterTeamId: {
+      type: Number,
+      default: null
     }
   })
 
@@ -244,11 +248,14 @@
   })
 
   const filterChapters = () => {
+    const base = props.filterTeamId
+      ? props.chapters.filter(ch => ch.teamId === props.filterTeamId)
+      : [...props.chapters]
     if (!searchQuery.value.trim()) {
-      filteredChapters.value = [...props.chapters]
+      filteredChapters.value = base
     } else {
       const query = searchQuery.value.toLowerCase()
-      filteredChapters.value = props.chapters.filter(
+      filteredChapters.value = base.filter(
         (chapter) =>
           chapter.name.toLowerCase().includes(query) ||
           chapter.chapterNumber.toString().includes(query) ||

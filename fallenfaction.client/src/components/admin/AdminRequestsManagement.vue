@@ -188,21 +188,67 @@
         <div class="bg-[var(--color-background-soft)] rounded-2xl shadow-xl border border-[var(--color-border)] w-full max-w-md p-6">
           <h3 class="text-lg font-bold text-[var(--color-heading)] mb-1">Release Novel</h3>
           <p class="text-sm text-[var(--color-text)] opacity-60 mb-4">
-            Enter the Title ID that was created in the system for "{{ releaseModal.req?.proposedTitle }}".
+            Link "<strong class="text-[var(--color-text)]">{{ releaseModal.req?.proposedTitle }}</strong>" to an AI Translation title you already created in the system.
           </p>
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-[var(--color-text)] mb-1">Title ID *</label>
-            <input v-model.number="releaseModal.titleId" type="number" min="1" placeholder="e.g. 42"
-              class="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"/>
+
+          <!-- Title search -->
+          <div class="mb-4 relative">
+            <label class="block text-sm font-medium text-[var(--color-text)] mb-1">Search AI Translation Titles *</label>
+            <input
+              v-model="releaseModal.searchQuery"
+              @input="onReleaseTitleSearch"
+              placeholder="Type to search titles..."
+              class="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+            />
+            <!-- Search results dropdown -->
+            <div v-if="releaseModal.searchResults.length > 0 && !releaseModal.selectedTitle"
+              class="absolute z-10 w-full mt-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-background-soft)] shadow-xl overflow-hidden">
+              <button
+                v-for="t in releaseModal.searchResults" :key="t.id"
+                @click="selectReleaseTitle(t)"
+                class="w-full px-3 py-2.5 text-left text-sm hover:bg-[var(--color-background)] transition flex items-center justify-between gap-2">
+                <span class="text-[var(--color-text)]">{{ t.name }}</span>
+                <span class="text-[var(--color-text)] opacity-40 text-xs shrink-0">ID {{ t.id }}</span>
+              </button>
+            </div>
+            <!-- Selected title chip -->
+            <div v-if="releaseModal.selectedTitle"
+              class="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/30 text-sm">
+              <svg class="w-4 h-4 text-green-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span class="text-green-400 font-medium">{{ releaseModal.selectedTitle.name }}</span>
+              <span class="text-green-400/60 text-xs">(ID {{ releaseModal.selectedTitle.id }})</span>
+              <button @click="clearReleaseTitle" class="ml-auto text-green-400/60 hover:text-green-400 text-xs">✕ change</button>
+            </div>
+            <p v-if="releaseModal.searchLoading" class="text-xs text-[var(--color-text)] opacity-50 mt-1">Searching...</p>
+            <div v-if="!releaseModal.selectedTitle && releaseModal.searchQuery && !releaseModal.searchLoading && releaseModal.searchResults.length === 0"
+              class="mt-2 p-3 rounded-lg bg-[var(--color-background)] border border-[var(--color-border)] text-xs text-[var(--color-text)] opacity-70 space-y-2">
+              <p>No AI Translation title found matching "<strong>{{ releaseModal.searchQuery }}</strong>".</p>
+              <p>Create the title first, then come back to release:</p>
+              <a :href="buildCreateTitleUrl(releaseModal.req)" target="_blank"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[var(--color-accent)]/20 border border-[var(--color-accent)]/40 text-[var(--color-accent)] font-medium hover:bg-[var(--color-accent)]/30 transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Create AI Translation title →
+              </a>
+            </div>
           </div>
+
+          <!-- Error display -->
+          <div v-if="releaseModal.error" class="mb-4 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-400">
+            {{ releaseModal.error }}
+          </div>
+
           <div class="flex gap-3">
-            <button @click="releaseModal.open = false"
+            <button @click="closeReleaseModal"
               class="flex-1 px-4 py-2 rounded-lg border border-[var(--color-border)] text-sm font-medium hover:bg-[var(--color-background)] transition">
               Cancel
             </button>
-            <button @click="confirmRelease" :disabled="!releaseModal.titleId || actioningId"
+            <button @click="confirmRelease" :disabled="!releaseModal.selectedTitle || actioningId"
               class="flex-1 px-4 py-2 rounded-lg bg-green-500/80 text-white text-sm font-semibold hover:bg-green-500 transition disabled:opacity-50">
-              Confirm Release
+              {{ actioningId ? 'Releasing…' : 'Confirm Release' }}
             </button>
           </div>
         </div>
@@ -214,7 +260,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import {
-  adminGetRequestQueue, adminReviewRequest, adminReleaseRequest
+  adminGetRequestQueue, adminReviewRequest, adminReleaseRequest, adminSearchAiTitles
 } from '@/services/aiTranslationService';
 
 const requests    = ref([]);
@@ -244,7 +290,49 @@ const totalPages = computed(() => Math.ceil(total.value / PAGE_SIZE));
 
 // Modals
 const rejectModal  = ref({ open: false, req: null, reason: '' });
-const releaseModal = ref({ open: false, req: null, titleId: null });
+const releaseModal = ref({
+  open: false, req: null,
+  searchQuery: '', searchResults: [], searchLoading: false,
+  selectedTitle: null, error: ''
+});
+
+let releaseSearchTimer = null;
+function onReleaseTitleSearch() {
+  clearTimeout(releaseSearchTimer);
+  releaseModal.value.selectedTitle = null;
+  releaseModal.value.error = '';
+  if (!releaseModal.value.searchQuery.trim()) {
+    releaseModal.value.searchResults = [];
+    return;
+  }
+  releaseSearchTimer = setTimeout(async () => {
+    releaseModal.value.searchLoading = true;
+    try {
+      const res = await adminSearchAiTitles(releaseModal.value.searchQuery.trim());
+      releaseModal.value.searchResults = res.data || [];
+    } catch { releaseModal.value.searchResults = []; }
+    finally { releaseModal.value.searchLoading = false; }
+  }, 300);
+}
+
+function selectReleaseTitle(t) {
+  releaseModal.value.selectedTitle = t;
+  releaseModal.value.searchResults = [];
+}
+
+function clearReleaseTitle() {
+  releaseModal.value.selectedTitle = null;
+  releaseModal.value.searchQuery = '';
+  releaseModal.value.searchResults = [];
+}
+
+function closeReleaseModal() {
+  releaseModal.value = {
+    open: false, req: null,
+    searchQuery: '', searchResults: [], searchLoading: false,
+    selectedTitle: null, error: ''
+  };
+}
 
 async function fetchRequests() {
   loading.value = true;
@@ -274,7 +362,7 @@ async function review(req, action) {
 }
 
 function openReject(req)  { rejectModal.value  = { open: true, req, reason: '' }; }
-function openRelease(req) { releaseModal.value = { open: true, req, titleId: null }; }
+function openRelease(req) { closeReleaseModal(); releaseModal.value.open = true; releaseModal.value.req = req; }
 
 async function confirmReject() {
   const req = rejectModal.value.req;
@@ -292,16 +380,32 @@ async function confirmReject() {
 
 async function confirmRelease() {
   const req = releaseModal.value.req;
+  const selected = releaseModal.value.selectedTitle;
+  if (!selected) return;
   actioningId.value = req.id;
+  releaseModal.value.error = '';
   try {
-    await adminReleaseRequest({ requestId: req.id, titleId: releaseModal.value.titleId });
-    releaseModal.value.open = false;
+    await adminReleaseRequest({ requestId: req.id, titleId: selected.id });
+    closeReleaseModal();
     await fetchRequests();
   } catch (e) {
-    alert(e.response?.data?.message ?? 'Release failed.');
+    releaseModal.value.error = e.response?.data?.message ?? 'Release failed. Check the server logs.';
   } finally {
     actioningId.value = null;
   }
+}
+
+function buildCreateTitleUrl(req) {
+  if (!req) return '/novel/addtitle';
+  const params = new URLSearchParams({
+    prefill: '1',
+    category: '4',
+    title: req.proposedTitle || '',
+    originalTitle: req.originalLanguageTitle || '',
+    description: req.description || '',
+    source: req.sourceUrl || '',
+  });
+  return `/novel/addtitle?${params.toString()}`;
 }
 
 function statusClass(s) {

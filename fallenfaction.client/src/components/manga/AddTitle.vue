@@ -6,6 +6,15 @@
           <h3 class="text-lg font-semibold text-[var(--color-heading)]">Create Title</h3>
         </div>
 
+        <!-- Pre-fill notice (when opened from Release modal) -->
+        <div v-if="isPrefill"
+          class="mx-6 mt-4 px-4 py-3 rounded-lg bg-purple-500/10 border border-purple-500/30 text-sm text-purple-300 flex items-start gap-2">
+          <svg class="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span>Form pre-filled from translation request. Review and adjust before submitting. After saving, go back to the Translation Requests page to complete the Release step.</span>
+        </div>
+
         <!-- Loading State -->
         <div v-if="isLoading" class="p-6 text-center">
           <div class="inline-flex items-center">
@@ -103,10 +112,16 @@
                 <SelectItem value="1">Translation &mdash; translated from source</SelectItem>
                 <SelectItem value="2">Original creation &mdash; your own work</SelectItem>
                 <SelectItem value="3">Fan fiction &mdash; based on existing IP</SelectItem>
+                <SelectItem v-if="isAdmin" value="4">AI Translation &mdash; community ticket unlocks</SelectItem>
               </SelectContent>
             </Select>
             <p v-if="formData.titleCategory !== '1'" class="text-xs text-muted-foreground">
-              This will be posted under your personal studio. No group selection needed.
+              <template v-if="formData.titleCategory === '4'">
+                AI Translation titles are automatically assigned to the AI/TL system team. Chapters will be locked until community tickets unlock them.
+              </template>
+              <template v-else>
+                This will be posted under your personal studio. No group selection needed.
+              </template>
             </p>
           </div>
 
@@ -247,7 +262,7 @@
               </Select>
             </div>
 
-            <div class="space-y-3">
+            <div v-if="formData.titleCategory === '1'" class="space-y-3">
               <Label class="text-sm font-medium text-foreground">
                 Translation Status
               </Label>
@@ -355,6 +370,8 @@
 
 <script setup>
   import { ref, reactive, computed, onMounted } from 'vue'
+  import { useRoute } from 'vue-router'
+  import { useAuthStore } from '@/stores/authStore.js'
   import MultiSelect from './MultiSelect.vue'
   import ImagePlaceholder from './ImagePlaceholder.vue'
   import TagsInputWithSuggestions from './TagsInputWithSuggestions.vue'
@@ -364,6 +381,11 @@
   import { Textarea } from '@/components/ui/textarea'
   import { Button } from '@/components/ui/button'
   import titleApi from '../../services/titleApi.js'
+
+  const authStore = useAuthStore()
+  const isAdmin = computed(() => authStore.isAdmin)
+  const route = useRoute()
+  const isPrefill = computed(() => route.query.prefill === '1')
 
   // Form data
   const formData = reactive({
@@ -583,6 +605,17 @@
 
   onMounted(() => {
     loadFormData()
+
+    // Pre-fill from query params — triggered when admin clicks "Create Title" from Release modal
+    // URL shape: /novel/addtitle?prefill=1&title=Solo&source=https://...&originalTitle=...&description=...&category=4
+    if (route.query.prefill === '1') {
+      if (route.query.title)         formData.englishTitle          = route.query.title
+      if (route.query.originalTitle) formData.originalTitle         = route.query.originalTitle
+      if (route.query.description)   formData.description           = route.query.description
+      if (route.query.category)      formData.titleCategory         = route.query.category
+      // Store source URL in externalLinks so admin can reference it
+      if (route.query.source)        formData.externalLinks         = [route.query.source]
+    }
   })
 </script>
 

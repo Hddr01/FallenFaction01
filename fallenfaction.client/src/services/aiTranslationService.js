@@ -48,4 +48,11 @@ export const adminReviewRequest = (dto) =>
 export const adminReleaseRequest = (dto) =>
   api.post('/translation-requests/admin/release', dto);
 
+export const adminSearchAiTitles = (q = '') =>
+  api.get('/translation-requests/admin/search-titles', { params: { q } });
+
+// Search all titles in the system — used in the request form to warn about duplicates
+export const searchExistingTitles = (q = '') =>
+  api.get('/Titles/Search', { params: { query: q, limit: 5 } });
+
 export default api;

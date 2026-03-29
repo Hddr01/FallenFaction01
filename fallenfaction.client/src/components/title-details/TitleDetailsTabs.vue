@@ -104,7 +104,11 @@
             <!-- Translators Section - CAROUSEL VERSION -->
             <div v-if="titleData.teams && titleData.teams.length > 0" class="px-2 mt-8">
               <div class="mb-4">
-                <h2 class="text-lg font-semibold text-gray-100">Translators</h2>
+                <h2 class="text-lg font-semibold text-gray-100">
+                {{ (props.titleData.titleCategory === 2 || props.titleData.titleCategory === 3)
+                   ? 'Creators Group'
+                   : 'Translation Groups' }}
+              </h2>
               </div>
 
               <!-- Carousel for Translators -->
@@ -154,6 +158,18 @@
                 <!-- <CarouselPrevious class="left-2" />
                 <CarouselNext class="right-2" /> -->
               </Carousel>
+
+              <!-- Join as Translator button — Translation (1) + AI-Translation (4) only, no system teams -->
+              <div v-if="props.isAuthenticated && (props.titleData.titleCategory === 1 || props.titleData.titleCategory === 4)"
+                class="mt-4">
+                <button @click="openJoinModal"
+                  class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--color-border)] text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-background-mute)] transition">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                  </svg>
+                  Request to join as translator
+                </button>
+              </div>
             </div>
 
             <!-- Statistics Section -->
@@ -375,10 +391,37 @@
               class="mb-4"
             />
 
+            <!-- Team filter selector — only when multiple human teams -->
+            <div v-if="humanTeams.length > 1" class="mb-4">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm text-[var(--color-text)] opacity-60 shrink-0">Reading:</span>
+                <button
+                  @click="selectedTeamFilter = null"
+                  :class="['px-3 py-1.5 rounded-full text-xs font-medium transition border',
+                    selectedTeamFilter === null
+                      ? 'bg-[var(--color-accent)] text-white border-transparent'
+                      : 'border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-background-mute)]']">
+                  All translations
+                </button>
+                <button
+                  v-for="team in humanTeams" :key="team.id"
+                  @click="selectedTeamFilter = team.id"
+                  :class="['px-3 py-1.5 rounded-full text-xs font-medium transition border flex items-center gap-1.5',
+                    selectedTeamFilter === team.id
+                      ? 'bg-[var(--color-accent)] text-white border-transparent'
+                      : 'border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-background-mute)]']">
+                  <img v-if="team.avatarImagePath" :src="getImageUrl(team.avatarImagePath)"
+                    class="w-4 h-4 rounded-full object-cover" :alt="team.name"/>
+                  {{ team.name }}
+                </button>
+              </div>
+            </div>
+
             <ChaptersComponent :chapters="tabData.chapters.data"
                                :title-slug="buildTitleSlug(props.titleData.originalTitle, props.titleId)"
                                :title-id="props.titleId"
                                :is-ai-title="props.titleData.titleCategory === 4"
+                               :filter-team-id="selectedTeamFilter"
                                @chapter-unlocked="onChapterUnlocked" />
           </template>
 
@@ -449,6 +492,93 @@
         </Motion>
       </div>
     </div>
+  <!-- Join Request Modal -->
+  <Teleport to="body">
+    <div v-if="joinModal.open" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div class="bg-[var(--color-background-soft)] rounded-2xl shadow-xl border border-[var(--color-border)] w-full max-w-lg p-6">
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <h3 class="text-lg font-bold text-[var(--color-heading)]">Request to Join as Translator</h3>
+            <p class="text-sm text-[var(--color-text)] opacity-60 mt-0.5">{{ props.titleData.originalTitle }}</p>
+          </div>
+          <button @click="joinModal.open = false" class="text-[var(--color-text)] opacity-40 hover:opacity-80 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Loading check info -->
+        <div v-if="joinModal.loadingCheck" class="py-6 text-center text-sm text-[var(--color-text)] opacity-60">
+          Checking title status…
+        </div>
+
+        <template v-else>
+          <!-- Active team warning -->
+          <div v-if="joinModal.checkInfo?.hasActiveTeam"
+            class="mb-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-sm text-yellow-300 space-y-1">
+            <p class="font-semibold">⚠ Active translator detected</p>
+            <p v-for="t in joinModal.checkInfo.teams.filter(t => t.isActive)" :key="t.teamId">
+              <strong>{{ t.teamName }}</strong> posted a chapter on {{ formatDate(t.lastChapter) }}.
+              Your request may be auto-rejected.
+            </p>
+          </div>
+
+          <!-- Team selector -->
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-[var(--color-text)] mb-1">Your Team *</label>
+            <select v-model="joinModal.teamId"
+              class="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]">
+              <option value="">Select a team</option>
+              <option v-for="t in joinModal.myTeams" :key="t.id" :value="t.id">{{ t.name }}</option>
+            </select>
+            <p v-if="joinModal.myTeams.length === 0" class="text-xs text-red-400 mt-1">
+              You must be a manager of a team to submit this request.
+            </p>
+          </div>
+
+          <!-- Reason textarea -->
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-[var(--color-text)] mb-1">
+              Reason
+              <span v-if="joinModal.checkInfo?.reasonRequired" class="text-red-400">*</span>
+              <span v-else class="opacity-50">(optional)</span>
+            </label>
+            <textarea v-model="joinModal.message" rows="3"
+              :placeholder="joinModal.checkInfo?.hasActiveTeam
+                ? 'Explain why you want to take on this title despite an active translator…'
+                : 'Tell us about your translation plans for this title…'"
+              class="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] resize-none"/>
+          </div>
+
+          <!-- Error/result -->
+          <div v-if="joinModal.error"
+            :class="['mb-4 p-3 rounded-lg text-sm',
+              joinModal.autoRejected
+                ? 'bg-red-500/10 border border-red-500/30 text-red-400'
+                : 'bg-red-500/10 border border-red-500/30 text-red-400']">
+            {{ joinModal.error }}
+          </div>
+          <div v-if="joinModal.success" class="mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/30 text-sm text-green-400">
+            {{ joinModal.success }}
+          </div>
+        </template>
+
+        <div class="flex gap-3">
+          <button @click="joinModal.open = false"
+            class="flex-1 px-4 py-2 rounded-lg border border-[var(--color-border)] text-sm font-medium hover:bg-[var(--color-background)] transition">
+            {{ joinModal.success ? 'Close' : 'Cancel' }}
+          </button>
+          <button v-if="!joinModal.success" @click="submitJoinRequest"
+            :disabled="joinModal.submitting || !joinModal.teamId || (joinModal.checkInfo?.reasonRequired && !joinModal.message?.trim())"
+            class="flex-1 px-4 py-2 rounded-lg bg-[var(--color-accent)] text-white text-sm font-semibold hover:opacity-90 transition disabled:opacity-40">
+            {{ joinModal.submitting ? 'Submitting…' : 'Submit Request' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
   </div>
 </template>
 
@@ -491,6 +621,8 @@
     DialogTrigger,
   } from '@/components/ui/dialog'
   import { titleDetailsService } from '@/services/titleDetailsService'
+  import { useAuthStore } from '@/stores/authStore.js'
+  import axios from 'axios'
 
   const props = defineProps({
     titleId: {
@@ -531,6 +663,70 @@
   // Tab state
   const activeTab = ref(props.initialTab)
   const loading = ref(false)
+
+  // ── Auth ──────────────────────────────────────────────────────────────────────
+  const authStore = useAuthStore()
+
+  // ── Team filter (Chapters tab) ─────────────────────────────────────────────
+  const selectedTeamFilter = ref(null)
+  const humanTeams = computed(() =>
+    (props.titleData.teams || []).filter(t => !t.isSystemTeam)
+  )
+
+  // ── Join Request Modal ────────────────────────────────────────────────────────
+  const joinModal = ref({
+    open: false, loadingCheck: false, teamId: '', message: '',
+    myTeams: [], checkInfo: null, submitting: false,
+    error: '', success: '', autoRejected: false
+  })
+
+  async function openJoinModal() {
+    joinModal.value = { open: true, loadingCheck: true, teamId: '', message: '',
+      myTeams: [], checkInfo: null, submitting: false, error: '', success: '', autoRejected: false }
+
+    try {
+      // Load title check and user's manageable teams in parallel
+      const [checkRes, teamsRes] = await Promise.all([
+        axios.get(`/api/title-join-requests/check/${props.titleId}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+        }),
+        axios.get('/api/Team/MyTeams', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+        }).catch(() => ({ data: [] }))
+      ])
+      joinModal.value.checkInfo = checkRes.data
+      // Filter to teams where user is admin/manager (non-system)
+      joinModal.value.myTeams = (teamsRes.data || []).filter(t => !t.isSystemTeam && t.userRole === 'Admin')
+    } catch {
+      joinModal.value.error = 'Failed to load title info. Please try again.'
+    } finally {
+      joinModal.value.loadingCheck = false
+    }
+  }
+
+  async function submitJoinRequest() {
+    joinModal.value.submitting = true
+    joinModal.value.error = ''
+    joinModal.value.autoRejected = false
+    try {
+      await axios.post('/api/title-join-requests', {
+        titleId: props.titleId,
+        requestingTeamId: joinModal.value.teamId,
+        message: joinModal.value.message || null
+      }, { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } })
+      joinModal.value.success = 'Request submitted! The title team or an admin will review it.'
+    } catch (e) {
+      const data = e.response?.data
+      if (e.response?.status === 409 && data?.autoRejected) {
+        joinModal.value.autoRejected = true
+        joinModal.value.error = data.message || 'Request was auto-rejected.'
+      } else {
+        joinModal.value.error = data?.message ?? 'Submission failed. Please try again.'
+      }
+    } finally {
+      joinModal.value.submitting = false
+    }
+  }
 
   // Rating Dialog State
   const isRatingDialogOpen = ref(false)

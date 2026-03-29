@@ -276,14 +276,22 @@ namespace FallenFaction.Server.Controllers
         public async Task<IActionResult> AdminRelease([FromBody] AdminReleaseRequestDto dto)
         {
             var request = await _context.TranslationRequests.FindAsync(dto.RequestId);
-            if (request == null) return NotFound();
+            if (request == null)
+                return NotFound(new { message = $"Translation request #{dto.RequestId} not found." });
+
+            if (request.Status != TranslationRequestStatus.PreProcessing)
+                return BadRequest(new { message = $"Request must be in PreProcessing status to release. Current status: {request.Status}." });
 
             var title = await _context.Titles
                 .Include(t => t.Teams)
                 .FirstOrDefaultAsync(t => t.Id == dto.TitleId);
-            if (title == null) return NotFound("Title not found.");
 
-            // Get the AI/TL team for this title
+            if (title == null)
+                return NotFound(new { message = $"Title with ID {dto.TitleId} not found. Make sure you created the title first and entered the correct ID." });
+
+            if ((int)title.TitleCategory != 4)
+                return BadRequest(new { message = $"Title #{dto.TitleId} is not an AI Translation title (category is '{title.TitleCategory}'). Only AI Translation titles can be released via requests." });
+
             var aiTeam = title.Teams.FirstOrDefault(t => t.IsSystemTeam);
 
             request.Status          = TranslationRequestStatus.Released;
@@ -296,13 +304,39 @@ namespace FallenFaction.Server.Controllers
 
             return Ok(new
             {
-                message    = $"Request {dto.RequestId} released as title {dto.TitleId}.",
+                message    = $"Request #{dto.RequestId} released as \"{title.EnglishTitle ?? title.OriginalTitle}\" (Title ID {dto.TitleId}).",
                 titleId    = dto.TitleId,
+                titleName  = title.EnglishTitle ?? title.OriginalTitle,
                 requestId  = dto.RequestId
             });
         }
 
         // ── Mapper ────────────────────────────────────────────────────────────
+
+        // ── GET /api/translation-requests/admin/search-titles  [Admin] ─────────
+        /// <summary>
+        /// Search AI Translation titles by name — used by the release modal dropdown.
+        /// </summary>
+        [HttpGet("admin/search-titles")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> SearchAiTitles([FromQuery] string q = "")
+        {
+            var query = _context.Titles
+                .Where(t => t.TitleCategory == TitleCategory.AITranslation && t.IsAvailable);
+
+            if (!string.IsNullOrWhiteSpace(q))
+                query = query.Where(t =>
+                    t.EnglishTitle.Contains(q) || t.OriginalTitle.Contains(q));
+
+            var results = await query
+                .OrderBy(t => t.EnglishTitle)
+                .Take(20)
+                .Select(t => new { id = t.Id, name = t.EnglishTitle ?? t.OriginalTitle })
+                .ToListAsync();
+
+            return Ok(results);
+        }
+
         private static TranslationRequestDto MapToDto(TranslationRequest r, bool hasUserVoted) =>
             new()
             {

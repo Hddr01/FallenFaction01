@@ -2271,7 +2271,7 @@ namespace FallenFaction.Server.Controllers
                 BookmarkCount = bookmarks,
                 ViewCount = views,
                 LastUpdated = lastUpdated,
-                Teams = title.Teams.Select(t => new TeamSimpleDto { Id = t.Id, Name = t.Name, AvatarImagePath = t.AvatarImagePath, BackgroundImagePath = t.BackgroundImagePath }).ToList(),
+                Teams = title.Teams.Select(t => new TeamSimpleDto { Id = t.Id, Name = t.Name, AvatarImagePath = t.AvatarImagePath, BackgroundImagePath = t.BackgroundImagePath, IsSystemTeam = t.IsSystemTeam }).ToList(),
                 Authors = title.Authors.Select(a => a.Name).ToList(),
                 Artists = title.Artists.Select(a => a.Name).ToList(),
                 Categories = title.Categories.Select(c => c.Name).ToList(),
