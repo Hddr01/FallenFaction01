@@ -27,9 +27,8 @@ namespace FallenFaction.Server.Data.Models
             IsOnline = true;
         }
 
-        public DateTime? DateOfBirth { get; set; } // Made nullable since it's optional
+        public DateTime? DateOfBirth { get; set; }
 
-        // FIXED: Use HTTPS for default profile picture to prevent mixed content warnings
         public string ProfilePicturePath { get; set; } = "/img/default-avatar.png";
 
         public string? Bio { get; set; }
@@ -48,11 +47,39 @@ namespace FallenFaction.Server.Data.Models
         public ICollection<Comment> Comments { get; set; }
         public ICollection<CommentReaction> CommentReactions { get; set; }
 
+        // ── XP & Level system ────────────────────────────────────────────────
+        /// <summary>
+        /// Cumulative XP earned across all activities (reading, commenting, rating, etc.).
+        /// Level thresholds: L1=0, L2=100, L3=300, L4=700, L5=1500.
+        /// Level 2+ or Patreon supporter can vote on translation requests.
+        /// </summary>
+        public int XpPoints { get; set; } = 0;
+
+        /// <summary>
+        /// Cached level computed from XpPoints. Updated whenever XP is awarded.
+        /// 1=Newcomer, 2=Reader, 3=Regular, 4=Veteran, 5=Champion.
+        /// </summary>
+        public int UserLevel { get; set; } = 1;
+
+        /// <summary>Computes and returns the correct level for a given XP value.</summary>
+        public static int ComputeLevel(int xp) => xp switch
+        {
+            < 100  => 1,
+            < 300  => 2,
+            < 700  => 3,
+            < 1500 => 4,
+            _      => 5
+        };
+
+        /// <summary>Returns true if this user can vote on translation requests.</summary>
+        public bool CanVote => UserLevel >= 2 || PatreonUserId != null;
+
         // ── Ticket system ────────────────────────────────────────────────────
         public UserTicket? Wallet { get; set; }
         public ICollection<TicketTransaction> TicketTransactions { get; set; } = new HashSet<TicketTransaction>();
         public ICollection<TranslationRequest> TranslationRequests { get; set; } = new HashSet<TranslationRequest>();
         public ICollection<AIChapterUnlock> AIChapterUnlocks { get; set; } = new HashSet<AIChapterUnlock>();
+        public ICollection<TranslationRequestVote> TranslationRequestVotes { get; set; } = new HashSet<TranslationRequestVote>();
 
         // ── Patreon integration ──────────────────────────────────────────────
         public string? PatreonUserId { get; set; }

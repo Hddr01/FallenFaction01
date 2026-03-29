@@ -13,6 +13,8 @@ using Microsoft.EntityFrameworkCore.SqlServer;
 using Microsoft.IdentityModel.Tokens;
 using System.Reflection;
 using System.Text;
+using FallenFaction.Server.Services;
+using FallenFaction.Server.Data.SeedData;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -248,6 +250,10 @@ builder.Services.Configure<Dictionary<string, string>>(options =>
     options["StaticAssets:BaseUrl"] = builder.Configuration["StaticAssets:BaseUrl"] ?? "https://localhost:7217";
 });
 
+builder.Services.AddHostedService<OnlineStatusCleanupService>();
+builder.Services.AddHostedService<SilverTicketExpiryService>();
+builder.Services.AddHostedService<AutoReleaseService>();
+
 var app = builder.Build();
 app.UseDeveloperExceptionPage();
 
@@ -421,6 +427,15 @@ using (var scope = app.Services.CreateScope())
         }
     }
 }
+
+
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+    await AITeamSeeder.SeedAsync(context, userManager);
+}
+
 
 Console.WriteLine("Application started successfully!");
 app.Run();

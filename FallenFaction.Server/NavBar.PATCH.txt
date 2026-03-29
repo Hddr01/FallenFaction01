@@ -1,0 +1,61 @@
+// ════════════════════════════════════════════════════════════════════════
+// NavBar.vue  —  THREE PATCHES
+// ════════════════════════════════════════════════════════════════════════
+
+// ── PATCH 1 (template) — Add "AI Translation" link to the center nav ──────
+// FIND (in the <div class="navbar-center"> section, after the Catalog link):
+//
+//     <!-- More Dropdown -->
+//     <DropdownMenu :modal="false">
+//
+// INSERT BEFORE IT:
+//
+//     <div class="nav-item">
+//       <router-link to="/novel/voting" class="nav-link">
+//         <Sparkles class="nav-icon-lucide" :size="20" />
+//         <span class="nav-text">AI Voting</span>
+//       </router-link>
+//     </div>
+
+
+// ── PATCH 2 (template) — Add WalletWidget before NotificationDropdown ────
+// FIND (inside the <template v-if="authStore.isAuthenticated"> block):
+//
+//     <div class="nav-item">
+//       <NotificationDropdown />
+//     </div>
+//
+// REPLACE WITH:
+//
+//     <div class="nav-item">
+//       <WalletWidget />
+//     </div>
+//     <div class="nav-item">
+//       <NotificationDropdown />
+//     </div>
+
+
+// ── PATCH 3 (script setup) — Add imports ─────────────────────────────────
+// ADD to the existing import block at bottom of <script setup>:
+//
+//   import WalletWidget from '@/components/ai/WalletWidget.vue';
+//
+// ADD 'Sparkles' to the lucide-vue-next destructured import:
+//   Change:  import { Home, BookOpen, ..., Copyright } from 'lucide-vue-next';
+//   Add:     Sparkles,  (before the closing brace)
+
+
+// ── ALSO: Mobile sidebar — add AI Voting link ─────────────────────────────
+// FIND (in the sidebar Main Navigation section, after the Catalog Button):
+//
+//     <!-- More Collapsible -->
+//     <Collapsible v-model:open="showMobileMore"
+//
+// INSERT BEFORE IT:
+//
+//     <Button variant="ghost" as-child class="sidebar-item">
+//       <router-link to="/novel/voting" @click="closeMobileSidebar">
+//         <Sparkles :size="20" class="mr-3" />
+//         <span>AI Voting</span>
+//       </router-link>
+//     </Button>
