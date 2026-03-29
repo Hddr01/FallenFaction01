@@ -48,6 +48,19 @@ namespace FallenFaction.Server.Data.Models
         /// </summary>
         public string Content { get; set; } = string.Empty;
 
+        /// <summary>
+        /// True = this chapter's AI translation requires tickets to read.
+        /// False = free for everyone (either non-AI title, or already unlocked).
+        /// Only applies to titles with TitleCategory.AITranslation.
+        /// </summary>
+        public bool IsAILocked { get; set; } = false;
+
+        /// <summary>
+        /// Character count of the raw content. Used to compute unlock cost:
+        /// Cost = (CharacterCount + 500) × 0.0012, minimum 1 ticket.
+        /// </summary>
+        public int CharacterCount { get; set; } = 0;
+
         public ICollection<ChapterView> Views { get; set; }
     }
 }

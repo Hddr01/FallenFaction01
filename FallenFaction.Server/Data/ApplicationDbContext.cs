@@ -48,6 +48,12 @@ namespace FallenFaction.Server.Data
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<UserNotificationRead> UserNotificationReads { get; set; }
 
+        // ── Ticket & AI Translation system ──────────────────────────────────────
+        public DbSet<UserTicket> UserTickets { get; set; }
+        public DbSet<TicketTransaction> TicketTransactions { get; set; }
+        public DbSet<TranslationRequest> TranslationRequests { get; set; }
+        public DbSet<AIChapterUnlock> AIChapterUnlocks { get; set; }
+
         public IQueryable<Chapter> GetUserChapters(string userId)
         {
             return Chapters.Where(c => c.UpdatedByUserId == userId);
@@ -639,6 +645,101 @@ namespace FallenFaction.Server.Data
                       .IsRequired(false);
 
                 entity.Property(c => c.IsPinned).HasDefaultValue(false);
+            });
+
+            // ── UserTicket (one wallet per user) ────────────────────────────────
+            builder.Entity<UserTicket>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.HasIndex(e => e.UserId)
+                      .IsUnique()
+                      .HasDatabaseName("IX_UserTickets_UserId");
+
+                entity.HasOne(e => e.User)
+                      .WithOne(u => u.Wallet)
+                      .HasForeignKey<UserTicket>(e => e.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.Property(e => e.GoldBalance).HasDefaultValue(0m);
+                entity.Property(e => e.SilverBalance).HasDefaultValue(0m);
+            });
+
+            // ── TicketTransaction (immutable ledger) ────────────────────────────
+            builder.Entity<TicketTransaction>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.HasOne(e => e.User)
+                      .WithMany(u => u.TicketTransactions)
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.PerformedByUser)
+                      .WithMany()
+                      .HasForeignKey(e => e.PerformedByUserId)
+                      .OnDelete(DeleteBehavior.NoAction)
+                      .IsRequired(false);
+
+                entity.HasIndex(e => e.UserId).HasDatabaseName("IX_TicketTransactions_UserId");
+                entity.HasIndex(e => e.CreatedAt).HasDatabaseName("IX_TicketTransactions_CreatedAt");
+                entity.HasIndex(e => new { e.UserId, e.TicketType }).HasDatabaseName("IX_TicketTransactions_UserId_Type");
+                entity.HasIndex(e => e.ExpiresAt).HasDatabaseName("IX_TicketTransactions_ExpiresAt");
+            });
+
+            // ── TranslationRequest (novel request pipeline) ─────────────────────
+            builder.Entity<TranslationRequest>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.HasOne(e => e.RequestedByUser)
+                      .WithMany(u => u.TranslationRequests)
+                      .HasForeignKey(e => e.RequestedByUserId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.ReviewedByUser)
+                      .WithMany()
+                      .HasForeignKey(e => e.ReviewedByUserId)
+                      .OnDelete(DeleteBehavior.NoAction)
+                      .IsRequired(false);
+
+                entity.HasOne(e => e.ReleasedTitle)
+                      .WithMany()
+                      .HasForeignKey(e => e.ReleasedTitleId)
+                      .OnDelete(DeleteBehavior.SetNull)
+                      .IsRequired(false);
+
+                entity.HasIndex(e => e.Status).HasDatabaseName("IX_TranslationRequests_Status");
+                entity.HasIndex(e => e.RequestedByUserId).HasDatabaseName("IX_TranslationRequests_RequestedBy");
+                entity.HasIndex(e => e.CreatedAt).HasDatabaseName("IX_TranslationRequests_CreatedAt");
+            });
+
+            // ── AIChapterUnlock (one row per unlocked chapter) ──────────────────
+            builder.Entity<AIChapterUnlock>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                // Each chapter can only be unlocked once (first unlock wins)
+                entity.HasIndex(e => e.ChapterId)
+                      .IsUnique()
+                      .HasDatabaseName("IX_AIChapterUnlocks_ChapterId");
+
+                entity.HasOne(e => e.Chapter)
+                      .WithMany()
+                      .HasForeignKey(e => e.ChapterId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Title)
+                      .WithMany()
+                      .HasForeignKey(e => e.TitleId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.UnlockedByUser)
+                      .WithMany(u => u.AIChapterUnlocks)
+                      .HasForeignKey(e => e.UnlockedByUserId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasIndex(e => e.TitleId).HasDatabaseName("IX_AIChapterUnlocks_TitleId");
             });
 
             // Call the seed data from LibManga.Data namespace
