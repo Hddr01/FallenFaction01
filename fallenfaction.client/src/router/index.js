@@ -47,13 +47,17 @@ import MyRequestsPage from '../components/ai/MyRequestsPage.vue';
 import VotingPage from '../components/ai/VotingPage.vue';
 import WalletPage from '../components/ai/WalletPage.vue';
 import AdminRequestsManagement from '../components/admin/AdminRequestsManagement.vue';
+import ArtistList from '../components/artist/ArtistList.vue';
+import AddArtist from '../components/artist/AddArtist.vue';
+import AdminArtistManagement from '../components/admin/AdminArtistManagement.vue';
+import AdminTitleJoinRequests from '../components/admin/AdminTitleJoinRequests.vue';
 
 
 // ── System route prefixes — never matched as title slugs ────────────────────
 const SYSTEM_PREFIXES = [
   'api', 'admin', 'account', 'user', 'team', 'novel', 'author',
   'publisher', 'error', 'catalog', 'profile', 'thread', 'title', 'tickets', 'voting',
-  'teams', 'authors', 'publishers', 'home', 'dmca', 'faq', 'terms',
+  'teams', 'authors', 'publishers', 'artists', 'artist', 'home', 'dmca', 'faq', 'terms',
   'about', 'contact', 'privacy', 'pages',
 ]
 
@@ -156,9 +160,14 @@ const routes = [
   // ── Authors & Publishers ──────────────────────────────────────────────────
   { path: '/authors', name: 'Authors', component: AuthorList, meta: { title: 'Authors' } },
   { path: '/author/CreateA', name: 'Create Author', component: AddAuthor, meta: { requiresAuth: true, title: 'Create Author' } },
+  { path: '/author/createa', redirect: '/author/CreateA' },
   { path: '/author/create', name: 'Add Author Admin', component: AddAuthor, meta: { requiresAuth: true, requiresAdmin: true, title: 'Add Author' } },
   { path: '/publishers', name: 'Publishers', component: PublisherList, meta: { title: 'Publishers' } },
   { path: '/publisher/create', name: 'Create Publisher', component: AddPublisher, meta: { requiresAuth: true, title: 'Create Publisher' } },
+
+  // ── Artists ───────────────────────────────────────────────────────────────
+  { path: '/artists', name: 'Artists', component: ArtistList, meta: { title: 'Artists' } },
+  { path: '/artist/create', name: 'Create Artist', component: AddArtist, meta: { requiresAuth: true, title: 'Create Artist' } },
 
   // ── Catalog ───────────────────────────────────────────────────────────────
   { path: '/catalog', name: 'Catalog', component: Catalog, meta: { title: 'Browse Catalog', requiresAuth: false } },
@@ -167,6 +176,8 @@ const routes = [
   // ── Admin ─────────────────────────────────────────────────────────────────
   { path: '/admin/authors', name: 'Admin Author Management', component: AdminAuthorManagement, meta: { requiresAuth: true, requiresAdmin: true, title: 'Admin - Author Management' } },
   { path: '/admin/publishers', name: 'Admin Publisher Management', component: AdminPublisherManagement, meta: { requiresAuth: true, requiresAdmin: true, title: 'Admin - Publisher Management' } },
+  { path: '/admin/artists', name: 'Admin Artist Management', component: AdminArtistManagement, meta: { requiresAuth: true, requiresAdmin: true, title: 'Admin - Artist Management' } },
+  { path: '/admin/title-join-requests', name: 'Admin Title Join Requests', component: AdminTitleJoinRequests, meta: { requiresAuth: true, requiresAdmin: true, title: 'Admin - Title Join Requests' } },
   { path: '/admin/titles/add', name: 'Admin New Titles Management', component: AdminTitleManagement, meta: { requiresAuth: true, requiresAdmin: true, title: 'Admin - New Titles Management' } },
   { path: '/admin/title-changes', name: 'Admin Title Changes', component: AdminTitleChanges, meta: { requiresAuth: true, requiresAdmin: true, title: 'Admin - Title Changes Review' } },
   { path: '/admin/titles', name: 'Title Management', component: TitleManagement, meta: { requiresAuth: true, requiresAdmin: true, title: 'Admin - Title Management' } },

@@ -32,7 +32,7 @@
             <div class="flex w-full overflow-x-auto whitespace-nowrap bg-transparent p-1.5 gap-1 scrollbar-hide">
               <a v-for="quickFilter in quickFilters"
                  :key="quickFilter.value"
-                 class="flex-shrink-0 flex items-center gap-2 cursor-pointer bg-transparent rounded-md transition-all duration-300 ease-out no-underline text-gray-400 relative overflow-visible hover:text-gray-100 hover:-translate-y-0.5"
+                 class="flex-shrink-0 flex items-center gap-2 cursor-pointer bg-transparent rounded-md transition-all duration-300 ease-out no-underline text-gray-400 relative overflow-visible hover:text-[var(--color-heading)] hover:-translate-y-0.5"
                  :class="{ 'text-purple-500': activeQuickFilter === quickFilter.value }"
                  href="#"
                  @click.prevent="applyQuickFilter(quickFilter.value)">
@@ -75,7 +75,7 @@
                 </Badge>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" class="w-80 overflow-y-auto filter-sheet" style="background-color: #000000 !important;">
+            <SheetContent side="left" class="w-80 overflow-y-auto filter-sheet" style="background-color: var(--color-background) !important;">
               <SheetHeader>
                 <SheetTitle>Filters</SheetTitle>
                 <SheetDescription>
@@ -675,7 +675,7 @@
   /* Sheet content (filter panel) */
   [data-radix-dialog-content].filter-sheet {
     z-index: 1000 !important;
-    background-color: #000000 !important;
+    background-color: var(--color-background) !important;
   }
 
   /* All portaled Radix UI dropdowns should be above the sheet */
@@ -777,7 +777,7 @@
 
   /* Filter Sheet - Black Background */
   :deep(.filter-sheet) {
-    background-color: #000000 !important;
+    background-color: var(--color-background) !important;
     backdrop-filter: blur(20px) brightness(1.05);
     -webkit-backdrop-filter: blur(20px) brightness(1.05);
     box-shadow: -2px 0 10px rgba(0, 0, 0, 0.3);

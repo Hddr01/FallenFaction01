@@ -1,7 +1,8 @@
-﻿// Services/AuthService.cs - UPDATED with HTTPS profile picture migration
+// Services/AuthService.cs - UPDATED with HTTPS profile picture migration
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using AutoMapper;
+using FallenFaction.Server.Constants;
 using FallenFaction.Server.Data.Models;
 using FallenFaction.Server.DTOs.Auth;
 using FallenFaction.Server.Services.Interfaces;
@@ -98,6 +99,16 @@ namespace FallenFaction.Server.Services
                     };
                 }
 
+                if (!registerDto.AcceptedTerms)
+                {
+                    return new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = "You must accept the Terms and Conditions.",
+                        Errors = new List<string> { "Terms not accepted." }
+                    };
+                }
+
                 // Create new user with HTTPS profile picture
                 var user = new AppUser
                 {
@@ -111,7 +122,9 @@ namespace FallenFaction.Server.Services
                     IsActive = true,
                     IsOnline = true,
                     IsVerified = false,
-                    IsBannedFromComments = false
+                    IsBannedFromComments = false,
+                    AcceptedTermsAt = DateTime.UtcNow,
+                    AcceptedTermsVersion = TermsConstants.CurrentVersion
                 };
 
                 var result = await _userManager.CreateAsync(user, registerDto.Password);
@@ -231,6 +244,19 @@ namespace FallenFaction.Server.Services
                     };
                 }
 
+                if (user.AcceptedTermsAt == null)
+                {
+                    return new AuthResponseDto
+                    {
+                        Success = true,
+                        Message = "Terms acceptance required before login.",
+                        RequiresTermsAcceptance = true,
+                        TermsVersion = TermsConstants.CurrentVersion,
+                        Token = null,
+                        User = null
+                    };
+                }
+
                 // Update login info with improved retry logic and profile picture fix
                 await UpdateUserWithSemaphoreAsync(user.Id, u =>
                 {
@@ -269,6 +295,97 @@ namespace FallenFaction.Server.Services
                 {
                     Success = false,
                     Message = "An error occurred during login.",
+                    Errors = new List<string> { "Internal server error occurred." }
+                };
+            }
+        }
+
+        public async Task<AuthResponseDto> AcceptTermsAndLoginAsync(AcceptTermsDto dto)
+        {
+            try
+            {
+                var user = await _userManager.FindByEmailAsync(dto.Email);
+                if (user == null)
+                {
+                    return new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = "Invalid email or password.",
+                        Errors = new List<string> { "Authentication failed." }
+                    };
+                }
+
+                if (!user.IsActive)
+                {
+                    return new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = "Account is deactivated. Please contact support.",
+                        Errors = new List<string> { "Account deactivated." }
+                    };
+                }
+
+                var result = await _signInManager.CheckPasswordSignInAsync(user, dto.Password, lockoutOnFailure: true);
+                if (!result.Succeeded)
+                {
+                    var errorMessage = result.IsLockedOut
+                        ? "Account is locked out. Try again later."
+                        : "Invalid email or password.";
+
+                    return new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = errorMessage,
+                        Errors = new List<string> { "Authentication failed." }
+                    };
+                }
+
+                await UpdateUserWithSemaphoreAsync(user.Id, u =>
+                {
+                    u.AcceptedTermsAt = DateTime.UtcNow;
+                    u.AcceptedTermsVersion = TermsConstants.CurrentVersion;
+                    u.LastLoginDate = DateTime.UtcNow;
+                    u.LastActive = DateTime.UtcNow;
+                    u.IsOnline = true;
+                    u.ProfilePicturePath = FixProfilePictureUrl(u.ProfilePicturePath);
+                });
+
+                var roles = await _userManager.GetRolesAsync(user);
+                var token = _tokenService.GenerateJwtToken(user, roles);
+
+                var fresh = await _userManager.FindByIdAsync(user.Id);
+                if (fresh == null)
+                {
+                    return new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = "An error occurred.",
+                        Errors = new List<string> { "User not found after update." }
+                    };
+                }
+
+                var userDto = _mapper.Map<UserDto>(fresh);
+                userDto.ProfilePicturePath = FixProfilePictureUrl(userDto.ProfilePicturePath);
+                userDto.Roles = roles.ToList();
+
+                _logger.LogInformation("User {Email} accepted terms and logged in", dto.Email);
+
+                return new AuthResponseDto
+                {
+                    Success = true,
+                    Message = "Login successful.",
+                    Token = token,
+                    TokenExpiration = DateTime.UtcNow.AddHours(24),
+                    User = userDto
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during accept terms for {Email}", dto.Email);
+                return new AuthResponseDto
+                {
+                    Success = false,
+                    Message = "An error occurred.",
                     Errors = new List<string> { "Internal server error occurred." }
                 };
             }

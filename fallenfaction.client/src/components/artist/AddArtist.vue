@@ -1,7 +1,7 @@
 <!-- components/artist/AddArtist.vue -->
 <template>
-  <div class="min-h-screen bg-black py-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-2xl bg-black mx-auto">
+  <div class="min-h-screen bg-[var(--color-background)] py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-2xl bg-[var(--color-background)] mx-auto">
       <!-- Page Header -->
       <div class="text-center mb-8">
         <h1 class="text-3xl font-bold text-[var(--color-heading)]">Add New Artist</h1>
@@ -283,32 +283,32 @@
 </script>
 
 <style scoped>
-  /* Custom styling for form inputs with #141414 background */
+  /* Custom styling for form inputs — uses --color-input-bg */
   .form-input-bg {
-    background-color: #141414;
+    background-color: var(--color-input-bg);
     border-color: rgba(255, 255, 255, 0.1);
   }
 
     .form-input-bg:hover {
-      background-color: #1a1a1a;
+      background-color: var(--color-input-bg-hover);
     }
 
     .form-input-bg:focus {
-      background-color: #141414;
+      background-color: var(--color-input-bg);
       border-color: rgba(255, 255, 255, 0.2);
     }
 
   .form-textarea-bg {
-    background-color: #141414;
+    background-color: var(--color-input-bg);
     border-color: rgba(255, 255, 255, 0.1);
   }
 
     .form-textarea-bg:hover {
-      background-color: #1a1a1a;
+      background-color: var(--color-input-bg-hover);
     }
 
     .form-textarea-bg:focus {
-      background-color: #141414;
+      background-color: var(--color-input-bg);
       border-color: rgba(255, 255, 255, 0.2);
     }
 </style>

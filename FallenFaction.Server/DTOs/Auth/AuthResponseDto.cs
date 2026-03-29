@@ -8,5 +8,8 @@ namespace FallenFaction.Server.DTOs.Auth
         public DateTime? TokenExpiration { get; set; }
         public UserDto? User { get; set; }
         public List<string> Errors { get; set; } = new List<string>();
+
+        public bool RequiresTermsAcceptance { get; set; }
+        public string? TermsVersion { get; set; }
     }
 }

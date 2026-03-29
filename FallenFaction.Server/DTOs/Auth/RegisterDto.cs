@@ -25,5 +25,9 @@ namespace FallenFaction.Server.DTOs.Auth
         public string? Bio { get; set; }
 
         public DateTime? DateOfBirth { get; set; }
+
+        [Required]
+        [Range(typeof(bool), "true", "true", ErrorMessage = "You must accept the Terms and Conditions.")]
+        public bool AcceptedTerms { get; set; }
     }
 }

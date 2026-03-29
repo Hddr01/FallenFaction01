@@ -689,9 +689,15 @@ namespace FallenFaction.Server.Controllers
 
                 Chapter? chapter = null;
 
+                // Try to parse chapterName as a number (used when chapter has no name)
+                float? chapterNumFallback = null;
+                if (float.TryParse(chapterName, System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out var parsedNum))
+                    chapterNumFallback = parsedNum;
+
                 if (slugId.HasValue)
                 {
-                    // Slug lookup — fast, by ID
+                    // Slug lookup — fast, by ID; match by Name first
                     chapter = await _context.Chapters
                         .Include(c => c.Title)
                         .Include(c => c.Team)
@@ -700,6 +706,20 @@ namespace FallenFaction.Server.Controllers
                             c.Name == chapterName &&
                             c.VolumeNumber == volume &&
                             c.TeamId == teamId);
+
+                    // Fallback: chapter has empty name — match by ChapterNumber instead
+                    if (chapter == null && chapterNumFallback.HasValue)
+                    {
+                        chapter = await _context.Chapters
+                            .Include(c => c.Title)
+                            .Include(c => c.Team)
+                            .FirstOrDefaultAsync(c =>
+                                c.TitleId == slugId.Value &&
+                                (c.Name == null || c.Name == "") &&
+                                c.ChapterNumber == chapterNumFallback.Value &&
+                                c.VolumeNumber == volume &&
+                                c.TeamId == teamId);
+                    }
                 }
 
                 if (chapter == null)
@@ -711,6 +731,20 @@ namespace FallenFaction.Server.Controllers
                         .FirstOrDefaultAsync(c =>
                             c.Title.OriginalTitle == decodedTitleName &&
                             c.Name == chapterName &&
+                            c.VolumeNumber == volume &&
+                            c.TeamId == teamId);
+                }
+
+                // Last resort: numeric fallback for plain-name titles with unnamed chapters
+                if (chapter == null && chapterNumFallback.HasValue)
+                {
+                    chapter = await _context.Chapters
+                        .Include(c => c.Title)
+                        .Include(c => c.Team)
+                        .FirstOrDefaultAsync(c =>
+                            c.Title.OriginalTitle == decodedTitleName &&
+                            (c.Name == null || c.Name == "") &&
+                            c.ChapterNumber == chapterNumFallback.Value &&
                             c.VolumeNumber == volume &&
                             c.TeamId == teamId);
                 }

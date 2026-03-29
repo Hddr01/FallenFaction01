@@ -1022,7 +1022,7 @@
     }
 
     .avatar {
-      background: #2c2c2e;
+      background: var(--color-background-mute);
     }
   }
 

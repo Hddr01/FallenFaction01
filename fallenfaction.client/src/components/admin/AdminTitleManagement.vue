@@ -178,7 +178,7 @@
               </div>
 
               <!-- Disambiguation protocol -->
-              <div class="px-4 py-3 bg-black/20 text-xs text-[var(--color-text)] opacity-60 space-y-1">
+              <div class="px-4 py-3 bg-[var(--color-border)] text-xs text-[var(--color-text)] opacity-60 space-y-1">
                 <p class="font-semibold opacity-80">📋 Disambiguation protocol:</p>
                 <ul class="list-disc list-inside space-y-0.5">
                   <li><strong>Exact duplicate</strong> — reject unless it's a different medium/adaptation. If different, ask the submitter to add a year or subtitle: e.g. "Naruto (2002)" vs "Naruto: Shippuden".</li>

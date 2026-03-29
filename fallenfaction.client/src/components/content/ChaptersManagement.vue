@@ -214,7 +214,7 @@
     </div>
 
     <!-- Chapter Details Modal -->
-    <div v-if="showDetailsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div v-if="showDetailsModal" class="fixed inset-0 bg-[var(--color-background)] bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div class="bg-[var(--color-background-soft)] rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-y-auto">
         <div class="px-6 py-4 border-b border-[var(--color-border)] flex justify-between items-center">
           <h3 class="text-lg font-semibold text-[var(--color-heading)]">Chapter Details</h3>
@@ -270,7 +270,7 @@
                      :alt="`Page ${index + 1}`"
                      class="w-full h-20 object-cover rounded border border-[var(--color-border)]"
                      @error="handleImageError" />
-                <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white text-xs px-1 py-0.5 rounded-b text-center">
+                <div class="absolute bottom-0 left-0 right-0 bg-[var(--color-background)] bg-opacity-75 text-white text-xs px-1 py-0.5 rounded-b text-center">
                   {{ index + 1 }}
                 </div>
               </div>

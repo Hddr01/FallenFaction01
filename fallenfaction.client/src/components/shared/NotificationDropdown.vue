@@ -359,7 +359,7 @@
       position: fixed;
       inset: 0;
       z-index: 9999;
-      background: #0d0d0d;
+      background: var(--color-input-bg);
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -439,7 +439,7 @@
       right: 0;
       width: 360px;
       max-height: 480px;
-      background: #171717;
+      background: var(--color-background-soft);
       border: 1px solid rgba(255,255,255,0.08);
       border-radius: 10px;
       box-shadow: 0 10px 38px -10px rgba(0,0,0,0.6), 0 10px 20px -15px rgba(0,0,0,0.5);

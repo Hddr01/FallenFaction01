@@ -26,13 +26,13 @@
         </Button>
       </PopoverTrigger>
       <PopoverContent class="w-[var(--radix-popover-trigger-width)] p-0 popover-bg border border-white/10" align="start">
-        <Command class="bg-[#141414]">
+        <Command class="bg-[var(--color-input-bg)]">
         <CommandInput v-if="searchable"
                       v-model:search-term="searchQuery"
                       placeholder="Search..."
                       class="h-9 bg-transparent" />
         <CommandEmpty>No results found</CommandEmpty>
-        <CommandList class="max-h-60 bg-[#141414]">
+        <CommandList class="max-h-60 bg-[var(--color-input-bg)]">
           <CommandGroup>
             <CommandItem v-for="option in filteredOptions"
                          :key="option.id"
@@ -200,16 +200,16 @@
   }
   /* Match navbar background styling with visible dark gray */
   .select-trigger-bg {
-    background-color: #141414;
+    background-color: var(--color-input-bg);
     border-color: rgba(255, 255, 255, 0.1);
   }
 
     .select-trigger-bg:hover {
-      background-color: #1a1a1a;
+      background-color: var(--color-input-bg-hover);
     }
 
   .popover-bg {
-    background-color: #141414;
+    background-color: var(--color-input-bg);
     backdrop-filter: blur(20px) brightness(1.05);
     -webkit-backdrop-filter: blur(20px) brightness(1.05);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);

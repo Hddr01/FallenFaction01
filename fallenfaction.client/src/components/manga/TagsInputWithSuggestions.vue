@@ -30,7 +30,7 @@
         <PopoverContent class="p-1 w-[var(--radix-popover-trigger-width)] popover-bg border border-white/10"
                         @open-auto-focus.prevent
                         align="start">
-          <ListboxContent class="max-h-[200px] scroll-py-1 overflow-x-hidden overflow-y-auto empty:after:content-['No_options'] empty:p-1 empty:after:block bg-[#141414]"
+          <ListboxContent class="max-h-[200px] scroll-py-1 overflow-x-hidden overflow-y-auto empty:after:content-['No_options'] empty:p-1 empty:after:block bg-[var(--color-input-bg)]"
                           tabindex="0">
             <ListboxItem v-for="item in filteredOptions"
                          :key="item.id"
@@ -117,12 +117,12 @@
 <style scoped>
   /* Match navbar background styling with visible dark gray */
   .tags-input-bg {
-    background-color: #141414;
+    background-color: var(--color-input-bg);
     border-color: rgba(255, 255, 255, 0.1);
   }
 
   .popover-bg {
-    background-color: #141414;
+    background-color: var(--color-input-bg);
     backdrop-filter: blur(20px) brightness(1.05);
     -webkit-backdrop-filter: blur(20px) brightness(1.05);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);

@@ -115,13 +115,13 @@
             </h3>
             <ul class="space-y-3">
               <li>
-                <router-link to="/manga/addtitle"
+                <router-link to="/novel/addtitle"
                              class="text-[var(--color-text)] hover:text-green-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
                   Add Title
                 </router-link>
               </li>
               <li>
-                <router-link to="/author/createa"
+                <router-link to="/author/CreateA"
                              class="text-[var(--color-text)] hover:text-green-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
                   Add Author
                 </router-link>
@@ -229,6 +229,12 @@
                 <router-link to="/admin/translation-requests"
                              class="text-[var(--color-text)] hover:text-red-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
                   Translation Requests
+                </router-link>
+              </li>
+              <li>
+                <router-link to="/admin/title-join-requests"
+                             class="text-[var(--color-text)] hover:text-red-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Team Join Requests
                 </router-link>
               </li>
               <li>

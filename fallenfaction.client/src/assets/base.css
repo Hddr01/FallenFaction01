@@ -1,57 +1,97 @@
-/* color palette from <https://github.com/vuejs/theme> */
-
-
+/* ─── Palette tokens ──────────────────────────────────────────────────────── */
 :root {
-  --vt-c-white: #ffffff;
-  --vt-c-white-soft: #f8f8f8;
-  --vt-c-white-mute: #f2f2f2;
+  --vt-c-white:       #ffffff;
+  --vt-c-white-soft:  #f4f4f5;
+  --vt-c-white-mute:  #e4e4e7;
 
-  --vt-c-black: #000000;
-  --vt-c-black-soft: #222222;
-  --vt-c-black-mute: #282828;
-
-  --vt-c-indigo: #2c3e50;
+  --vt-c-black:       #0a0a0a;
+  --vt-c-black-soft:  #161616;
+  --vt-c-black-mute:  #1e1e1e;
 
   --vt-c-divider-light-1: rgba(60, 60, 60, 0.29);
   --vt-c-divider-light-2: rgba(60, 60, 60, 0.12);
-  --vt-c-divider-dark-1: rgba(84, 84, 84, 0.65);
-  --vt-c-divider-dark-2: rgba(84, 84, 84, 0.48);
-
-  --vt-c-text-light-1: var(--vt-c-indigo);
-  --vt-c-text-light-2: rgba(60, 60, 60, 0.66);
-  --vt-c-text-dark-1: var(--vt-c-white);
-  --vt-c-text-dark-2: rgba(235, 235, 235, 0.64);
+  --vt-c-divider-dark-1:  rgba(84, 84, 84, 0.65);
+  --vt-c-divider-dark-2:  rgba(84, 84, 84, 0.48);
 }
 
-/* semantic color variables for this project */
+/* ─── Light mode (default) ────────────────────────────────────────────────── */
 :root {
-  --color-background: var(--vt-c-white);
-  --color-background-soft: var(--vt-c-white-soft);
-  --color-background-mute: var(--vt-c-white-mute);
+  --vt-c-indigo: #4f46e5;
 
-  --color-border: var(--vt-c-divider-light-2);
-  --color-border-hover: var(--vt-c-divider-light-1);
+  /* Semantic page colours */
+  --color-background:      #f3f4f6;
+  --color-background-soft: #ffffff;
+  --color-background-mute: #e9eaec;
+  --color-border:          rgba(0, 0, 0, 0.10);
+  --color-border-hover:    rgba(0, 0, 0, 0.20);
+  --color-heading:         #111827;
+  --color-text:            #374151;
 
-  --color-heading: var(--vt-c-text-light-1);
-  --color-text: var(--vt-c-text-light-1);
+  /* Form inputs and cards */
+  --color-input-bg:        #f9fafb;
+  --color-input-bg-hover:  #f3f4f6;
+  --color-card-bg:         #ffffff;
+
+  /* Navbar & sidebar */
+  --navbar-bg:            rgba(255, 255, 255, 0.88);
+  --navbar-text:          #111827;
+  --navbar-border:        rgba(0, 0, 0, 0.10);
+  --navbar-hover-bg:      rgba(0, 0, 0, 0.06);
+  --sidebar-bg:           #ffffff;
+  --sidebar-overlay:      rgba(0, 0, 0, 0.40);
+  --sidebar-text:         #111827;
+  --sidebar-subtext:      #6b7280;
+  --sidebar-hover:        rgba(0, 0, 0, 0.06);
+  --sidebar-divider:      rgba(0, 0, 0, 0.10);
+  --sidebar-submenu-bg:   rgba(0, 0, 0, 0.03);
+
+  /* Dropdowns */
+  --dropdown-bg:      #ffffff;
+  --dropdown-text:    #111827;
+  --dropdown-hover:   rgba(0, 0, 0, 0.05);
+  --dropdown-border:  rgba(0, 0, 0, 0.10);
+  --dropdown-shadow:  0 10px 38px -10px rgba(0,0,0,0.18), 0 10px 20px -15px rgba(0,0,0,0.12);
 
   --section-gap: 160px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-background: var(--vt-c-black);
-    --color-background-soft: var(--vt-c-black-soft);
-    --color-background-mute: var(--vt-c-black-mute);
+/* ─── Dark mode ───────────────────────────────────────────────────────────── */
+html.dark {
+  --vt-c-indigo: #818cf8;
 
-    --color-border: var(--vt-c-divider-dark-2);
-    --color-border-hover: var(--vt-c-divider-dark-1);
+  --color-background:      #0a0a0a;
+  --color-background-soft: #161616;
+  --color-background-mute: #1e1e1e;
+  --color-border:          rgba(255, 255, 255, 0.10);
+  --color-border-hover:    rgba(255, 255, 255, 0.20);
+  --color-heading:         #ffffff;
+  --color-text:            rgba(235, 235, 235, 0.80);
 
-    --color-heading: var(--vt-c-text-dark-1);
-    --color-text: var(--vt-c-text-dark-2);
-  }
+  /* Form inputs and cards */
+  --color-input-bg:        #141414;
+  --color-input-bg-hover:  #1a1a1a;
+  --color-card-bg:         #161616;
+
+  --navbar-bg:            rgba(0, 0, 0, 0.78);
+  --navbar-text:          #ffffff;
+  --navbar-border:        rgba(255, 255, 255, 0.15);
+  --navbar-hover-bg:      rgba(255, 255, 255, 0.09);
+  --sidebar-bg:           rgba(10, 10, 10, 0.98);
+  --sidebar-overlay:      rgba(0, 0, 0, 0.60);
+  --sidebar-text:         #ffffff;
+  --sidebar-subtext:      #9ca3af;
+  --sidebar-hover:        rgba(255, 255, 255, 0.08);
+  --sidebar-divider:      rgba(255, 255, 255, 0.10);
+  --sidebar-submenu-bg:   rgba(0, 0, 0, 0.30);
+
+  --dropdown-bg:      #171717;
+  --dropdown-text:    rgba(255, 255, 255, 0.95);
+  --dropdown-hover:   rgba(255, 255, 255, 0.06);
+  --dropdown-border:  rgba(255, 255, 255, 0.06);
+  --dropdown-shadow:  0 10px 38px -10px rgba(0,0,0,0.55), 0 10px 20px -15px rgba(0,0,0,0.45);
 }
 
+/* ─── Base styles ─────────────────────────────────────────────────────────── */
 *,
 *::before,
 *::after {
@@ -65,20 +105,12 @@ body {
   background: var(--color-background);
   line-height: 1.6;
   font-family:
-    Inter,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    Oxygen,
-    Ubuntu,
-    Cantarell,
-    'Fira Sans',
-    'Droid Sans',
-    'Helvetica Neue',
+    Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   font-size: 15px;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background 0.25s ease, color 0.25s ease;
 }

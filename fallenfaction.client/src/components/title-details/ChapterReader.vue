@@ -716,7 +716,7 @@
 
     .chapter-container.light {
       --reader-bg: #fafafa;
-      --reader-text: #1a1a1a;
+      --reader-text: var(--color-text);
       --reader-navbar: rgba(255,255,255,0.95);
       --reader-border: #ddd;
     }

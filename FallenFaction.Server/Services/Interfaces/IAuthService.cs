@@ -6,6 +6,7 @@ namespace FallenFaction.Server.Services.Interfaces
     {
         Task<AuthResponseDto> RegisterAsync(RegisterDto registerDto);
         Task<AuthResponseDto> LoginAsync(LoginDto loginDto);
+        Task<AuthResponseDto> AcceptTermsAndLoginAsync(AcceptTermsDto dto);
         Task<bool> LogoutAsync(string userId);
         Task<UserDto?> GetUserProfileAsync(string userId);
         Task<bool> UserExistsAsync(string email);
