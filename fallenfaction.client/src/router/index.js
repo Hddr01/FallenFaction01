@@ -43,15 +43,15 @@ import Catalog from '../components/catalog/Catalog.vue';
 import CommentThreadView from '../components/title-details/CommentThreadView.vue';
 
 import MyRequestsPage from '../components/ai/MyRequestsPage.vue';
-import VotingPage     from '../components/ai/VotingPage.vue';
-import WalletPage     from '../components/ai/WalletPage.vue';
+import VotingPage from '../components/ai/VotingPage.vue';
+import WalletPage from '../components/ai/WalletPage.vue';
 import AdminRequestsManagement from '../components/admin/AdminRequestsManagement.vue';
 
 
 // ── System route prefixes — never matched as title slugs ────────────────────
 const SYSTEM_PREFIXES = [
   'api', 'admin', 'account', 'user', 'team', 'novel', 'author',
-  'publisher', 'error', 'catalog', 'profile', 'thread', 'title',
+  'publisher', 'error', 'catalog', 'profile', 'thread', 'title', 'tickets', 'voting',
   'teams', 'authors', 'publishers', 'home', 'dmca', 'faq', 'terms',
   'about', 'contact', 'privacy', 'pages',
 ]

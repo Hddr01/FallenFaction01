@@ -364,8 +364,22 @@
               Comments have been disabled for chapters of this title.
             </div>
 
+            <!-- AI Unlock Progress Banner -->
+            <AIUnlockBanner
+              v-if="props.titleData.titleCategory === 4"
+              :title-id="props.titleId"
+              :locked-count="props.titleData.lockedChapterCount ?? 0"
+              :unlocked-count="props.titleData.unlockedChapterCount ?? 0"
+              :total-count="props.titleData.chapterCount ?? 0"
+              @unlocked="onChapterUnlocked"
+              class="mb-4"
+            />
+
             <ChaptersComponent :chapters="tabData.chapters.data"
-                               :title-slug="buildTitleSlug(props.titleData.originalTitle, props.titleId)" />
+                               :title-slug="buildTitleSlug(props.titleData.originalTitle, props.titleId)"
+                               :title-id="props.titleId"
+                               :is-ai-title="props.titleData.titleCategory === 4"
+                               @chapter-unlocked="onChapterUnlocked" />
           </template>
 
           <div v-else-if="tabData.chapters.error" class="flex flex-col items-center justify-center py-20 px-5 text-center text-gray-400 bg-gray-900 rounded-b-lg">
@@ -443,6 +457,7 @@
   import { Motion } from 'motion-v'
   import ChaptersComponent from './ChaptersComponent.vue'
   import CommentsComponent from './CommentsComponent.vue'
+  import AIUnlockBanner from './AIUnlockBanner.vue'
   import { buildTitleSlug } from '@/utils/titleSlug.js'
   import {
     Star,
@@ -855,6 +870,14 @@
         checkTranslatorButtons()
       }
     })
+
+  // Called by AIUnlockBanner or ChaptersComponent when a chapter is unlocked
+  const onChapterUnlocked = () => {
+    // Refresh the chapters list so lock icons update
+    tabData.value.chapters.loaded = false
+    tabData.value.chapters.data = []
+    loadTabContent('chapters')
+  }
   })
 </script>
 

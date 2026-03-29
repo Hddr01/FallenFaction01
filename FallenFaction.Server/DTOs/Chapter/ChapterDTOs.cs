@@ -16,6 +16,17 @@ namespace FallenFaction.Server.DTOs.Chapter
         public DateTime ReleaseDate { get; set; }
 
         /// <summary>
+        /// Whether this AI chapter is still locked (requires tickets to unlock).
+        /// Always false for non-AI titles.
+        /// </summary>
+        public bool IsAILocked { get; set; } = false;
+
+        /// <summary>
+        /// Character count used to compute unlock cost: (CharacterCount + 500) × 0.0012, min 1.
+        /// </summary>
+        public int CharacterCount { get; set; } = 0;
+
+        /// <summary>
         /// The full text content of the chapter.
         /// </summary>
         public string Content { get; set; } = string.Empty;
@@ -63,6 +74,8 @@ namespace FallenFaction.Server.DTOs.Chapter
                 } : null,
                 CreatedDate = chapter.CreatedDate,
                 ReleaseDate = chapter.ReleaseDate,
+                IsAILocked = chapter.IsAILocked,
+                CharacterCount = chapter.CharacterCount,
                 Content = chapter.Content ?? string.Empty
             };
         }

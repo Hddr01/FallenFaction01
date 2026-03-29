@@ -320,6 +320,10 @@ namespace FallenFaction.Server.Controllers
                 _context.Comments.Add(comment);
                 await _context.SaveChangesAsync();
 
+                // Award XP for posting a comment
+                await AwardXpAsync(currentUser.Id, 10, "Posted a comment");
+                await _context.SaveChangesAsync();
+
                 // Reload comment with user info
                 var createdComment = await _context.Comments
                     .Include(c => c.User)
@@ -952,6 +956,15 @@ namespace FallenFaction.Server.Controllers
             }
         }
 
+        // ── XP helper ────────────────────────────────────────────────────────
+        private async Task AwardXpAsync(string userId, int xpAmount, string reason)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return;
+            user.XpPoints += xpAmount;
+            user.UserLevel = AppUser.ComputeLevel(user.XpPoints);
+            _logger.LogDebug("XP +{Xp} → {UserId} ({Reason})", xpAmount, userId, reason);
+        }
 
     }
     public class CommentThreadResponseDto

@@ -20,6 +20,12 @@
               <span class="nav-text">Catalog</span>
             </router-link>
           </div>
+          <div class="nav-item">
+            <router-link to="/novel/voting" class="nav-link">
+              <Sparkles class="nav-icon-lucide" :size="20" />
+              <span class="nav-text">AI Voting</span>
+            </router-link>
+          </div>
 
           <!-- More Dropdown -->
           <DropdownMenu :modal="false">
@@ -179,6 +185,10 @@
             </DropdownMenu>
 
             <div class="nav-item">
+              <WalletWidget />
+            </div>
+
+            <div class="nav-item">
               <NotificationDropdown />
             </div>
 
@@ -300,6 +310,12 @@
               <router-link to="/catalog" @click="closeMobileSidebar">
                 <BookOpen :size="20" class="mr-3" />
                 <span>Catalog</span>
+              </router-link>
+            </Button>
+            <Button variant="ghost" as-child class="sidebar-item">
+              <router-link to="/novel/voting" @click="closeMobileSidebar">
+                <Sparkles :size="20" class="mr-3" />
+                <span>AI Voting</span>
               </router-link>
             </Button>
 
@@ -536,6 +552,7 @@
     Mail,
     FileText,
     Copyright,
+    Sparkles,
   } from 'lucide-vue-next';
 
   // ============================================
@@ -543,6 +560,7 @@
   // ============================================
   import GlobalSearch from '@/components/search/GlobalSearch.vue';
   import NotificationDropdown from '@/components/shared/NotificationDropdown.vue';
+  import WalletWidget from '@/components/ai/WalletWidget.vue';
 
   const router = useRouter();
   const authStore = useAuthStore();

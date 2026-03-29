@@ -113,7 +113,55 @@
         <hr class="chapter-divider" />
 
         <!-- Text Body -->
-        <div class="chapter-text" v-if="chapterData.content && chapterData.content.trim()" v-html="formattedContent"></div>
+        <div v-if="chapterData.isAILocked" class="locked-gate">
+          <div class="locked-gate-inner">
+            <div class="locked-icon">
+              <svg class="w-12 h-12 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+              </svg>
+            </div>
+            <h3 class="locked-title">AI Chapter Locked</h3>
+            <p class="locked-sub">
+              This AI-translated chapter hasn't been unlocked yet.<br/>
+              Once unlocked by anyone, it becomes free for everyone permanently.
+            </p>
+
+            <div v-if="unlockCost !== null" class="locked-cost">
+              Unlock cost: <span class="cost-amount">{{ unlockCost }} tickets</span>
+            </div>
+
+            <div v-if="isAuthenticated" class="locked-actions">
+              <button @click="handleUnlock" :disabled="unlocking || walletBalance < unlockCost"
+                class="unlock-btn" :class="{ 'disabled': unlocking || walletBalance < unlockCost }">
+                <svg v-if="unlocking" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                </svg>
+                {{ unlocking ? 'Unlocking…' : `Unlock for ${unlockCost} tickets` }}
+              </button>
+
+              <div v-if="walletBalance < unlockCost" class="balance-warning">
+                Your balance ({{ walletBalance }}) is too low.
+                <router-link to="/profile/wallet" class="wallet-link">Get tickets →</router-link>
+              </div>
+              <div v-else class="balance-info">
+                Balance: <span class="gold">{{ wallet?.goldBalance ?? 0 }}G</span>
+                + <span class="silver">{{ wallet?.silverBalance ?? 0 }}S</span>
+              </div>
+
+              <p v-if="unlockError" class="unlock-error">{{ unlockError }}</p>
+            </div>
+
+            <div v-else class="locked-actions">
+              <router-link to="/account/login" class="unlock-btn">
+                Login to unlock
+              </router-link>
+            </div>
+          </div>
+        </div>
+
+        <div class="chapter-text" v-else-if="chapterData.content && chapterData.content.trim()" v-html="formattedContent"></div>
         <div v-else class="no-content">
           <p>This chapter has no content yet.</p>
           <button @click="goToTitleDetails" class="px-4 py-2 mt-4 bg-[var(--color-accent)] text-white rounded-md">Back to Title</button>
@@ -246,6 +294,7 @@
   import { useRoute, useRouter } from 'vue-router'
   import { titleDetailsService } from '../../services/titleDetailsService'
   import { chapterService } from '../../services/chapterService'
+  import { getWallet, getUnlockCost, unlockChapter } from '@/services/aiTranslationService'
   import CommentsComponent from '../title-details/CommentsComponent.vue'
   import ReportModal from '../shared/ReportModal.vue'
   import { buildTitleSlug } from '@/utils/titleSlug.js'
@@ -269,6 +318,15 @@
   const showReportModal = ref(false)
   const currentUserId = ref('')
   const isAdmin = ref(false)
+
+  // ── AI Chapter unlock state ──────────────────────────────────────────
+  const wallet        = ref(null)
+  const unlockCost    = ref(null)
+  const unlocking     = ref(false)
+  const unlockError   = ref('')
+  const walletBalance = computed(() =>
+    (wallet.value?.goldBalance ?? 0) + (wallet.value?.silverBalance ?? 0)
+  )
 
   // UI State
   const uiVisible = ref(true)
@@ -457,6 +515,7 @@
         document.title = `${result.data.titleName} - ${result.data.name || `Ch.${result.data.chapterNumber}`}`
         await loadChaptersList()
         await updateReadingProgress()
+        await loadUnlockData()
         window.scrollTo({ top: 0, behavior: 'auto' })
       } else {
         error.value = result.error || 'Chapter not found'
@@ -487,6 +546,39 @@
   }
 
   const retryLoad = () => loadChapter()
+
+  // ── AI unlock helpers ────────────────────────────────────────────────
+  const loadUnlockData = async () => {
+    if (!chapterData.value?.isAILocked) return
+    try {
+      const [walletRes, costRes] = await Promise.all([
+        getWallet(),
+        getUnlockCost(chapterData.value.id)
+      ])
+      wallet.value     = walletRes.data
+      unlockCost.value = costRes.data.cost
+    } catch {}
+  }
+
+  const handleUnlock = async () => {
+    if (unlocking.value || !chapterData.value) return
+    unlocking.value = true
+    unlockError.value = ''
+    try {
+      const res = await unlockChapter(chapterData.value.id)
+      if (res.data.success) {
+        // Reload the chapter — it's now unlocked
+        await loadChapter()
+        wallet.value = { goldBalance: res.data.newGoldBalance, silverBalance: res.data.newSilverBalance }
+      } else {
+        unlockError.value = res.data.message ?? 'Unlock failed.'
+      }
+    } catch (e) {
+      unlockError.value = e.response?.data ?? 'Insufficient tickets.'
+    } finally {
+      unlocking.value = false
+    }
+  }
 
   // =============================================
   // NAVIGATION
@@ -899,6 +991,86 @@
     .chapter-text :deep(p:first-child) {
       text-indent: 0;
     }
+
+  /* ── AI Lock Gate ─────────────────────────── */
+  .locked-gate {
+    display: flex;
+    justify-content: center;
+    padding: 4rem 1rem;
+  }
+  .locked-gate-inner {
+    max-width: 440px;
+    width: 100%;
+    text-align: center;
+    padding: 2.5rem 2rem;
+    border-radius: 1.25rem;
+    background: rgba(139, 92, 246, 0.05);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+  }
+  .locked-icon {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1rem;
+  }
+  .locked-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-heading);
+    margin-bottom: 0.5rem;
+  }
+  .locked-sub {
+    font-size: 0.875rem;
+    opacity: 0.6;
+    line-height: 1.6;
+    margin-bottom: 1.25rem;
+    color: var(--color-text);
+  }
+  .locked-cost {
+    font-size: 0.9rem;
+    color: var(--color-text);
+    opacity: 0.7;
+    margin-bottom: 1.25rem;
+  }
+  .cost-amount {
+    font-weight: 700;
+    color: #a78bfa;
+  }
+  .locked-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .unlock-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.75rem;
+    border-radius: 0.75rem;
+    background: rgba(139, 92, 246, 0.2);
+    border: 1px solid rgba(139, 92, 246, 0.4);
+    color: #c4b5fd;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+  .unlock-btn:hover:not(.disabled) {
+    background: rgba(139, 92, 246, 0.35);
+    color: #ede9fe;
+  }
+  .unlock-btn.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .balance-info { font-size: 0.8rem; opacity: 0.55; color: var(--color-text); }
+  .balance-warning { font-size: 0.8rem; color: #f87171; }
+  .wallet-link { color: #a78bfa; text-decoration: underline; margin-left: 0.25rem; }
+  .gold   { color: #facc15; font-weight: 600; }
+  .silver { color: #cbd5e1; font-weight: 600; }
+  .unlock-error { color: #f87171; font-size: 0.8rem; }
 
   .no-content {
     text-align: center;

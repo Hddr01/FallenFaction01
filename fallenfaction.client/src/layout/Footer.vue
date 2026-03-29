@@ -81,6 +81,31 @@
                 </router-link>
               </li>
             </ul>
+
+            <!-- AI Translation sub-section -->
+            <h4 class="text-sm font-semibold text-purple-400 mt-5 mb-2 pb-1 border-b border-purple-400/30 inline-block">
+              AI Translation
+            </h4>
+            <ul class="space-y-3">
+              <li>
+                <router-link to="/novel/voting"
+                             class="text-[var(--color-text)] hover:text-purple-400 hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Novel Voting
+                </router-link>
+              </li>
+              <li v-if="authStore.isAuthenticated">
+                <router-link to="/profile/requests"
+                             class="text-[var(--color-text)] hover:text-purple-400 hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  My Requests
+                </router-link>
+              </li>
+              <li v-if="authStore.isAuthenticated">
+                <router-link to="/profile/wallet"
+                             class="text-[var(--color-text)] hover:text-purple-400 hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Ticket Wallet
+                </router-link>
+              </li>
+            </ul>
           </div>
 
           <!-- Content Creation Section (Authenticated Users Only) -->
@@ -198,6 +223,18 @@
                 <router-link to="/admin/notifications"
                              class="text-[var(--color-text)] hover:text-red-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
                   Manage Notifications
+                </router-link>
+              </li>
+              <li>
+                <router-link to="/admin/translation-requests"
+                             class="text-[var(--color-text)] hover:text-red-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Translation Requests
+                </router-link>
+              </li>
+              <li>
+                <router-link to="/admin/grant-tickets"
+                             class="text-[var(--color-text)] hover:text-red-500 hover:pl-2 transition-all duration-200 text-sm block py-1">
+                  Grant Tickets
                 </router-link>
               </li>
             </ul>
