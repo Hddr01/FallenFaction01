@@ -23,6 +23,20 @@ html, body {
   width: 100%;
 }
 
+/* Carousel: transparent so parent page background shows through (no dark seam) */
+[data-slot="carousel"],
+[data-slot="carousel-content"],
+[data-slot="carousel-content"] > div {
+  background-color: transparent;
+}
+
+/* shadcn Card uses bg-card (HSL tokens); align with semantic theme on both modes */
+[data-slot="card"] {
+  background-color: var(--color-background-soft) !important;
+  color: var(--color-text);
+  border-color: var(--color-border) !important;
+}
+
 /* ─── Light-mode Tailwind safety net ─────────────────────────────────────────
    Catches any remaining hardcoded bg-black / bg-gray-9xx classes that were
    not individually patched in component templates. Modal overlays (bg-black/xx)

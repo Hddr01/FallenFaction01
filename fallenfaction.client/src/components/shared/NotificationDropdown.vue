@@ -305,12 +305,12 @@
       cursor: pointer;
       padding: 8px 12px;
       border-radius: 4px;
-      color: white;
+      color: var(--color-text);
       transition: background-color 0.2s;
     }
 
       .notification-trigger:hover {
-        background-color: rgba(255,255,255,0.1);
+        background-color: var(--color-background-mute);
       }
 
     .notification-trigger--mobile {
@@ -349,7 +349,7 @@
     .nd-mobile-label {
       margin-left: 12px;
       font-size: 15px;
-      color: white;
+      color: var(--color-text);
     }
 
     /* ══════════════════════════════════════════════
@@ -378,7 +378,7 @@
     .nd-fs-title {
       font-size: 18px;
       font-weight: 500;
-      color: rgba(255,255,255,0.95);
+      color: var(--color-heading);
     }
 
     .nd-fs-header-right {
@@ -391,18 +391,19 @@
       background: none;
       border: none;
       cursor: pointer;
-      color: rgba(255,255,255,0.7);
+      color: var(--color-text);
+      opacity: 0.7;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 4px;
       border-radius: 50%;
-      transition: background-color 0.15s, color 0.15s;
+      transition: background-color 0.15s, opacity 0.15s;
     }
 
       .nd-fs-close:hover {
-        background-color: rgba(255,255,255,0.1);
-        color: white;
+        background-color: var(--color-background-mute);
+        opacity: 1;
       }
 
     .nd-fs-body {
@@ -461,7 +462,7 @@
     .nd-title {
       font-size: 14px;
       font-weight: 500;
-      color: rgba(255,255,255,0.95);
+      color: var(--color-heading);
     }
 
     /* ── Shared list styles ── */

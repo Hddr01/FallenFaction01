@@ -1,5 +1,5 @@
 <template>
-  <div class="profile-page-wrapper">
+  <div class="profile-page-wrapper min-h-screen bg-[var(--color-background)]">
     <!-- ─── HERO HEADER ─────────────────────────────────────────── -->
     <div class="relative h-44 sm:h-56 overflow-hidden bg-[var(--color-background-soft)] group/banner cursor-pointer"
          @click="triggerBannerUpload">
@@ -1390,8 +1390,12 @@
   //   targetType 2 (Chapter) → /{titleSlug}/chapter/{name}/v{vol}/t{team}?viewMode=single&comment_id={id}
   //   targetType 3 (Page)    → same as chapter (comment lives in the chapter reader's image section)
   function buildCommentUrl(c) {
-    if (!c.titleSlug) return '#'
-    const slug = encodeURIComponent(c.titleSlug)
+    if (!c.titleSlug && !c.titleName) return '#'
+    
+    // Build the slug correctly using buildTitleSlug if ID is available
+    const slug = c.titleId 
+      ? buildTitleSlug(c.titleName || c.titleSlug, c.titleId)
+      : encodeURIComponent(c.titleSlug || 'title')
 
     if (c.targetType === 1) {
       // Title comment — open title page on comments tab at this thread

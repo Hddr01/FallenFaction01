@@ -493,7 +493,9 @@
       }
     } catch (error) {
       console.error('Error pinning/unpinning comment:', error)
-      alert(error?.response?.data || error.message || 'Failed to pin/unpin comment')
+      const d = error?.response?.data
+      const msg = typeof d === 'string' ? d : (d?.message || error.message || 'Failed to pin/unpin comment')
+      alert(msg)
     } finally {
       isPinning.value = false
     }
@@ -812,7 +814,7 @@
     position: absolute;
     top: calc(100% + 6px);
     left: 0;
-    z-index: 50;
+    z-index: 120;
     min-width: 160px;
     background: var(--color-background, #fff);
     border: 1px solid var(--color-border, #e5e5e5);

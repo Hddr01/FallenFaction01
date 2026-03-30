@@ -1,4 +1,4 @@
-﻿// Controllers/TitlesController.cs
+// Controllers/TitlesController.cs
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using FallenFaction.Server.Data;
@@ -797,6 +797,7 @@ namespace FallenFaction.Server.Controllers
                 var nextChapter = orderedChapters[currentIndex + 1];
                 chapterDto.NextChapterId = nextChapter.Id;
                 chapterDto.NextChapterName = nextChapter.Name;
+                chapterDto.NextChapterNumber = nextChapter.ChapterNumber;
                 chapterDto.NextChapterVolume = nextChapter.VolumeNumber;
                 chapterDto.NextChapterTeamId = nextChapter.TeamId;
             }
@@ -806,6 +807,7 @@ namespace FallenFaction.Server.Controllers
                 var prevChapter = orderedChapters[currentIndex - 1];
                 chapterDto.PreviousChapterId = prevChapter.Id;
                 chapterDto.PreviousChapterName = prevChapter.Name;
+                chapterDto.PreviousChapterNumber = prevChapter.ChapterNumber;
                 chapterDto.PreviousChapterVolume = prevChapter.VolumeNumber;
                 chapterDto.PreviousChapterTeamId = prevChapter.TeamId;
             }
@@ -1166,11 +1168,16 @@ namespace FallenFaction.Server.Controllers
                         ViewCount = t.Chapters.SelectMany(c => c.Views).Count(),
                         AverageRating = t.Ratings.Any() ? t.Ratings.Average(r => r.Value) : 0,
                         BookmarkCount = t.Bookmarks.Count(),
+                        // Most recent upload time (any chapter)
                         LastChapterDate = t.Chapters.Any()
-                            ? t.Chapters.OrderByDescending(c => c.ReleaseDate).First().ReleaseDate
+                            ? t.Chapters.Max(c => c.ReleaseDate)
                             : DateTime.MinValue,
+                        // Reading-order "latest" chapter — not by ReleaseDate (reposts of Ch.1 would steal the badge)
                         LatestChapterNumber = t.Chapters.Any()
-                            ? (double)t.Chapters.OrderByDescending(c => c.ReleaseDate).First().ChapterNumber
+                            ? (double)t.Chapters
+                                .OrderByDescending(c => c.VolumeNumber)
+                                .ThenByDescending(c => c.ChapterNumber)
+                                .First().ChapterNumber
                             : 0,
                         PopularityScore = (t.Chapters.Count() * 2) +
                                           (t.Chapters.SelectMany(c => c.Views).Count() * 0.1) +
@@ -1194,7 +1201,7 @@ namespace FallenFaction.Server.Controllers
                         Type = item.Title.Type,
                         TitleCategory = item.Title.TitleCategory,
                         LatestChapter = item.LatestChapterNumber > 0
-                            ? $"Ch. {item.LatestChapterNumber}"
+                            ? $"Ch. {(int)item.LatestChapterNumber}"
                             : null,
                         LatestChapterNumber = item.LatestChapterNumber,
                         LastUpdated = item.LastChapterDate != DateTime.MinValue ? item.LastChapterDate : null,

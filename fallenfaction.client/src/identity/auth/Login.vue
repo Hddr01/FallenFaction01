@@ -196,11 +196,16 @@ const handleLogin = async () => {
     password: form.password,
     rememberMe: form.rememberMe
   });
-  
+
+  if (result.requiresTermsAcceptance) {
+    const redirectTo = typeof route.query.redirect === 'string' ? route.query.redirect : '/';
+    router.push({ path: '/terms/accept', query: { redirect: redirectTo || '/' } });
+    return;
+  }
+
   if (result.success) {
-    // Redirect to intended page or home
-    const redirectTo = route.query.redirect || '/';
-    router.push(redirectTo);
+    const redirectTo = typeof route.query.redirect === 'string' ? route.query.redirect : '/';
+    router.push(redirectTo || '/');
   }
 };
 </script>

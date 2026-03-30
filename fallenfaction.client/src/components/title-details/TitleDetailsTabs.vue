@@ -528,7 +528,7 @@
           <div class="mb-4">
             <label class="block text-sm font-medium text-[var(--color-text)] mb-1">Your Team *</label>
             <select v-model="joinModal.teamId"
-              class="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]">
+              class="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-input-bg)] text-[var(--color-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]">
               <option value="">Select a team</option>
               <option v-for="t in joinModal.myTeams" :key="t.id" :value="t.id">{{ t.name }}</option>
             </select>
@@ -548,7 +548,7 @@
               :placeholder="joinModal.checkInfo?.hasActiveTeam
                 ? 'Explain why you want to take on this title despite an active translator…'
                 : 'Tell us about your translation plans for this title…'"
-              class="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] resize-none"/>
+              class="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-input-bg)] text-[var(--color-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] resize-none"/>
           </div>
 
           <!-- Error/result -->
@@ -566,7 +566,7 @@
 
         <div class="flex gap-3">
           <button @click="joinModal.open = false"
-            class="flex-1 px-4 py-2 rounded-lg border border-[var(--color-border)] text-sm font-medium hover:bg-[var(--color-background)] transition">
+            class="flex-1 px-4 py-2 rounded-lg border border-[var(--color-border)] text-sm font-medium hover:bg-[var(--color-background-mute)] transition">
             {{ joinModal.success ? 'Close' : 'Cancel' }}
           </button>
           <button v-if="!joinModal.success" @click="submitJoinRequest"
@@ -621,6 +621,7 @@
     DialogTrigger,
   } from '@/components/ui/dialog'
   import { titleDetailsService } from '@/services/titleDetailsService'
+  import { teamService } from '@/services/teamService'
   import { useAuthStore } from '@/stores/authStore.js'
   import axios from 'axios'
 
@@ -690,13 +691,13 @@
         axios.get(`/api/title-join-requests/check/${props.titleId}`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
         }),
-        axios.get('/api/Team/MyTeams', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
-        }).catch(() => ({ data: [] }))
+        teamService.getMyTeams().catch(() => ({ data: [] }))
       ])
       joinModal.value.checkInfo = checkRes.data
       // Filter to teams where user is admin/manager (non-system)
-      joinModal.value.myTeams = (teamsRes.data || []).filter(t => !t.isSystemTeam && t.userRole === 'Admin')
+      joinModal.value.myTeams = (teamsRes.data || []).filter(t => 
+        !t.isSystemTeam && (t.role === 0 || t.role === 'Admin')
+      )
     } catch {
       joinModal.value.error = 'Failed to load title info. Please try again.'
     } finally {
