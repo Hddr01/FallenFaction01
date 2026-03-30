@@ -152,6 +152,9 @@ const routes = [
   { path: '/user/content/moderation', name: 'Content Moderation', component: ContentManagement, meta: { requiresAuth: true, requiresAdminOrModerator: true, title: 'Content Moderation', defaultTab: 'moderation' } },
   { path: '/user/content/rejected', name: 'Rejected Content', component: ContentManagement, meta: { requiresAuth: true, title: 'Rejected Content', defaultTab: 'titles' } },
   { path: '/user/content/myteam', redirect: '/user/content/teams' },
+  { path: '/user/chapters', redirect: '/user/content/chapters' },
+  { path: '/user/titles', redirect: '/user/content/titles' },
+  { path: '/user/teams', redirect: '/user/content/teams' },
 
   // ── Titles ────────────────────────────────────────────────────────────────
   { path: '/novel/addtitle', name: 'Add Title', component: AddTitle, meta: { requiresAuth: true, title: 'Add Title' } },

@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Vue Frontend (Vite)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "fallenfaction.client",
+      "port": 49217
+    },
+    {
+      "name": "ASP.NET Core Backend",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "FallenFaction.Server/FallenFaction.Server.csproj"],
+      "port": 7217
+    }
+  ]
+}

@@ -85,21 +85,30 @@
     </div>
 
     <!-- Chapter Text Content -->
-    <div v-else-if="chapterData" class="reader-body">
-      <div class="text-content-wrapper" :style="contentStyles">
-        <!-- ============================================================ -->
-        <!-- TAP ZONES OVERLAY — covers only text area, not buttons/comments -->
-        <!-- ============================================================ -->
-        <div v-if="!showSettings && !showChapterList"
-             class="tap-zones-overlay"
-             @touchstart.passive="onTouchStart"
-             @touchend="onTouchEnd"
-             @mousedown="onMouseDown"
-             @mouseup="onMouseUp">
-          <div class="tap-zone tap-zone-left" data-zone="prev"></div>
-          <div class="tap-zone tap-zone-center" data-zone="toggle"></div>
-          <div class="tap-zone tap-zone-right" data-zone="next"></div>
+    <div v-else-if="chapterData" class="reader-body" ref="readerBodyRef">
+
+      <!-- Tap zones overlay.
+           position:absolute inside reader-body.
+           JS (updateTapZonesDimensions) sizes it to exactly match
+           text-content-wrapper using offsetTop/offsetLeft/offsetWidth/offsetHeight —
+           the novel equivalent of the manga image getBoundingClientRect algorithm.
+           Each zone handles its own click so bottom-nav and comments are never covered. -->
+      <div v-if="tapZonesEnabled && !showSettings && !showChapterList"
+           class="tap-zones-overlay"
+           ref="tapZonesOverlayRef">
+        <div class="tap-zone tap-zone-left"  @click="handleZoneTap('prev')">
+          <span class="tap-zone-label">‹</span>
         </div>
+        <div class="tap-zone tap-zone-center" @click="handleZoneTap('toggle')"></div>
+        <div class="tap-zone tap-zone-right" @click="handleZoneTap('next')">
+          <span class="tap-zone-label">›</span>
+        </div>
+      </div>
+
+      <!-- text-content-wrapper wraps ONLY reading content (header + text).
+           bottom-nav and comments-section are intentionally outside so they
+           are never covered by the tap zones overlay. -->
+      <div class="text-content-wrapper" :style="contentStyles" ref="textWrapperRef">
 
         <!-- Chapter Header -->
         <div class="chapter-header">
@@ -165,30 +174,32 @@
           <button @click="goToTitleDetails" class="px-4 py-2 mt-4 bg-[var(--color-accent)] text-white rounded-md">Back to Title</button>
         </div>
 
-        <!-- Bottom Navigation — flows naturally after text content -->
-        <div class="bottom-nav">
-          <button @click="gotoPrevChapter" :disabled="!chapterData.previousChapterId" class="nav-btn prev-btn">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
-            Previous Chapter
-          </button>
-          <button @click="goToTitleDetails" class="nav-btn back-btn">Back to Title</button>
-          <button @click="gotoNextChapter" :disabled="!chapterData.nextChapterId" class="nav-btn next-btn">
-            Next Chapter
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-          </button>
-        </div>
+      </div><!-- /text-content-wrapper -->
 
-        <!-- Comments — flows naturally after navigation -->
-        <div class="comments-section">
-          <CommentsComponent v-if="chapterData.id"
-                             :key="`chapter-comments-${chapterData.id}`"
-                             :target-id="chapterData.id"
-                             :target-type="2"
-                             :is-authenticated="isAuthenticated"
-                             :current-user-id="currentUserId"
-                             :is-admin="isAdmin" />
-        </div>
+      <!-- Bottom Navigation — outside text-content-wrapper so tap zones never cover it -->
+      <div class="bottom-nav">
+        <button @click="gotoPrevChapter" :disabled="!chapterData.previousChapterId" class="nav-btn prev-btn">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+          Previous Chapter
+        </button>
+        <button @click="goToTitleDetails" class="nav-btn back-btn">Back to Title</button>
+        <button @click="gotoNextChapter" :disabled="!chapterData.nextChapterId" class="nav-btn next-btn">
+          Next Chapter
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+        </button>
       </div>
+
+      <!-- Comments — outside text-content-wrapper so tap zones never cover it -->
+      <div class="comments-section">
+        <CommentsComponent v-if="chapterData.id"
+                           :key="`chapter-comments-${chapterData.id}`"
+                           :target-id="chapterData.id"
+                           :target-type="2"
+                           :is-authenticated="isAuthenticated"
+                           :current-user-id="currentUserId"
+                           :is-admin="isAdmin" />
+      </div>
+
     </div>
 
     <!-- Chapter List Popup -->
@@ -286,7 +297,7 @@
 </template>
 
 <script setup>
-  import { ref, computed, onMounted, onUnmounted } from 'vue'
+  import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { titleDetailsService } from '../../services/titleDetailsService'
   import { chapterService } from '../../services/chapterService'
@@ -323,6 +334,11 @@
   const walletBalance = computed(() =>
     (wallet.value?.goldBalance ?? 0) + (wallet.value?.silverBalance ?? 0)
   )
+
+  // Refs for tap zone measurement (novel equivalent of manga's image measurement)
+  const readerBodyRef = ref(null)
+  const textWrapperRef = ref(null)
+  const tapZonesOverlayRef = ref(null)
 
   // UI State
   const uiVisible = ref(true)
@@ -370,75 +386,59 @@
 
   // =============================================
   // TAP ZONE LOGIC
-  // Detects short taps vs. scrolls.
-  // Touch: track start coords; fire only if
-  //   movement < TAP_THRESHOLD and duration < TAP_MAX_MS.
-  // Mouse: similarly track mousedown/mouseup.
+  // Novel equivalent of the manga getBoundingClientRect image algorithm.
+  //
+  // The overlay (position:absolute inside reader-body) is sized in JS to
+  // exactly match text-content-wrapper's offsetTop/offsetLeft/Width/Height —
+  // the same approach the manga reader used for the rendered image.
+  //
+  // Each zone div has its own @click handler (handleZoneTap) so the browser's
+  // native tap/scroll discrimination applies: a vertical scroll gesture never
+  // fires click, so scrolling through the chapter works normally.
+  //
+  // bottom-nav and comments-section are outside text-content-wrapper so the
+  // overlay never covers them — they remain fully interactive.
   // =============================================
-  const TAP_THRESHOLD = 12   // px — max movement to count as a tap
-  const TAP_MAX_MS = 400   // ms — max duration to count as a tap
 
-  let touchStartX = 0
-  let touchStartY = 0
-  let touchStartTime = 0
-  let mouseStartX = 0
-  let mouseStartY = 0
-  let mouseStartTime = 0
+  // Sizes the overlay to exactly match the text-content-wrapper element.
+  // Called after chapter loads and on every window resize.
+  const updateTapZonesDimensions = () => {
+    const wrapper = textWrapperRef.value
+    const overlay = tapZonesOverlayRef.value
+    if (!wrapper || !overlay) return
 
-  const fireTapAction = (clientX) => {
-    if (!tapZonesEnabled.value) return
-    if (showSettings.value || showChapterList.value) return
+    // offsetTop/Left/Width/Height are relative to offsetParent (reader-body),
+    // which is position:relative — same coordinate space as position:absolute.
+    overlay.style.top    = `${wrapper.offsetTop}px`
+    overlay.style.left   = `${wrapper.offsetLeft}px`
+    overlay.style.width  = `${wrapper.offsetWidth}px`
+    overlay.style.height = `${wrapper.offsetHeight}px`
+  }
 
-    const w = window.innerWidth
-    const third = w / 3
-
-    if (clientX < third) {
-      // Left — previous chapter
+  // Handles a tap on one of the three zones.
+  const handleZoneTap = (zone) => {
+    if (zone === 'prev') {
       showHint('← Previous chapter')
       gotoPrevChapter()
-    } else if (clientX > w - third) {
-      // Right — next chapter
+    } else if (zone === 'next') {
       showHint('Next chapter →')
       gotoNextChapter()
     } else {
-      // Center — toggle navbar
       toggleUI()
     }
   }
 
-  const onTouchStart = (e) => {
-    if (e.touches.length !== 1) return
-    touchStartX = e.touches[0].clientX
-    touchStartY = e.touches[0].clientY
-    touchStartTime = Date.now()
+  let resizeObserver = null
+
+  const startResizeObserver = () => {
+    if (!textWrapperRef.value) return
+    resizeObserver = new ResizeObserver(() => updateTapZonesDimensions())
+    resizeObserver.observe(textWrapperRef.value)
   }
 
-  const onTouchEnd = (e) => {
-    if (e.changedTouches.length !== 1) return
-    const dx = Math.abs(e.changedTouches[0].clientX - touchStartX)
-    const dy = Math.abs(e.changedTouches[0].clientY - touchStartY)
-    const dt = Date.now() - touchStartTime
-
-    if (dx < TAP_THRESHOLD && dy < TAP_THRESHOLD && dt < TAP_MAX_MS) {
-      e.preventDefault()
-      fireTapAction(touchStartX)
-    }
-  }
-
-  const onMouseDown = (e) => {
-    mouseStartX = e.clientX
-    mouseStartY = e.clientY
-    mouseStartTime = Date.now()
-  }
-
-  const onMouseUp = (e) => {
-    const dx = Math.abs(e.clientX - mouseStartX)
-    const dy = Math.abs(e.clientY - mouseStartY)
-    const dt = Date.now() - mouseStartTime
-
-    if (dx < TAP_THRESHOLD && dy < TAP_THRESHOLD && dt < TAP_MAX_MS) {
-      fireTapAction(mouseStartX)
-    }
+  const stopResizeObserver = () => {
+    resizeObserver?.disconnect()
+    resizeObserver = null
   }
 
   // =============================================
@@ -513,6 +513,11 @@
         await updateReadingProgress()
         await loadUnlockData()
         window.scrollTo({ top: 0, behavior: 'auto' })
+        // Size overlay to match text-content-wrapper after DOM renders
+        await nextTick()
+        stopResizeObserver()
+        updateTapZonesDimensions()
+        startResizeObserver()
       } else {
         error.value = result.error || 'Chapter not found'
       }
@@ -700,6 +705,7 @@
   onUnmounted(() => {
     restoreZoom()
     document.removeEventListener('keydown', handleKeydown)
+    stopResizeObserver()
     clearTimeout(hintTimer)
   })
 </script>
@@ -740,28 +746,42 @@
 
   /* =========================================================
    TAP ZONES OVERLAY
-   Positioned absolutely within text-content-wrapper.
-   Only covers the text area, NOT buttons or comments below.
-   Pointer-events only on the overlay itself; the text below
-   is still selectable because the overlay has no background.
+   position:absolute inside reader-body (which is position:relative).
+   JavaScript (updateTapZonesDimensions) sets top/left/width/height to
+   exactly match text-content-wrapper — the novel equivalent of the manga
+   getBoundingClientRect image algorithm.
+   Each zone is individually clickable (pointer-events:auto) so the browser
+   native tap/scroll detection applies: scrolling never fires a click.
+   bottom-nav and comments-section sit outside the wrapper so they are
+   never covered.
    ========================================================= */
   .tap-zones-overlay {
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: auto;
-    z-index: 500;
+    z-index: 400;
     display: grid;
-    grid-template-columns: 30% 40% 30%;
-    pointer-events: auto;
-    /* Transparent — only catches taps, never blocks visual content */
-    background: transparent;
-    /* Will dynamically size based on text content */
+    grid-template-columns: 25% 50% 25%;
+    /* top/left/width/height set by updateTapZonesDimensions() */
+    pointer-events: none; /* container transparent */
   }
 
   .tap-zone {
-    /* Purely structural; actions fire on the parent overlay */
+    pointer-events: auto; /* each zone catches its own clicks */
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+  }
+
+  .tap-zone-left  { border-right: 1px solid rgba(128, 128, 128, 0.12); }
+  .tap-zone-right { border-left:  1px solid rgba(128, 128, 128, 0.12); }
+
+  .tap-zone-label {
+    font-size: 2rem;
+    font-weight: 300;
+    opacity: 0.12;
+    color: var(--reader-text, #e8e8e8);
+    user-select: none;
     pointer-events: none;
   }
 
@@ -945,8 +965,7 @@
     padding-bottom: 4rem;
     min-height: 100vh;
     background-color: var(--reader-bg);
-    /* Text is above the tap overlay so it stays visible & selectable */
-    position: relative;
+    position: relative; /* offsetParent for the absolute tap-zones-overlay */
     z-index: 0;
   }
 
@@ -954,8 +973,6 @@
     margin: 0 auto;
     padding: 2rem 1.5rem;
     color: var(--reader-text);
-    position: relative;
-    /* Allows tap-zones-overlay to be positioned absolutely within this element */
   }
 
   /* Chapter header */
@@ -988,11 +1005,9 @@
     margin: 1.5rem 0 2rem;
   }
 
-  /* Chapter text — pointer-events: auto ensures text selection still works */
+  /* Chapter text */
   .chapter-text {
     pointer-events: auto;
-    position: relative;
-    z-index: 501; /* above the tap overlay so selection works */
     user-select: text;
     -webkit-user-select: text;
   }
