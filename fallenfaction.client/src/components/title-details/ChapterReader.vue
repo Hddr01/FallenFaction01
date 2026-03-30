@@ -118,12 +118,12 @@
             <div class="locked-icon">
               <svg class="w-12 h-12 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
             <h3 class="locked-title">AI Chapter Locked</h3>
             <p class="locked-sub">
-              This AI-translated chapter hasn't been unlocked yet.<br/>
+              This AI-translated chapter hasn't been unlocked yet.<br />
               Once unlocked by anyone, it becomes free for everyone permanently.
             </p>
 
@@ -133,10 +133,10 @@
 
             <div v-if="isAuthenticated" class="locked-actions">
               <button @click="handleUnlock" :disabled="unlocking || walletBalance < unlockCost"
-                class="unlock-btn" :class="{ 'disabled': unlocking || walletBalance < unlockCost }">
+                      class="unlock-btn" :class="{ 'disabled': unlocking || walletBalance < unlockCost }">
                 <svg v-if="unlocking" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
                 {{ unlocking ? 'Unlocking…' : `Unlock for ${unlockCost} tickets` }}
               </button>
@@ -279,14 +279,12 @@
   </div>
 
   <!-- Report Chapter Modal -->
-  <ReportModal
-    v-if="chapterData?.id && isAuthenticated"
-    :is-open="showReportModal"
-    :target-type="3"
-    :target-id="chapterData.id"
-    @close="showReportModal = false"
-    @reported="showReportModal = false"
-  />
+  <ReportModal v-if="chapterData?.id && isAuthenticated"
+               :is-open="showReportModal"
+               :target-type="3"
+               :target-id="chapterData.id"
+               @close="showReportModal = false"
+               @reported="showReportModal = false" />
 </template>
 
 <script setup>
@@ -297,7 +295,7 @@
   import { getWallet, getUnlockCost, unlockChapter } from '@/services/aiTranslationService'
   import CommentsComponent from '../title-details/CommentsComponent.vue'
   import ReportModal from '../shared/ReportModal.vue'
-  import { buildTitleSlug } from '@/utils/titleSlug.js'
+  // buildTitleSlug import removed — URLs now use props.titleSlug directly
 
   const props = defineProps({
     titleSlug: { type: String, required: true },  // "title-name-{id}" format
@@ -320,10 +318,10 @@
   const isAdmin = ref(false)
 
   // ── AI Chapter unlock state ──────────────────────────────────────────
-  const wallet        = ref(null)
-  const unlockCost    = ref(null)
-  const unlocking     = ref(false)
-  const unlockError   = ref('')
+  const wallet = ref(null)
+  const unlockCost = ref(null)
+  const unlocking = ref(false)
+  const unlockError = ref('')
   const walletBalance = computed(() =>
     (wallet.value?.goldBalance ?? 0) + (wallet.value?.silverBalance ?? 0)
   )
@@ -555,9 +553,9 @@
         getWallet(),
         getUnlockCost(chapterData.value.id)
       ])
-      wallet.value     = walletRes.data
+      wallet.value = walletRes.data
       unlockCost.value = costRes.data.cost
-    } catch {}
+    } catch { }
   }
 
   const handleUnlock = async () => {
@@ -584,30 +582,31 @@
   // NAVIGATION
   // =============================================
   const goToTitleDetails = () => {
-    // Build slug from API data (titleName + titleId); both are in ChapterDTO
-    const name = (chapterData.value?.titleName || '').trim()
-    const id = chapterData.value?.titleId
-    const slug = (name && id) ? buildTitleSlug(name, id) : encodeURIComponent(name || 'title')
-    router.push({ path: `/${slug}`, query: { section: 'chapters' } })
+    // Use props.titleSlug directly — never try to rebuild the slug from
+    // chapterData.titleName, which is empty when the title's OriginalTitle
+    // field is "" on the backend (C# ?? won't fall through on an empty string).
+    router.push({ path: `/${props.titleSlug}`, query: { section: 'chapters' } })
   }
 
-  // Chapter URLs: /{titleSlug}/chapter/{chapterName}/v{vol}/t{teamId}
-  // When Name is empty, the API matches by numeric chapter segment (see TitlesController).
+  // Chapter URLs: /{titleSlug}/chapter/{chapterSeg}/v{vol}/t{teamId}
+  // When a chapter has no name the API resolves by chapterNumber instead.
+  // Produces an encoded segment: name (if non-empty) OR stringified number.
   const chapterPathSegment = (name, chapterNumber) => {
     const trimmed = name != null && String(name).trim() !== '' ? String(name).trim() : ''
     if (trimmed) return encodeURIComponent(trimmed)
-    if (chapterNumber != null && chapterNumber !== '' && !Number.isNaN(Number(chapterNumber))) {
-      return encodeURIComponent(String(chapterNumber))
-    }
+    // Numeric fallback — Number(0) is valid, guard only against null/undefined/NaN.
+    const num = Number(chapterNumber)
+    if (chapterNumber != null && !Number.isNaN(num)) return encodeURIComponent(String(num))
     return encodeURIComponent('0')
   }
 
   const buildChapterUrl = (chapterName, volume, teamId, chapterNumber) => {
-    const name = (chapterData.value?.titleName || '').trim()
-    const id = chapterData.value?.titleId
-    const slug = (name && id) ? buildTitleSlug(name, id) : encodeURIComponent(name || 'title')
+    // Always use the slug from props — it is the canonical "name-{id}" value
+    // set by the router and is immune to an empty titleName in the chapter DTO.
     const seg = chapterPathSegment(chapterName, chapterNumber)
-    return `/${slug}/chapter/${seg}/v${volume}/t${teamId}`
+    const vol = (volume != null && !Number.isNaN(Number(volume))) ? Number(volume) : 1
+    const team = (teamId != null && !Number.isNaN(Number(teamId))) ? Number(teamId) : 0
+    return `/${props.titleSlug}/chapter/${seg}/v${vol}/t${team}`
   }
 
   const gotoNextChapter = () => {
@@ -1011,6 +1010,7 @@
     justify-content: center;
     padding: 4rem 1rem;
   }
+
   .locked-gate-inner {
     max-width: 440px;
     width: 100%;
@@ -1020,17 +1020,20 @@
     background: rgba(139, 92, 246, 0.05);
     border: 1px solid rgba(139, 92, 246, 0.2);
   }
+
   .locked-icon {
     display: flex;
     justify-content: center;
     margin-bottom: 1rem;
   }
+
   .locked-title {
     font-size: 1.25rem;
     font-weight: 700;
     color: var(--color-heading);
     margin-bottom: 0.5rem;
   }
+
   .locked-sub {
     font-size: 0.875rem;
     opacity: 0.6;
@@ -1038,22 +1041,26 @@
     margin-bottom: 1.25rem;
     color: var(--color-text);
   }
+
   .locked-cost {
     font-size: 0.9rem;
     color: var(--color-text);
     opacity: 0.7;
     margin-bottom: 1.25rem;
   }
+
   .cost-amount {
     font-weight: 700;
     color: #a78bfa;
   }
+
   .locked-actions {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 0.75rem;
   }
+
   .unlock-btn {
     display: inline-flex;
     align-items: center;
@@ -1070,20 +1077,48 @@
     transition: all 0.15s;
     text-decoration: none;
   }
-  .unlock-btn:hover:not(.disabled) {
-    background: rgba(139, 92, 246, 0.35);
-    color: #ede9fe;
+
+    .unlock-btn:hover:not(.disabled) {
+      background: rgba(139, 92, 246, 0.35);
+      color: #ede9fe;
+    }
+
+    .unlock-btn.disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+  .balance-info {
+    font-size: 0.8rem;
+    opacity: 0.55;
+    color: var(--color-text);
   }
-  .unlock-btn.disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
+
+  .balance-warning {
+    font-size: 0.8rem;
+    color: #f87171;
   }
-  .balance-info { font-size: 0.8rem; opacity: 0.55; color: var(--color-text); }
-  .balance-warning { font-size: 0.8rem; color: #f87171; }
-  .wallet-link { color: #a78bfa; text-decoration: underline; margin-left: 0.25rem; }
-  .gold   { color: #facc15; font-weight: 600; }
-  .silver { color: #cbd5e1; font-weight: 600; }
-  .unlock-error { color: #f87171; font-size: 0.8rem; }
+
+  .wallet-link {
+    color: #a78bfa;
+    text-decoration: underline;
+    margin-left: 0.25rem;
+  }
+
+  .gold {
+    color: #facc15;
+    font-weight: 600;
+  }
+
+  .silver {
+    color: #cbd5e1;
+    font-weight: 600;
+  }
+
+  .unlock-error {
+    color: #f87171;
+    font-size: 0.8rem;
+  }
 
   .no-content {
     text-align: center;

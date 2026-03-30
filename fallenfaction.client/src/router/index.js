@@ -75,12 +75,18 @@ const routes = [
     path: '/:titleSlug/chapter/:chapterName/v:volumeNumber/t:teamId',
     name: 'ChapterReader',
     component: ChapterReader,
-    props: route => ({
-      titleSlug: decodeURIComponent(route.params.titleSlug),
-      chapterName: decodeURIComponent(route.params.chapterName),
-      volumeNumber: parseInt(route.params.volumeNumber),
-      teamId: parseInt(route.params.teamId),
-    }),
+    props: route => {
+      const vol = parseInt(route.params.volumeNumber)
+      const team = parseInt(route.params.teamId)
+      return {
+        titleSlug: decodeURIComponent(route.params.titleSlug),
+        chapterName: decodeURIComponent(route.params.chapterName),
+        // Fall back to safe integers when the URL segment is not a valid number
+        // (e.g. "null" / "undefined" from a broken URL builder).
+        volumeNumber: Number.isFinite(vol) ? vol : 1,
+        teamId: Number.isFinite(team) ? team : 0,
+      }
+    },
     meta: { title: 'Reading Chapter', hideNavigation: true, requiresAuth: false }
   },
 
