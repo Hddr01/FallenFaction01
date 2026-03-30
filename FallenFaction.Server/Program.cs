@@ -1,4 +1,4 @@
-using FallenFaction.Server.Data;
+﻿using FallenFaction.Server.Data;
 using FallenFaction.Server.Data.Models;
 using FallenFaction.Server.Data.SeedData;
 using FallenFaction.Server.Mappings;
@@ -9,133 +9,112 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.ActionConstraints;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.SqlServer;
 using Microsoft.IdentityModel.Tokens;
-using System.Reflection;
 using System.Text;
-using FallenFaction.Server.Services;
-using FallenFaction.Server.Data.SeedData;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container with explicit controller discovery
+#region Controllers
 builder.Services.AddControllers(options =>
 {
-    // Add any global filters here if needed
     options.SuppressAsyncSuffixInActionNames = false;
 })
 .AddJsonOptions(options =>
 {
-    // Handle circular references and improve JSON handling
-    options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
-    options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
-    options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    options.JsonSerializerOptions.ReferenceHandler =
+        System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
 
-    // CRITICAL: Increase max depth for deeply nested comment threads
-    // Default is 32, but we support infinite comment nesting
-    options.JsonSerializerOptions.MaxDepth = 128; // Supports up to 128 levels of nesting
+    options.JsonSerializerOptions.DefaultIgnoreCondition =
+        System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+
+    options.JsonSerializerOptions.PropertyNamingPolicy =
+        System.Text.Json.JsonNamingPolicy.CamelCase;
+
+    options.JsonSerializerOptions.MaxDepth = 128;
 });
+#endregion
 
-// Explicitly add MVC services to ensure controller discovery
-builder.Services.AddMvc();
+#region Services
 builder.Services.AddScoped<ICommentService, CommentService>();
-builder.Services.AddScoped<FallenFaction.Server.Services.Interfaces.ITrustService, FallenFaction.Server.Services.TrustService>();
+builder.Services.AddScoped<ITrustService, TrustService>();
 
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+builder.Services.AddAutoMapper(typeof(AuthMappingProfile));
+
+builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+
 builder.Services.AddHostedService<OnlineStatusCleanupService>();
+builder.Services.AddHostedService<SilverTicketExpiryService>();
+builder.Services.AddHostedService<AutoReleaseService>();
+#endregion
 
-// IMPROVED CORS Configuration - more comprehensive and secure
+#region CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowVueApp", policy =>
     {
-        var allowedOrigins = new[] {
-            "http://localhost:5173",
-            "https://localhost:5173",
-            "https://localhost:49217",  // Your Vue app HTTPS
-            "http://localhost:49217",   // Your Vue app HTTP
-            "https://localhost:7217",
-            "http://localhost:7217",
-            "http://localhost:5064",    // Your API port
-            "https://localhost:5064"
-        };
-
-        policy.WithOrigins(allowedOrigins)
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials()
-              .WithExposedHeaders("*"); // Expose all headers
+        policy.WithOrigins(
+                "http://localhost:5173",
+                "https://localhost:5173",
+                "http://localhost:49217",
+                "https://localhost:49217",
+                "https://fallenfaction.com",   // ← add this
+                "http://fallenfaction.com"     // ← and this
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 
-    // More permissive development policy
     options.AddPolicy("DevelopmentCORS", policy =>
     {
-        policy.SetIsOriginAllowed(origin =>
+        policy.SetIsOriginAllowed(o =>
         {
-            if (string.IsNullOrEmpty(origin)) return false;
-
-            try
-            {
-                var uri = new Uri(origin);
-                // Allow all localhost and 127.0.0.1 origins in development
-                return uri.Host == "localhost" || uri.Host == "127.0.0.1";
-            }
-            catch
-            {
-                return false;
-            }
+            if (string.IsNullOrEmpty(o)) return false;
+            var uri = new Uri(o);
+            return uri.Host == "localhost" || uri.Host == "127.0.0.1";
         })
         .AllowAnyHeader()
         .AllowAnyMethod()
-        .AllowCredentials()
-        .WithExposedHeaders("*");
+        .AllowCredentials();
     });
 });
+#endregion
 
-builder.Services.AddDbContext<FallenFaction.Server.Data.ApplicationDbContext>(options =>
+#region DB
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+#endregion
 
-// Add Identity services
+#region Identity
 builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
 {
-    // Password settings
+    options.Password.RequiredLength = 8;
     options.Password.RequireDigit = true;
     options.Password.RequireLowercase = true;
-    options.Password.RequireNonAlphanumeric = false;
     options.Password.RequireUppercase = true;
-    options.Password.RequiredLength = 6;
+    options.Password.RequireNonAlphanumeric = false;
     options.Password.RequiredUniqueChars = 1;
-
-    // Lockout settings
-    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
-    options.Lockout.MaxFailedAccessAttempts = 5;
-    options.Lockout.AllowedForNewUsers = true;
-
-    // User settings
-    options.User.AllowedUserNameCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
     options.User.RequireUniqueEmail = true;
-
-    // Email confirmation (disable for development)
+    options.User.AllowedUserNameCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._";
     options.SignIn.RequireConfirmedEmail = false;
-    options.SignIn.RequireConfirmedAccount = false;
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
 })
-.AddEntityFrameworkStores<FallenFaction.Server.Data.ApplicationDbContext>()
+.AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
+#endregion
 
-// Add JWT Authentication
+#region JWT
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-var key = Encoding.ASCII.GetBytes(jwtSettings["Secret"]);
+var secret = jwtSettings["Secret"]
+    ?? throw new InvalidOperationException("JWT Secret missing");
 
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
+var key = Encoding.UTF8.GetBytes(secret);
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 .AddJwtBearer(options =>
 {
-    options.RequireHttpsMetadata = false;
-    options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
@@ -145,139 +124,81 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidAudience = jwtSettings["Audience"],
         ValidateLifetime = true,
-        ClockSkew = TimeSpan.Zero,
-        RequireExpirationTime = true
+        ClockSkew = TimeSpan.Zero
     };
-
-    // Handle JWT events for better debugging
-    options.Events = new JwtBearerEvents
-    {
-        OnAuthenticationFailed = context =>
-        {
-            Console.WriteLine($"JWT Authentication failed: {context.Exception.Message}");
-            if (context.Exception.GetType() == typeof(SecurityTokenExpiredException))
-            {
-                context.Response.Headers.Add("Token-Expired", "true");
-            }
-            return Task.CompletedTask;
-        },
-        OnTokenValidated = context =>
-        {
-            Console.WriteLine("JWT Token validated successfully");
-            return Task.CompletedTask;
-        },
-        OnChallenge = context =>
-        {
-            Console.WriteLine($"JWT Challenge: {context.Error} - {context.ErrorDescription}");
-            context.HandleResponse();
-            context.Response.StatusCode = 401;
-            context.Response.ContentType = "application/json";
-            var result = System.Text.Json.JsonSerializer.Serialize(new { error = "Unauthorized", message = "Invalid or expired token" });
-            return context.Response.WriteAsync(result);
-        }
-    };
-})
-.AddGoogle(googleOptions =>
-{
-    googleOptions.ClientId = builder.Configuration["Authentication:Google:ClientId"];
-    googleOptions.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
-})
-.AddFacebook(facebookOptions =>
-{
-    facebookOptions.AppId = builder.Configuration["Authentication:Facebook:AppId"];
-    facebookOptions.AppSecret = builder.Configuration["Authentication:Facebook:AppSecret"];
 });
+#endregion
 
-// Add Authorization with detailed policies
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("AdminOnly", policy =>
-        policy.RequireRole("Admin"));
+builder.Services.AddAuthorization();
 
-    options.AddPolicy("AdminOrModerator", policy =>
-        policy.RequireRole("Admin", "Moderator"));
-
-    options.AddPolicy("AuthenticatedUser", policy =>
-        policy.RequireAuthenticatedUser());
-});
-
-// Add AutoMapper
-builder.Services.AddAutoMapper(typeof(AuthMappingProfile));
-
-// Register custom services
-builder.Services.AddScoped<ITokenService, TokenService>();
-builder.Services.AddScoped<IAuthService, AuthService>();
-
-// Configure Swagger/OpenAPI
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
-    {
-        Title = "FallenFaction API",
-        Version = "v1",
-        Description = "API for FallenFaction application"
-    });
-
-
-    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-    {
-        Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token in the text input below. Example: 'Bearer 12345abcdef'",
-        Name = "Authorization",
-        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
-    });
-
-    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
-    {
-        {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-            {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
-                {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            new string[] {}
-        }
-    });
-});
-
-// Add configuration for static assets base URL
-builder.Services.Configure<Dictionary<string, string>>(options =>
-{
-    options["StaticAssets:BaseUrl"] = builder.Configuration["StaticAssets:BaseUrl"] ?? "https://localhost:7217";
-});
-
-builder.Services.AddHostedService<OnlineStatusCleanupService>();
-builder.Services.AddHostedService<SilverTicketExpiryService>();
-builder.Services.AddHostedService<AutoReleaseService>();
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
-app.UseDeveloperExceptionPage();
 
-// Configure the HTTP request pipeline.
+#region MIGRATION (🔥 IMPORTANT FIX)
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await db.Database.MigrateAsync();
+}
+#endregion
+
+#region SEED DATA (AFTER MIGRATION ONLY)
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+
+    await PermissionSeeder.SeedPermissions(db);
+    await AITeamSeeder.SeedAsync(db, userManager);
+
+    string[] roles = { "Admin", "Moderator", "User" };
+
+    foreach (var role in roles)
+    {
+        if (!await roleManager.RoleExistsAsync(role))
+            await roleManager.CreateAsync(new IdentityRole(role));
+    }
+
+    if (!userManager.Users.Any(u => u.Email == "admin@fallenfaction.com"))
+    {
+        var admin = new AppUser
+        {
+            UserName = "admin",
+            Email = "admin@fallenfaction.com",
+            EmailConfirmed = true,
+            IsActive = true
+        };
+
+        var result = await userManager.CreateAsync(admin, "REDACTED");
+        if (result.Succeeded)
+            await userManager.AddToRoleAsync(admin, "Admin");
+    }
+}
+#endregion
+
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.Events.OnRedirectToLogin = context =>
+    {
+        context.Response.StatusCode = 401;
+        return Task.CompletedTask;
+    };
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        context.Response.StatusCode = 403;
+        return Task.CompletedTask;
+    };
+});
+
+#region PIPELINE
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.UseDeveloperExceptionPage();
     app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "FallenFaction API V1");
-        c.DefaultModelsExpandDepth(-1);
-    });
-
-    // Use DevelopmentCORS in development for maximum compatibility
+    app.UseSwaggerUI();
     app.UseCors("DevelopmentCORS");
-
-    // Add request logging in development
-    app.Use(async (context, next) =>
-    {
-        Console.WriteLine($"Request: {context.Request.Method} {context.Request.Path} from {context.Connection.RemoteIpAddress}");
-        await next();
-        Console.WriteLine($"Response: {context.Response.StatusCode}");
-    });
 }
 else
 {
@@ -285,157 +206,15 @@ else
     app.UseCors("AllowVueApp");
 }
 
-// Force HTTPS in production
-if (!app.Environment.IsDevelopment())
-{
-    app.UseHttpsRedirection();
-}
+app.UseHttpsRedirection();
 
-// Authentication & Authorization middleware (order matters!)
+app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Add security headers
-app.Use(async (context, next) =>
-{
-    context.Response.Headers.Add("X-Content-Type-Options", "nosniff");
-    context.Response.Headers.Add("X-Frame-Options", "DENY");
-    context.Response.Headers.Add("X-XSS-Protection", "1; mode=block");
-
-    if (!app.Environment.IsDevelopment())
-    {
-        context.Response.Headers.Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-    }
-
-    await next();
-});
-
-// Serve static files (uploads, wwwroot) in production only.
-// In dev, Vite serves its own assets and /uploads is proxied by Vite config.
-if (!app.Environment.IsDevelopment())
-{
-    app.UseDefaultFiles();
-    app.UseStaticFiles();
-}
-
-// Map controllers with detailed route debugging
 app.MapControllers();
 
-// Add a test endpoint to verify controller discovery
-if (app.Environment.IsDevelopment())
-{
-    app.MapGet("/api/debug/controllers", () =>
-    {
-        var controllerActionDescriptor = app.Services.GetRequiredService<IActionDescriptorCollectionProvider>();
-        return controllerActionDescriptor.ActionDescriptors.Items
-            .Where(x => x.AttributeRouteInfo != null)
-            .Select(x => new
-            {
-                Route = x.AttributeRouteInfo.Template,
-                Controller = x.RouteValues["controller"],
-                Action = x.RouteValues["action"],
-                HttpMethods = string.Join(", ", x.ActionConstraints?.OfType<HttpMethodActionConstraint>().FirstOrDefault()?.HttpMethods ?? new[] { "ANY" })
-            })
-            .OrderBy(x => x.Route);
-    }).WithOpenApi();
-}
+app.MapFallbackToFile("index.html");
+#endregion
 
-// Fallback: in development proxy unknown routes to Vite dev server;
-// in production serve the built index.html from wwwroot.
-if (app.Environment.IsDevelopment())
-{
-    app.MapFallback(async context =>
-    {
-        var path = context.Request.Path.Value ?? "";
-        if (path.StartsWith("/api") || path.StartsWith("/auth") || path.StartsWith("/uploads"))
-        {
-            context.Response.StatusCode = 404;
-            return;
-        }
-
-        using var handler = new HttpClientHandler { ServerCertificateCustomValidationCallback = (_, _, _, _) => true };
-        using var client = new HttpClient(handler);
-        var viteUrl = $"https://localhost:49217{path}{context.Request.QueryString}";
-        try
-        {
-            var response = await client.GetAsync(viteUrl);
-            context.Response.StatusCode = (int)response.StatusCode;
-            context.Response.ContentType = response.Content.Headers.ContentType?.ToString() ?? "text/html";
-            var content = await response.Content.ReadAsStringAsync();
-            await context.Response.WriteAsync(content);
-        }
-        catch
-        {
-            context.Response.StatusCode = 503;
-            await context.Response.WriteAsync("Vite dev server not running. Run: cd fallenfaction.client && npm run dev");
-        }
-    });
-}
-else
-{
-    app.MapStaticAssets();
-    app.MapFallbackToFile("/index.html");
-}
-
-using (var scope = app.Services.CreateScope())
-{
-    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    await PermissionSeeder.SeedPermissions(context);
-}
-
-// Seed default roles and create admin user if needed
-using (var scope = app.Services.CreateScope())
-{
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
-
-    var roles = new[] { "Admin", "Moderator", "User" };
-
-    foreach (var role in roles)
-    {
-        if (!await roleManager.RoleExistsAsync(role))
-        {
-            await roleManager.CreateAsync(new IdentityRole(role));
-            Console.WriteLine($"Created role: {role}");
-        }
-    }
-
-    // Create default admin user if none exists
-    if (!userManager.Users.Any(u => u.Email == "admin@fallenfaction.com"))
-    {
-        var adminUser = new AppUser
-        {
-            UserName = "admin",
-            Email = "admin@fallenfaction.com",
-            EmailConfirmed = true,
-            RegistrationDate = DateTime.UtcNow,
-            LastActive = DateTime.UtcNow,
-            IsActive = true,
-            IsVerified = true,
-            ProfilePicturePath = "https://localhost:7217/img/default-avatar.png"
-        };
-
-        var result = await userManager.CreateAsync(adminUser, "REDACTED");
-        if (result.Succeeded)
-        {
-            await userManager.AddToRoleAsync(adminUser, "Admin");
-            Console.WriteLine("Default admin user created: admin@fallenfaction.com / REDACTED");
-        }
-        else
-        {
-            Console.WriteLine($"Failed to create admin user: {string.Join(", ", result.Errors.Select(e => e.Description))}");
-        }
-    }
-}
-
-
-using (var scope = app.Services.CreateScope())
-{
-    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
-    await AITeamSeeder.SeedAsync(context, userManager);
-}
-
-
-Console.WriteLine("Application started successfully!");
 app.Run();

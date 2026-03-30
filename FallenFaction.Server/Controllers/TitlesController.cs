@@ -1055,8 +1055,10 @@ namespace FallenFaction.Server.Controllers
                         c.Name,
                         c.VolumeNumber,
                         c.ChapterNumber,
-                        TitleName = c.Title.OriginalTitle,
-                        TeamName = c.Team.Name,
+                        c.TitleId,
+                        TitleName = c.Title.OriginalTitle ?? c.Title.EnglishTitle ?? string.Empty,
+                        c.TeamId,
+                        TeamName = c.Team != null ? c.Team.Name : string.Empty,
                         c.ReleaseDate
                     }),
                     PendingChapters = pendingChapters.Select(c => new
@@ -1065,8 +1067,10 @@ namespace FallenFaction.Server.Controllers
                         c.Name,
                         c.VolumeNumber,
                         c.ChapterNumber,
-                        TitleName = c.Title.OriginalTitle,
-                        TeamName = c.Team.Name,
+                        c.TitleId,
+                        TitleName = c.Title.OriginalTitle ?? c.Title.EnglishTitle ?? string.Empty,
+                        c.TeamId,
+                        TeamName = c.Team != null ? c.Team.Name : string.Empty,
                         c.CreatedDate
                     }),
                     RejectedChapters = rejectedChapters.Select(c => new
@@ -1075,8 +1079,10 @@ namespace FallenFaction.Server.Controllers
                         c.Name,
                         c.VolumeNumber,
                         c.ChapterNumber,
-                        TitleName = c.Title.OriginalTitle,
-                        TeamName = c.Team.Name,
+                        c.TitleId,
+                        TitleName = c.Title.OriginalTitle ?? c.Title.EnglishTitle ?? string.Empty,
+                        c.TeamId,
+                        TeamName = c.Team != null ? c.Team.Name : string.Empty,
                         c.CreatedDate
                     })
                 };

@@ -104,7 +104,7 @@
               {{ errors.password }}
             </div>
             <div class="mt-1 text-xs text-[var(--color-text)] opacity-75">
-              Password must be at least 6 characters with uppercase, lowercase, and number
+              Password must be at least 8 characters with uppercase, lowercase, and number
             </div>
           </div>
 
@@ -247,7 +247,7 @@
 
     if (!form.password) {
       errors.value.password = 'Password is required';
-    } else if (form.password.length < 6) {
+    } else if (form.password.length < 8) {
       errors.value.password = 'Password must be at least 6 characters';
     } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(form.password)) {
       errors.value.password = 'Password must contain uppercase, lowercase, and number';

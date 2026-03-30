@@ -97,11 +97,11 @@
                 {{ formatDate(title.lastUpdated) }}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                <router-link :to="`/${encodeURIComponent(title.originalTitle)}`"
+                <router-link :to="`/${buildTitleSlug(title.originalTitle, title.id)}`"
                              class="text-[var(--color-accent)] hover:text-[var(--color-accent-hover)]">
                   View
                 </router-link>
-                <router-link :to="`/${encodeURIComponent(title.originalTitle)}/AddChapter`"
+                <router-link :to="`/${buildTitleSlug(title.originalTitle, title.id)}/AddChapter`"
                              class="text-blue-600 hover:text-blue-700">
                   Add Chapter
                 </router-link>
@@ -311,6 +311,7 @@
 <script setup>
   import { ref, computed } from 'vue'
   import contentService from '../../services/contentService'
+  import { buildTitleSlug } from '@/utils/titleSlug.js'
 
   // Props
   const props = defineProps({

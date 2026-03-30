@@ -29,7 +29,7 @@
         <div class="navbar-right">
           <button v-if="isAuthenticated && chapterData?.id" class="icon-btn" @click="showReportModal = true" title="Report this chapter">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+              <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />A
               <line x1="4" y1="22" x2="4" y2="15" />
             </svg>
           </button>
@@ -51,22 +51,6 @@
           </button>
         </div>
       </div>
-    </div>
-
-    <!-- ============================================================ -->
-    <!-- TAP ZONES — invisible overlay for touch/click navigation     -->
-    <!-- Only active when no popup is open                            -->
-    <!-- ============================================================ -->
-    <div v-if="!showSettings && !showChapterList && chapterData && !loading && !error"
-         class="tap-zones-overlay"
-         @touchstart.passive="onTouchStart"
-         @touchend="onTouchEnd"
-         @mousedown="onMouseDown"
-         @mouseup="onMouseUp">
-      <!-- Individual zones are visual-only for debug; interaction is on the parent -->
-      <div class="tap-zone tap-zone-left" data-zone="prev"></div>
-      <div class="tap-zone tap-zone-center" data-zone="toggle"></div>
-      <div class="tap-zone tap-zone-right" data-zone="next"></div>
     </div>
 
     <!-- Tap hint -->
@@ -103,6 +87,20 @@
     <!-- Chapter Text Content -->
     <div v-else-if="chapterData" class="reader-body">
       <div class="text-content-wrapper" :style="contentStyles">
+        <!-- ============================================================ -->
+        <!-- TAP ZONES OVERLAY — covers only text area, not buttons/comments -->
+        <!-- ============================================================ -->
+        <div v-if="!showSettings && !showChapterList"
+             class="tap-zones-overlay"
+             @touchstart.passive="onTouchStart"
+             @touchend="onTouchEnd"
+             @mousedown="onMouseDown"
+             @mouseup="onMouseUp">
+          <div class="tap-zone tap-zone-left" data-zone="prev"></div>
+          <div class="tap-zone tap-zone-center" data-zone="toggle"></div>
+          <div class="tap-zone tap-zone-right" data-zone="next"></div>
+        </div>
+
         <!-- Chapter Header -->
         <div class="chapter-header">
           <p class="chapter-meta">Vol.{{ chapterData.volumeNumber }} · Ch.{{ chapterData.chapterNumber }}</p>
@@ -167,7 +165,7 @@
           <button @click="goToTitleDetails" class="px-4 py-2 mt-4 bg-[var(--color-accent)] text-white rounded-md">Back to Title</button>
         </div>
 
-        <!-- Bottom Navigation -->
+        <!-- Bottom Navigation — flows naturally after text content -->
         <div class="bottom-nav">
           <button @click="gotoPrevChapter" :disabled="!chapterData.previousChapterId" class="nav-btn prev-btn">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
@@ -180,7 +178,7 @@
           </button>
         </div>
 
-        <!-- Comments -->
+        <!-- Comments — flows naturally after navigation -->
         <div class="comments-section">
           <CommentsComponent v-if="chapterData.id"
                              :key="`chapter-comments-${chapterData.id}`"
@@ -742,22 +740,24 @@
 
   /* =========================================================
    TAP ZONES OVERLAY
-   Fixed, full-screen, sits above content but below popups.
+   Positioned absolutely within text-content-wrapper.
+   Only covers the text area, NOT buttons or comments below.
    Pointer-events only on the overlay itself; the text below
    is still selectable because the overlay has no background.
    ========================================================= */
   .tap-zones-overlay {
-    position: fixed;
+    position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: auto;
     z-index: 500;
     display: grid;
     grid-template-columns: 30% 40% 30%;
     pointer-events: auto;
     /* Transparent — only catches taps, never blocks visual content */
     background: transparent;
+    /* Will dynamically size based on text content */
   }
 
   .tap-zone {
@@ -954,6 +954,8 @@
     margin: 0 auto;
     padding: 2rem 1.5rem;
     color: var(--reader-text);
+    position: relative;
+    /* Allows tap-zones-overlay to be positioned absolutely within this element */
   }
 
   /* Chapter header */
@@ -1126,7 +1128,7 @@
     opacity: 0.6;
   }
 
-  /* Bottom nav — above tap overlay so buttons are always clickable */
+  /* Bottom nav — flows naturally after text content */
   .bottom-nav {
     display: flex;
     justify-content: space-between;
@@ -1134,8 +1136,7 @@
     gap: 1rem;
     margin: 3rem 0 2rem;
     flex-wrap: wrap;
-    position: relative;
-    z-index: 501;
+    width: 100%;
   }
 
   .nav-btn {
@@ -1171,13 +1172,11 @@
       background: var(--color-accent-hover);
     }
 
-  /* Comments */
+  /* Comments section — flows naturally after navigation */
   .comments-section {
     margin-top: 3rem;
     border-top: 1px solid var(--reader-border);
     padding-top: 2rem;
-    position: relative;
-    z-index: 501;
   }
 
   /* =========================================================
@@ -1414,11 +1413,20 @@
 
     .bottom-nav {
       flex-direction: column;
+      gap: 0.75rem;
+      margin: 2rem 0 1.5rem;
     }
 
     .nav-btn {
       width: 100%;
       justify-content: center;
     }
+
+    .comments-section {
+      margin-top: 2rem;
+      padding-top: 1.5rem;
+    }
   }
 </style>
+
+
