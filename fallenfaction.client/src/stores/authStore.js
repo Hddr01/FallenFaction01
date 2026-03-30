@@ -62,6 +62,8 @@ export const useAuthStore = defineStore('auth', () => {
     isInitialized.value = true;
   };
 
+  const PENDING_TERMS_KEY = 'ff-pending-terms';
+
   const login = async (credentials) => {
     isLoading.value = true;
     error.value = null;
@@ -69,7 +71,24 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const response = await authApi.login(credentials);
 
-      if (response.success) {
+      if (response.requiresTermsAcceptance) {
+        sessionStorage.setItem(
+          PENDING_TERMS_KEY,
+          JSON.stringify({
+            email: credentials.email,
+            password: credentials.password,
+            termsVersion: response.termsVersion || null
+          })
+        );
+        return {
+          success: true,
+          requiresTermsAcceptance: true,
+          termsVersion: response.termsVersion
+        };
+      }
+
+      if (response.success && response.token && response.user) {
+        sessionStorage.removeItem(PENDING_TERMS_KEY);
         token.value = response.token;
         user.value = response.user;
 
@@ -83,6 +102,54 @@ export const useAuthStore = defineStore('auth', () => {
         error.value = response.message || 'Login failed';
         return { success: false, message: response.message, errors: response.errors };
       }
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 'Network error occurred';
+      error.value = errorMessage;
+      return { success: false, message: errorMessage };
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
+  const acceptTermsAndLogin = async () => {
+    isLoading.value = true;
+    error.value = null;
+
+    try {
+      const raw = sessionStorage.getItem(PENDING_TERMS_KEY);
+      if (!raw) {
+        error.value = 'Session expired. Please sign in again.';
+        return { success: false, message: error.value };
+      }
+
+      let pending;
+      try {
+        pending = JSON.parse(raw);
+      } catch {
+        sessionStorage.removeItem(PENDING_TERMS_KEY);
+        error.value = 'Session expired. Please sign in again.';
+        return { success: false, message: error.value };
+      }
+
+      const { email, password } = pending;
+
+      const response = await authApi.acceptTerms({ email, password });
+
+      if (response.success && response.token && response.user) {
+        sessionStorage.removeItem(PENDING_TERMS_KEY);
+        token.value = response.token;
+        user.value = response.user;
+
+        localStorage.setItem('authToken', response.token);
+        localStorage.setItem('authUser', JSON.stringify(response.user));
+
+        startOnlineStatusManagement();
+
+        return { success: true };
+      }
+
+      error.value = response.message || 'Could not accept terms';
+      return { success: false, message: response.message, errors: response.errors };
     } catch (err) {
       const errorMessage = err.response?.data?.message || 'Network error occurred';
       error.value = errorMessage;
@@ -180,6 +247,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       localStorage.removeItem('authToken');
       localStorage.removeItem('authUser');
+      sessionStorage.removeItem(PENDING_TERMS_KEY);
 
       console.log('Local state cleared');
 
@@ -500,6 +568,7 @@ export const useAuthStore = defineStore('auth', () => {
     // Actions
     initializeAuth,
     login,
+    acceptTermsAndLogin,
     register,
     logout,
     getUserProfile,

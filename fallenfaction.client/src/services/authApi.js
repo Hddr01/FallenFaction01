@@ -33,8 +33,9 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       // Only redirect to login if this isn't a logout request
       const isLogoutRequest = error.config?.url?.includes('/auth/logout');
+      const isAcceptTermsRequest = error.config?.url?.includes('/auth/accept-terms');
 
-      if (!isLogoutRequest) {
+      if (!isLogoutRequest && !isAcceptTermsRequest) {
         // Token expired or invalid for non-logout requests
         localStorage.removeItem('authToken');
         localStorage.removeItem('authUser');
@@ -55,6 +56,18 @@ const authApi = {
   async login(credentials) {
     try {
       const response = await api.post('/auth/login', credentials);
+      return response.data;
+    } catch (error) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  },
+
+  async acceptTerms(payload) {
+    try {
+      const response = await api.post('/auth/accept-terms', payload);
       return response.data;
     } catch (error) {
       if (error.response?.data) {

@@ -592,12 +592,22 @@
   }
 
   // Chapter URLs: /{titleSlug}/chapter/{chapterName}/v{vol}/t{teamId}
-  // titleId is the same for all adjacent chapters — reuse chapterData.titleId
-  const buildChapterUrl = (chapterName, volume, teamId) => {
+  // When Name is empty, the API matches by numeric chapter segment (see TitlesController).
+  const chapterPathSegment = (name, chapterNumber) => {
+    const trimmed = name != null && String(name).trim() !== '' ? String(name).trim() : ''
+    if (trimmed) return encodeURIComponent(trimmed)
+    if (chapterNumber != null && chapterNumber !== '' && !Number.isNaN(Number(chapterNumber))) {
+      return encodeURIComponent(String(chapterNumber))
+    }
+    return encodeURIComponent('0')
+  }
+
+  const buildChapterUrl = (chapterName, volume, teamId, chapterNumber) => {
     const name = (chapterData.value?.titleName || '').trim()
     const id = chapterData.value?.titleId
     const slug = (name && id) ? buildTitleSlug(name, id) : encodeURIComponent(name || 'title')
-    return `/${slug}/chapter/${encodeURIComponent(chapterName)}/v${volume}/t${teamId}`
+    const seg = chapterPathSegment(chapterName, chapterNumber)
+    return `/${slug}/chapter/${seg}/v${volume}/t${teamId}`
   }
 
   const gotoNextChapter = () => {
@@ -605,7 +615,8 @@
     router.push(buildChapterUrl(
       chapterData.value.nextChapterName,
       chapterData.value.nextChapterVolume,
-      chapterData.value.nextChapterTeamId
+      chapterData.value.nextChapterTeamId,
+      chapterData.value.nextChapterNumber
     ))
   }
 
@@ -614,15 +625,17 @@
     router.push(buildChapterUrl(
       chapterData.value.previousChapterName,
       chapterData.value.previousChapterVolume,
-      chapterData.value.previousChapterTeamId
+      chapterData.value.previousChapterTeamId,
+      chapterData.value.previousChapterNumber
     ))
   }
 
   const goToChapter = (chapter) => {
     router.push(buildChapterUrl(
-      chapter.name || chapter.chapterNumber,
+      chapter.name,
       chapter.volumeNumber,
-      chapter.teamId
+      chapter.teamId,
+      chapter.chapterNumber
     ))
     toggleChapterList()
   }

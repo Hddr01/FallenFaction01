@@ -1,6 +1,6 @@
 <template>
   <Dialog :open="isOpen" @update:open="handleOpenChange">
-    <DialogContent class="sm:max-w-[480px] bg-[var(--color-background)] border-[var(--color-border)]">
+    <DialogContent class="sm:max-w-[480px] bg-[var(--color-background)] border-[var(--color-border)] overflow-y-auto max-h-[min(90vh,880px)] overflow-x-visible isolate">
       <DialogHeader>
         <DialogTitle class="text-[var(--color-heading)] flex items-center gap-2">
           <Flag class="w-5 h-5 text-red-500" />
@@ -13,13 +13,13 @@
 
       <div class="space-y-4 py-2">
         <!-- Reason select -->
-        <div class="space-y-2">
+        <div class="space-y-2 relative z-20">
           <label class="text-sm font-medium text-[var(--color-text)]">
             Reason <span class="text-red-500">*</span>
           </label>
           <select
             v-model="form.reason"
-            class="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-background-soft)] text-[var(--color-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--vt-c-indigo)] focus:border-transparent transition-colors"
+            class="relative z-20 w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-background-soft)] text-[var(--color-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--vt-c-indigo)] focus:border-transparent transition-colors"
           >
             <option value="" disabled>Select a reason...</option>
             <option value="1">Spam</option>

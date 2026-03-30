@@ -1,4 +1,4 @@
-﻿// Controllers/TeamController.cs - Updated to match existing UserTeamRole model
+// Controllers/TeamController.cs - Updated to match existing UserTeamRole model
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
@@ -517,6 +517,7 @@ namespace FallenFaction.Server.Controllers
                     utr.Team.AvatarImagePath,
                     utr.Team.BackgroundImagePath,
                     utr.Team.CreatedDate,
+                    utr.Team.IsSystemTeam,
                     Role = utr.Role,
                     IsCreator = utr.Team.CreatorId == userId,
                     MemberCount = utr.Team.UserTeamRoles.Count

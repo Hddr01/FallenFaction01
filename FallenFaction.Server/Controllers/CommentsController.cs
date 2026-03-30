@@ -1,4 +1,4 @@
-﻿// Controllers/CommentsController.cs - Fixed for Infinite Accordion with Correct Schema
+// Controllers/CommentsController.cs - Fixed for Infinite Accordion with Correct Schema
 using FallenFaction.Server.Data;
 using FallenFaction.Server.Data.Models;
 using FallenFaction.Server.DTOs.Comment;
@@ -863,14 +863,14 @@ namespace FallenFaction.Server.Controllers
                         .FirstOrDefaultAsync();
 
                     if (userTeamRole == null)
-                        return Forbid("You are not a member of any team that owns this title.");
+                        return StatusCode(403, new { message = "You are not a member of any team that owns this title." });
 
                     var hasPermission = userTeamRole.Role == TeamRole.Admin ||
                         userTeamRole.UserTeamRolePermissions.Any(p =>
                             p.UserTeamPermission.PermissionName == "CanEditTitle");
 
                     if (!hasPermission)
-                        return Forbid("You don't have permission to pin comments.");
+                        return StatusCode(403, new { message = "You don't have permission to pin comments." });
 
                     teamId = userTeamRole.TeamId;
                 }
@@ -929,14 +929,14 @@ namespace FallenFaction.Server.Controllers
                         .FirstOrDefaultAsync();
 
                     if (userTeamRole == null)
-                        return Forbid("Not a team member.");
+                        return StatusCode(403, new { message = "Not a team member." });
 
                     var hasPermission = userTeamRole.Role == TeamRole.Admin ||
                         userTeamRole.UserTeamRolePermissions.Any(p =>
                             p.UserTeamPermission.PermissionName == "CanEditTitle");
 
                     if (!hasPermission)
-                        return Forbid("No permission to unpin.");
+                        return StatusCode(403, new { message = "No permission to unpin." });
                 }
 
                 comment.IsPinned = false;

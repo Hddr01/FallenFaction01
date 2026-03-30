@@ -1,7 +1,7 @@
 <template>
-  <div class="min-h-screen bg-background">
+  <div class="min-h-screen bg-[var(--color-background)] text-[var(--color-text)]">
     <!-- Hero Section with Search -->
-    <div class="relative bg-gradient-to-br from-primary/10 via-background to-secondary/10 border-b">
+    <div class="relative border-b border-[var(--color-border)] bg-[var(--color-background-soft)]">
       <div class="container mx-auto px-4 py-12">
         <div class="max-w-4xl mx-auto text-center space-y-6">
           <h1 class="text-4xl md:text-5xl font-bold tracking-tight">
@@ -28,11 +28,11 @@
           </div>
 
           <!-- Quick Filters -->
-          <div class="border-b border-gray-700 bg-background rounded-lg overflow-hidden shadow-lg max-w-2xl mx-auto">
+          <div class="border border-[var(--color-border)] bg-[var(--color-background-soft)] rounded-lg overflow-hidden shadow-lg max-w-2xl mx-auto">
             <div class="flex w-full overflow-x-auto whitespace-nowrap bg-transparent p-1.5 gap-1 scrollbar-hide">
               <a v-for="quickFilter in quickFilters"
                  :key="quickFilter.value"
-                 class="flex-shrink-0 flex items-center gap-2 cursor-pointer bg-transparent rounded-md transition-all duration-300 ease-out no-underline text-gray-400 relative overflow-visible hover:text-[var(--color-heading)] hover:-translate-y-0.5"
+                 class="flex-shrink-0 flex items-center gap-2 cursor-pointer bg-transparent rounded-md transition-all duration-300 ease-out no-underline text-[var(--color-text)] opacity-60 relative overflow-visible hover:opacity-100 hover:text-[var(--color-heading)] hover:-translate-y-0.5"
                  :class="{ 'text-purple-500': activeQuickFilter === quickFilter.value }"
                  href="#"
                  @click.prevent="applyQuickFilter(quickFilter.value)">
@@ -139,7 +139,7 @@
                 <SelectTrigger class="w-[180px]">
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
-                <SelectContent class="bg-background" style="background-color: hsl(20 14.3% 4.1%) !important;">
+                <SelectContent class="!bg-[var(--color-background-soft)] border-[var(--color-border)]">
                   <SelectItem value="updated">Recently Updated</SelectItem>
                   <SelectItem value="rating">Highest Rated</SelectItem>
                   <SelectItem value="popular">Most Popular</SelectItem>
@@ -692,21 +692,21 @@
     z-index: 1100 !important;
   }
 
-  /* Ensure dropdown backgrounds are visible - apply to ALL select dropdowns */
+  /* Ensure dropdown backgrounds follow theme */
   [data-radix-select-content],
   [data-radix-select-viewport] {
-    background-color: hsl(20 14.3% 4.1%) !important;
+    background-color: var(--color-background-soft) !important;
   }
 
   /* Popover content */
   [data-radix-popover-content] {
-    background-color: hsl(20 14.3% 4.1%) !important;
+    background-color: var(--color-background-soft) !important;
     z-index: 1100 !important;
   }
 
     /* Command palette in popover */
     [data-radix-popover-content] [cmdk-root] {
-      background-color: hsl(20 14.3% 4.1%) !important;
+      background-color: var(--color-background-soft) !important;
     }
 </style>
 
@@ -794,7 +794,7 @@
   :deep(.filter-sheet [role="menu"]),
   :deep([data-radix-select-content]),
   :deep([data-radix-popover-content]) {
-    background-color: hsl(20 14.3% 4.1%) !important;
+    background-color: var(--color-background-soft) !important;
     z-index: 1100 !important;
   }
 

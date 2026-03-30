@@ -5,6 +5,7 @@ import NotFoundPage from '../NotFoundPage.vue';
 import ErrorPage from '../ErrorPage.vue';
 import Login from '../identity/auth/Login.vue';
 import Register from '../identity/auth/Register.vue';
+import TermsAcceptPage from '../identity/auth/TermsAcceptPage.vue';
 import Profile from '../identity/profile/Profile.vue';
 import { useAuthStore } from '../stores/authStore';
 import AddTitle from '../components/manga/AddTitle.vue';
@@ -86,6 +87,7 @@ const routes = [
   // ── Auth ───────────────────────────────────────────────────────────────────
   { path: '/account/login', name: 'Login', component: Login, meta: { requiresGuest: true, title: 'Login' } },
   { path: '/account/register', name: 'Register', component: Register, meta: { requiresGuest: true, title: 'Register' } },
+  { path: '/terms/accept', name: 'TermsAccept', component: TermsAcceptPage, meta: { title: 'Accept Terms' } },
 
   // ── Profile ───────────────────────────────────────────────────────────────
   { path: '/profile', name: 'Profile', component: Profile, meta: { requiresAuth: true, title: 'Profile' } },
@@ -229,6 +231,11 @@ router.beforeEach(async (to, from, next) => {
   document.title = to.meta.title ? `${to.meta.title} - FallenFaction` : 'FallenFaction'
 
   if (!authStore.isInitialized) await authStore.initializeAuth()
+
+  if (to.name === 'TermsAccept' && authStore.isAuthenticated) {
+    next({ name: 'Home' })
+    return
+  }
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next({ name: 'Login', query: { redirect: to.fullPath } }); return

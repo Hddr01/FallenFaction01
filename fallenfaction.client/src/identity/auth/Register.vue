@@ -108,6 +108,27 @@
             </div>
           </div>
 
+          <!-- Terms -->
+          <div class="flex items-start gap-3">
+            <input
+              id="acceptedTerms"
+              v-model="form.acceptedTerms"
+              name="acceptedTerms"
+              type="checkbox"
+              class="mt-1 h-4 w-4 shrink-0 text-[var(--vt-c-indigo)] focus:ring-indigo-500 border-[var(--color-border)] rounded"
+            />
+            <label for="acceptedTerms" class="text-sm text-[var(--color-text)]">
+              I have read and agree to the
+              <router-link to="/terms" class="font-medium text-[var(--vt-c-indigo)] hover:opacity-80">
+                Terms and Conditions
+              </router-link>
+              <span class="text-red-600">*</span>
+            </label>
+          </div>
+          <div v-if="errors.acceptedTerms" class="text-sm text-red-600">
+            {{ errors.acceptedTerms }}
+          </div>
+
           <!-- Confirm Password -->
           <div>
             <label for="confirmPassword" class="block text-sm font-medium text-[var(--color-text)]">Confirm Password</label>
@@ -177,7 +198,8 @@
     dateOfBirth: '',
     bio: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    acceptedTerms: false
   });
 
   const errors = ref({});
@@ -237,6 +259,10 @@
       errors.value.confirmPassword = 'Passwords do not match';
     }
 
+    if (!form.acceptedTerms) {
+      errors.value.acceptedTerms = 'You must accept the Terms and Conditions to register';
+    }
+
     return Object.keys(errors.value).length === 0;
   };
 
@@ -251,7 +277,8 @@
       dateOfBirth: form.dateOfBirth || null, // Send null if empty
       bio: form.bio || null,
       password: form.password,
-      confirmPassword: form.confirmPassword
+      confirmPassword: form.confirmPassword,
+      acceptedTerms: form.acceptedTerms
     });
 
     if (result.success) {

@@ -1,4 +1,6 @@
 <template>
+  <!-- Single root so carousel + body share one themed background (avoids seam / dark line) -->
+  <div class="home-page-root">
   <!-- Carousel Section -->
   <section class="carousel-section">
     <Carousel v-if="topTitles && topTitles.length > 0"
@@ -24,8 +26,8 @@
                    class="manga-cover-img"
                    @load="onImageLoad(manga.originalTitle, manga.coverImagePath)"
                    @error="onImageError($event, manga.originalTitle, manga.coverImagePath)" />
-              <div v-if="manga.latestChapter" class="chapter-badge">
-                {{ manga.latestChapter }}
+              <div v-if="chapterBadgeText(manga)" class="chapter-badge">
+                {{ chapterBadgeText(manga) }}
               </div>
             </div>
             <div class="carousel-manga-info">
@@ -110,8 +112,8 @@
                 <button @click="fetchTopTeams" class="retry-button-small">Retry</button>
               </div>
               <div v-else-if="topTeams && topTeams.length > 0" class="teams-grid">
-                <div v-for="team in topTeams" :key="team.id" class="team-card">
-                  <div class="team-rank">#{{ team.id }}</div>
+                <div v-for="(team, teamIndex) in topTeams" :key="team.id" class="team-card">
+                  <div class="team-rank">#{{ teamIndex + 1 }}</div>
                   <div class="team-avatar">
                     <img :src="getImageUrl(team.avatar)"
                          :alt="team.name"
@@ -186,6 +188,7 @@
         </div>
       </section>
     </div>
+  </div>
   </div>
 </template>
 
@@ -277,6 +280,22 @@
       const getTitleUrl = (titleName, id) => {
         if (id) return `/${buildTitleSlug(titleName, id)}`;
         return `/${encodeURIComponent(titleName)}`;
+      };
+
+      /** Carousel badge: use latestChapterNumber first (authoritative), then latestChapter string. */
+      const chapterBadgeText = (manga) => {
+        const n = manga?.latestChapterNumber;
+        if (n != null && n !== '' && !Number.isNaN(Number(n)) && Number(n) > 0) {
+          const num = Number(n);
+          return Number.isInteger(num) || Math.abs(num - Math.round(num)) < 1e-6
+            ? `Ch. ${Math.round(num)}`
+            : `Ch. ${num}`;
+        }
+        const s = manga?.latestChapter;
+        if (s != null && String(s).trim() !== '' && String(s) !== 'No chapters') {
+          return String(s);
+        }
+        return '';
       };
 
       const onImageLoad = (title, path) => {
@@ -408,6 +427,7 @@
         formatTimeAgo,
         getImageUrl,
         getTitleUrl,
+        chapterBadgeText,
         onImageLoad,
         onImageError,
         fetchFeaturedManga,
@@ -421,11 +441,18 @@
 </script>
 
 <style scoped>
+  .home-page-root {
+    width: 100%;
+    max-width: 100vw;
+    background-color: var(--color-background);
+    overflow-x: hidden;
+  }
+
   .home-page {
     width: 100%;
     max-width: 100vw;
     padding: 0.5rem 0 0 0;
-    background-color: var(--color-background);
+    background-color: transparent;
     overflow-x: hidden;
   }
 
@@ -438,7 +465,7 @@
   .content-section {
     margin-bottom: 1.5rem;
     padding-bottom: 1.5rem;
-    border-bottom: 1px solid hsl(240 3.7% 15.9%);
+    border-bottom: 1px solid var(--color-border);
   }
 
     .content-section:last-child {
@@ -462,9 +489,12 @@
   }
 
   .carousel-section {
-    margin-bottom: 0.5rem;
-    padding: 1rem 0 0.5rem 0;
+    margin-bottom: 0;
+    padding: 1rem 0 0.75rem 0;
     overflow: visible;
+    background-color: transparent;
+    border-bottom: none;
+    box-shadow: none;
   }
 
   .manga-cover-container {
@@ -503,13 +533,15 @@
 
   .carousel-manga-updated {
     font-size: 11px;
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--color-text);
+    opacity: 0.55;
     margin-top: 2px;
   }
 
   .carousel-manga-type {
     font-size: 0.75rem;
-    color: #999;
+    color: var(--color-text);
+    opacity: 0.55;
     text-transform: uppercase;
   }
 
@@ -518,12 +550,15 @@
     bottom: 0;
     left: 0;
     right: 0;
-    background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
-    color: white;
-    padding: 0.5rem;
+    background: linear-gradient(to top, color-mix(in srgb, var(--color-heading) 88%, transparent), transparent);
+    color: #fff;
+    padding: 0.5rem 0.35rem;
     font-size: 0.75rem;
-    font-weight: 500;
+    font-weight: 600;
     text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   /* Loading States */
@@ -577,7 +612,8 @@
   .empty-state {
     padding: 2rem;
     text-align: center;
-    color: #999;
+    color: var(--color-text);
+    opacity: 0.55;
   }
 
   /* Manga Grid */
@@ -643,7 +679,8 @@
 
   .manga-type {
     font-size: 0.75rem;
-    color: #999;
+    color: var(--color-text);
+    opacity: 0.55;
     text-transform: uppercase;
   }
 
@@ -652,7 +689,7 @@
     width: 100%;
     margin-bottom: 1.5rem;
     padding-bottom: 1.5rem;
-    border-bottom: 1px solid hsl(240 3.7% 15.9%);
+    border-bottom: 1px solid var(--color-border);
   }
 
   .dual-section-row {
@@ -682,13 +719,14 @@
     align-items: center;
     padding: 0.75rem;
     margin-bottom: 0.75rem;
-    background-color: hsl(0 0% 9%);
+    background-color: var(--color-input-bg);
+    border: 1px solid var(--color-border);
     border-radius: 8px;
     transition: background-color 0.2s;
   }
 
     .user-card:hover {
-      background-color: hsl(0 0% 12%);
+      background-color: var(--color-input-bg-hover);
     }
 
   .user-avatar {
@@ -719,7 +757,8 @@
 
   .user-level {
     font-size: 0.8rem;
-    color: #999;
+    color: var(--color-text);
+    opacity: 0.55;
   }
 
   .user-score {
@@ -734,13 +773,14 @@
     align-items: center;
     padding: 1rem;
     margin-bottom: 1rem;
-    background-color: hsl(0 0% 9%);
+    background-color: var(--color-input-bg);
+    border: 1px solid var(--color-border);
     border-radius: 10px;
     transition: background-color 0.2s;
   }
 
     .team-card:hover {
-      background-color: hsl(0 0% 12%);
+      background-color: var(--color-input-bg-hover);
     }
 
   .team-rank {
@@ -778,7 +818,8 @@
 
   .team-level {
     font-size: 0.8rem;
-    color: #999;
+    color: var(--color-text);
+    opacity: 0.55;
   }
 
   .team-progress-container {
@@ -817,7 +858,7 @@
     display: flex;
     padding: 0.75rem 0;
     margin-bottom: 0.5rem;
-    border-bottom: 1px solid hsl(240 3.7% 15.9%);
+    border-bottom: 1px solid var(--color-border);
     transition: background-color 0.2s;
   }
 
@@ -855,7 +896,8 @@
 
   .update-description {
     font-size: 0.85rem;
-    color: #bbb;
+    color: var(--color-text);
+    opacity: 0.75;
     line-height: 1.4;
     margin: 0 0 0.5rem 0;
     display: -webkit-box;
@@ -876,7 +918,8 @@
 
   .update-time {
     font-size: 0.8rem;
-    color: #999;
+    color: var(--color-text);
+    opacity: 0.55;
     text-align: right;
     width: 80px;
     flex-shrink: 0;

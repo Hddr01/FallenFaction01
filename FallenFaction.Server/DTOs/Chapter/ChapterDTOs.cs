@@ -36,10 +36,13 @@ namespace FallenFaction.Server.DTOs.Chapter
         public string? NextChapterName { get; set; }
         public int? NextChapterVolume { get; set; }
         public int? NextChapterTeamId { get; set; }
+        /// <summary>Used when Name is empty — URL segment falls back to chapter number.</summary>
+        public int? NextChapterNumber { get; set; }
         public int? PreviousChapterId { get; set; }
         public string? PreviousChapterName { get; set; }
         public int? PreviousChapterVolume { get; set; }
         public int? PreviousChapterTeamId { get; set; }
+        public int? PreviousChapterNumber { get; set; }
     }
 
     public class NameIdDTO
