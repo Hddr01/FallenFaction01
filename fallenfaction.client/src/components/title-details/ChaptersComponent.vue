@@ -45,12 +45,11 @@
 
           <!-- Table Body -->
           <div class="divide-y divide-border ">
-            <component
-               :is="chapter.isAILocked ? 'div' : 'a'"
-               v-for="chapter in paginatedChapters"
-               :key="chapter.id"
-               :href="chapter.isAILocked ? undefined : getChapterUrl(chapter)"
-               :class="['chapter-row', chapter.isAILocked ? 'opacity-60 cursor-default' : '']">
+            <component :is="chapter.isAILocked ? 'div' : 'a'"
+                       v-for="chapter in paginatedChapters"
+                       :key="chapter.id"
+                       :href="chapter.isAILocked ? undefined : getChapterUrl(chapter)"
+                       :class="['chapter-row', chapter.isAILocked ? 'opacity-60 cursor-default' : '']">
               <div class="chapter-col-number ">
                 <Badge variant="secondary" class=" text-white">
                   Vol. {{ chapter.volumeNumber }}
@@ -59,19 +58,19 @@
               <div class="chapter-col-name font-medium text-white flex items-center gap-2">
                 <!-- Lock icon for AI-locked chapters -->
                 <span v-if="isAiTitle && chapter.isAILocked"
-                  class="inline-flex items-center justify-center w-5 h-5 rounded bg-red-500/20 text-red-400 shrink-0"
-                  title="Locked — spend tickets to unlock">
+                      class="inline-flex items-center justify-center w-5 h-5 rounded bg-red-500/20 text-red-400 shrink-0"
+                      title="Locked — spend tickets to unlock">
                   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
                 </span>
                 <span v-else-if="isAiTitle && !chapter.isAILocked"
-                  class="inline-flex items-center justify-center w-5 h-5 rounded bg-green-500/15 text-green-400 shrink-0"
-                  title="Unlocked — free to read">
+                      class="inline-flex items-center justify-center w-5 h-5 rounded bg-green-500/15 text-green-400 shrink-0"
+                      title="Unlocked — free to read">
                   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                      d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/>
+                          d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
                   </svg>
                 </span>
                 {{ chapter.name }}
@@ -279,11 +278,16 @@
   }
 
   const getChapterUrl = (chapter) => {
-    // Fall back to chapterNumber when name is empty so the URL never has an empty segment
-    const slug = chapter.name?.trim()
-      ? encodeURIComponent(chapter.name.trim())
-      : chapter.chapterNumber.toString()
-    return `/${props.titleSlug}/chapter/${slug}/v${chapter.volumeNumber}/t${chapter.teamId || 0}`
+    // Safe segment: use name if non-empty, otherwise fall back to stringified chapterNumber.
+    // Guards against null/undefined/NaN so the URL never contains an empty segment.
+    const trimmed = chapter.name != null ? String(chapter.name).trim() : ''
+    const num = Number(chapter.chapterNumber)
+    const seg = trimmed
+      ? encodeURIComponent(trimmed)
+      : encodeURIComponent(!Number.isNaN(num) ? String(num) : '0')
+    // teamId is a flat field on ChapterDTO; fall back to nested team.id then 0.
+    const teamId = chapter.teamId ?? chapter.team?.id ?? 0
+    return `/${props.titleSlug}/chapter/${seg}/v${chapter.volumeNumber}/t${teamId}`
   }
 
   const formatDate = (dateString) => {

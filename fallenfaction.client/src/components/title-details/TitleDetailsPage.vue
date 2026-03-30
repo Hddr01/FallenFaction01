@@ -634,14 +634,12 @@
   </div>
 
   <!-- Report Title Modal -->
-  <ReportModal
-    v-if="titleData?.id && isAuthenticated"
-    :is-open="showReportModal"
-    :target-type="2"
-    :target-id="titleData.id"
-    @close="showReportModal = false"
-    @reported="showReportModal = false"
-  />
+  <ReportModal v-if="titleData?.id && isAuthenticated"
+               :is-open="showReportModal"
+               :target-type="2"
+               :target-id="titleData.id"
+               @close="showReportModal = false"
+               @reported="showReportModal = false" />
 </template>
 
 <script setup>
@@ -1355,6 +1353,21 @@
     }
   }
 
+  // Safe chapter URL segment: name (if non-empty) or stringified chapterNumber.
+  // Mirrors the logic in ChapterReader.vue and the backend TitlesController.
+  // Guards against null/undefined/NaN in chapterNumber (produces "0" as last resort).
+  const chapterSeg = (chapter) => {
+    const trimmed = chapter.name != null ? String(chapter.name).trim() : ''
+    if (trimmed) return encodeURIComponent(trimmed)
+    const num = Number(chapter.chapterNumber)
+    return encodeURIComponent(!Number.isNaN(num) ? String(num) : '0')
+  }
+
+  // Resolve teamId: ChapterDTO has a top-level teamId AND a nested team.id;
+  // always prefer the flat field, fall back to team.id, then 0.
+  const chapterTeamId = (chapter) =>
+    chapter.teamId ?? chapter.team?.id ?? 0
+
   const getFirstChapterUrl = () => {
     if (!titleData.value || !chaptersData.value.length) return '#'
 
@@ -1368,8 +1381,7 @@
     if (!firstChapter) return '#'
 
     const titleSlug = buildTitleSlug(titleData.value.originalTitle, titleData.value.id)
-    const chapterName = firstChapter.name || firstChapter.chapterNumber.toString()
-    return `/${titleSlug}/chapter/${encodeURIComponent(chapterName)}/v${firstChapter.volumeNumber}/t${firstChapter.teamId || firstChapter.team?.id || 0}?viewMode=single`
+    return `/${titleSlug}/chapter/${chapterSeg(firstChapter)}/v${firstChapter.volumeNumber}/t${chapterTeamId(firstChapter)}?viewMode=single`
   }
 
   const getContinueReadingUrl = () => {
@@ -1397,14 +1409,12 @@
 
       if (sortedChapters.length > 0) {
         const chapter = sortedChapters[0]
-        const chapterName = chapter.name || chapter.chapterNumber.toString()
-        return `/${titleSlug}/chapter/${encodeURIComponent(chapterName)}/v${chapter.volumeNumber}/t${chapter.teamId || chapter.team?.id || 0}?viewMode=single`
+        return `/${titleSlug}/chapter/${chapterSeg(chapter)}/v${chapter.volumeNumber}/t${chapterTeamId(chapter)}?viewMode=single`
       }
       return '#'
     }
 
-    const chapterName = continueChapter.name || continueChapter.chapterNumber.toString()
-    return `/${titleSlug}/chapter/${encodeURIComponent(chapterName)}/v${continueChapter.volumeNumber}/t${continueChapter.teamId || continueChapter.team?.id || 0}?viewMode=single`
+    return `/${titleSlug}/chapter/${chapterSeg(continueChapter)}/v${continueChapter.volumeNumber}/t${chapterTeamId(continueChapter)}?viewMode=single`
   }
 
   const getErrorTitle = () => {
