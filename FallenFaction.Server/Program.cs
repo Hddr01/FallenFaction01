@@ -5,6 +5,7 @@ using FallenFaction.Server.Mappings;
 using FallenFaction.Server.Services;
 using FallenFaction.Server.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.ActionConstraints;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
@@ -112,7 +113,14 @@ var secret = jwtSettings["Secret"]
 
 var key = Encoding.UTF8.GetBytes(secret);
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+// AddIdentity (above) overrides DefaultAuthenticateScheme to its cookie scheme.
+// Explicitly re-set it here so JWT is used for [Authorize] on all controllers.
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+})
 .AddJwtBearer(options =>
 {
     options.TokenValidationParameters = new TokenValidationParameters
@@ -132,6 +140,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 builder.Services.AddSwaggerGen();
+
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.Events.OnRedirectToLogin = context =>
+    {
+        context.Response.StatusCode = 401;
+        return Task.CompletedTask;
+    };
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        context.Response.StatusCode = 403;
+        return Task.CompletedTask;
+    };
+});
 
 var app = builder.Build();
 
@@ -178,43 +200,36 @@ using (var scope = app.Services.CreateScope())
 }
 #endregion
 
-builder.Services.ConfigureApplicationCookie(options =>
+#region PIPELINE
+
+// Must be first so the rest of the pipeline sees the correct scheme/host/IP
+app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
-    options.Events.OnRedirectToLogin = context =>
-    {
-        context.Response.StatusCode = 401;
-        return Task.CompletedTask;
-    };
-    options.Events.OnRedirectToAccessDenied = context =>
-    {
-        context.Response.StatusCode = 403;
-        return Task.CompletedTask;
-    };
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
 
-#region PIPELINE
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
     app.UseSwagger();
     app.UseSwaggerUI();
-    app.UseCors("DevelopmentCORS");
-}
-else
-{
-    app.UseHsts();
-    app.UseCors("AllowVueApp");
 }
 
-app.UseHttpsRedirection();
-
+app.UseHsts();
 app.UseRouting();
+
+// CORS must be between UseRouting() and UseAuthentication() for endpoint routing
+if (app.Environment.IsDevelopment())
+    app.UseCors("DevelopmentCORS");
+else
+    app.UseCors("AllowVueApp");
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-
 app.MapFallbackToFile("index.html");
+
 #endregion
 
 app.Run();
