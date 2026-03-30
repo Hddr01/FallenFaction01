@@ -164,7 +164,7 @@
             </Button>
 
             <!-- Bookmark ButtonGroup -->
-            <ButtonGroup v-if="isAuthenticated" class="w-full bookmark-action-buttons">
+            <ButtonGroup v-if="isAuthenticated" class="w-full bookmark-action-buttons w-full bg-[var(--color-heading)] hover:bg-[var(--color-heading)]/90">
               <Button size="sm"
                       variant="outline"
                       :class="[bookmarkButtonClass, 'border-0']"

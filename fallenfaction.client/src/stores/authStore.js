@@ -48,14 +48,17 @@ export const useAuthStore = defineStore('auth', () => {
         token.value = storedToken;
         user.value = JSON.parse(storedUser);
 
-        // Verify token is still valid by fetching user profile
         await getUserProfile();
-
-        // Start online status management
         startOnlineStatusManagement();
       } catch (error) {
         console.error('Token validation failed:', error);
-        await logout();
+        // Only logout on explicit 401 — not on network errors
+        if (error?.response?.status === 401) {
+          await logout();
+        } else {
+          // Network error — keep user logged in, start status management anyway
+          startOnlineStatusManagement();
+        }
       }
     }
 

@@ -283,7 +283,7 @@
                   class="px-4 py-2 bg-[var(--color-background-mute)] text-[var(--color-text)] border border-[var(--color-border)] rounded-md hover:bg-[var(--color-background-soft)] transition-colors duration-200">
             Close
           </button>
-          <button v-if="selectedChapter.titleName && selectedChapter.chapterNumber"
+          <button v-if="selectedChapter.titleId && selectedChapter.chapterNumber"
                   @click="goToChapter"
                   class="px-4 py-2 bg-[var(--color-accent)] text-white rounded-md hover:bg-[var(--color-accent-hover)] transition-colors duration-200">
             View Chapter
@@ -295,112 +295,117 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import contentService from '../../services/contentService'
+  import { ref, computed } from 'vue'
+  import { useRouter } from 'vue-router'
+  import contentService from '../../services/contentService'
+  import { buildTitleSlug } from '@/utils/titleSlug.js'
 
-// Props
-const props = defineProps({
-  chapters: {
-    type: Object,
-    default: () => ({
-      pendingChapters: [],
-      approvedChapters: [],
-      rejectedChapters: []
-    })
+  // Props
+  const props = defineProps({
+    chapters: {
+      type: Object,
+      default: () => ({
+        pendingChapters: [],
+        approvedChapters: [],
+        rejectedChapters: []
+      })
+    }
+  })
+
+  // Emits
+  const emit = defineEmits(['refresh'])
+
+  // Router
+  const router = useRouter()
+
+  // Reactive data
+  const activeSection = ref('approved')
+  const showDetailsModal = ref(false)
+  const selectedChapter = ref(null)
+
+  // Computed properties
+  const sections = computed(() => [
+    { id: 'approved', label: 'Published', count: props.chapters.approvedChapters?.length || 0 },
+    { id: 'pending', label: 'Pending Review', count: props.chapters.pendingChapters?.length || 0 },
+    { id: 'rejected', label: 'Rejected', count: props.chapters.rejectedChapters?.length || 0 }
+  ])
+
+  // Methods
+  const formatDate = (date) => {
+    if (!date) return 'Unknown'
+    return new Date(date).toLocaleDateString()
   }
-})
 
-// Emits
-const emit = defineEmits(['refresh'])
-
-// Router
-const router = useRouter()
-
-// Reactive data
-const activeSection = ref('approved')
-const showDetailsModal = ref(false)
-const selectedChapter = ref(null)
-
-// Computed properties
-const sections = computed(() => [
-  { id: 'approved', label: 'Published', count: props.chapters.approvedChapters?.length || 0 },
-  { id: 'pending', label: 'Pending Review', count: props.chapters.pendingChapters?.length || 0 },
-  { id: 'rejected', label: 'Rejected', count: props.chapters.rejectedChapters?.length || 0 }
-])
-
-// Methods
-const formatDate = (date) => {
-  if (!date) return 'Unknown'
-  return new Date(date).toLocaleDateString()
-}
-
-const getImageUrl = (imagePath) => {
-  if (!imagePath) return '/img/logo.png'
-  if (imagePath.startsWith('http')) return imagePath
-  return imagePath.startsWith('/') ? imagePath : `/${imagePath}`
-}
-
-const handleImageError = (event) => {
-  event.target.src = '/img/logo.png'
-}
-
-const viewChapter = (chapter) => {
-  if (chapter.titleName && chapter.chapterNumber) {
-    const chapterName = chapter.name || chapter.chapterNumber.toString()
-    router.push(`/${encodeURIComponent(chapter.titleName)}/chapter/${encodeURIComponent(chapterName)}/v${chapter.volumeNumber}/t${chapter.teamId || 0}`)
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return '/img/logo.png'
+    if (imagePath.startsWith('http')) return imagePath
+    return imagePath.startsWith('/') ? imagePath : `/${imagePath}`
   }
-}
 
-const viewChapterDetails = async (chapter) => {
-  selectedChapter.value = chapter
-  showDetailsModal.value = true
+  const handleImageError = (event) => {
+    event.target.src = '/img/logo.png'
+  }
 
-  // Try to load detailed chapter information if we have an ID
-  if (chapter.id) {
-    try {
-      const result = await contentService.getChapterDetails(chapter.id)
-      if (result.success) {
-        selectedChapter.value = {
-          ...chapter,
-          ...result.data
+  const viewChapter = (chapter) => {
+    if (chapter.titleId && chapter.chapterNumber) {
+      const titleSlug = buildTitleSlug(chapter.titleName, chapter.titleId)
+      const chapterSeg = chapter.name && chapter.name.trim()
+        ? encodeURIComponent(chapter.name.trim())
+        : encodeURIComponent(String(chapter.chapterNumber))
+      const teamId = chapter.teamId ?? 0
+      router.push(`/${titleSlug}/chapter/${chapterSeg}/v${chapter.volumeNumber}/t${teamId}`)
+    }
+  }
+
+  const viewChapterDetails = async (chapter) => {
+    selectedChapter.value = chapter
+    showDetailsModal.value = true
+
+    // Try to load detailed chapter information if we have an ID
+    if (chapter.id) {
+      try {
+        const result = await contentService.getChapterDetails(chapter.id)
+        if (result.success) {
+          selectedChapter.value = {
+            ...chapter,
+            ...result.data
+          }
         }
+      } catch (error) {
+        console.error('Error loading chapter details:', error)
+      }
+    }
+  }
+
+  const closeDetailsModal = () => {
+    showDetailsModal.value = false
+    selectedChapter.value = null
+  }
+
+  const goToChapter = () => {
+    if (selectedChapter.value) {
+      viewChapter(selectedChapter.value)
+      closeDetailsModal()
+    }
+  }
+
+  const deleteChapter = async (chapterId) => {
+    if (!confirm('Are you sure you want to delete this chapter? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      const result = await contentService.deleteChapter(chapterId)
+      if (result.success) {
+        emit('refresh')
+      } else {
+        alert(result.error || 'Failed to delete chapter')
       }
     } catch (error) {
-      console.error('Error loading chapter details:', error)
+      console.error('Error deleting chapter:', error)
+      alert('Failed to delete chapter')
     }
   }
-}
-
-const closeDetailsModal = () => {
-  showDetailsModal.value = false
-  selectedChapter.value = null
-}
-
-const goToChapter = () => {
-  if (selectedChapter.value) {
-    viewChapter(selectedChapter.value)
-    closeDetailsModal()
-  }
-}
-
-const deleteChapter = async (chapterId) => {
-  if (!confirm('Are you sure you want to delete this chapter? This action cannot be undone.')) {
-    return
-  }
-
-  try {
-    const result = await contentService.deleteChapter(chapterId)
-    if (result.success) {
-      emit('refresh')
-    } else {
-      alert(result.error || 'Failed to delete chapter')
-    }
-  } catch (error) {
-    console.error('Error deleting chapter:', error)
-    alert('Failed to delete chapter')
-  }
-}
 </script>
 
 <style scoped>
