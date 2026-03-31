@@ -788,6 +788,88 @@ namespace FallenFaction.Server.Controllers
         }
 
         /// <summary>
+        /// Get public comment history for any user by ID.
+        /// GET: api/Comments/GetUserComments/{userId}
+        /// </summary>
+        [HttpGet("GetUserComments/{userId}")]
+        [AllowAnonymous]
+        public async Task<ActionResult<UserCommentsResponseDto>> GetUserComments(
+            string userId,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string sortBy = "newest")
+        {
+            try
+            {
+                if (page < 1) page = 1;
+                if (pageSize < 1 || pageSize > 50) pageSize = 20;
+
+                var query = _context.Comments
+                    .Where(c => c.UserId == userId && !c.IsDeleted)
+                    .Include(c => c.Reactions)
+                    .Include(c => c.Title)
+                    .Include(c => c.Chapter)
+                        .ThenInclude(ch => ch.Title)
+                    .Include(c => c.Chapter)
+                        .ThenInclude(ch => ch.Team)
+                    .AsQueryable();
+
+                query = sortBy.ToLower() switch
+                {
+                    "oldest" => query.OrderBy(c => c.PostedDate),
+                    "likes" => query.OrderByDescending(c => c.LikesCount),
+                    _ => query.OrderByDescending(c => c.PostedDate)
+                };
+
+                var totalCount = await query.CountAsync();
+                var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
+
+                var rawComments = await query
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                var commentDtos = rawComments.Select(c => new UserCommentDto
+                {
+                    Id = c.Id,
+                    Content = c.Content,
+                    PostedDate = c.PostedDate,
+                    LikesCount = c.Reactions.Count(r => r.IsLike),
+                    DislikesCount = c.Reactions.Count(r => !r.IsLike),
+                    ParentCommentId = c.ParentCommentId,
+                    TargetType = c.TitleId.HasValue ? 1 : c.ChapterId.HasValue ? 2 : 0,
+                    TitleId = c.TitleId ?? c.Chapter?.TitleId,
+                    TitleName = c.Title?.EnglishTitle ?? c.Title?.OriginalTitle
+                             ?? c.Chapter?.Title?.EnglishTitle ?? c.Chapter?.Title?.OriginalTitle,
+                    TitleSlug = c.Title?.OriginalTitle ?? c.Chapter?.Title?.OriginalTitle,
+                    ChapterId = c.ChapterId,
+                    ChapterName = c.Chapter?.Name,
+                    VolumeNumber = c.Chapter?.VolumeNumber,
+                    TeamId = c.Chapter?.TeamId,
+                }).ToList();
+
+                return Ok(new UserCommentsResponseDto
+                {
+                    Comments = commentDtos,
+                    Pagination = new PaginationDto
+                    {
+                        TotalCount = totalCount,
+                        Page = page,
+                        PageSize = pageSize,
+                        TotalPages = totalPages,
+                        HasNext = page < totalPages,
+                        HasPrevious = page > 1
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching public comments for user {UserId}", userId);
+                return StatusCode(500, new { message = "An error occurred while loading comments." });
+            }
+        }
+
+        /// <summary>
         /// Lightweight endpoint used by CommentThreadView to resolve the title slug
         /// (OriginalTitle) needed to build the "Back to full discussion" URL.
         /// GET: api/Comments/GetCommentTitleSlug/{titleId}

@@ -202,6 +202,7 @@
                      :is-authenticated="isAuthenticated"
                      :current-user-id="currentUserId"
                      :is-admin="isAdmin"
+                     :can-manage-title="canManageTitle"
                      :can-reply="!commentsDisabled"
                      :depth="0"
                      :max-depth="8"
@@ -284,6 +285,10 @@
         default: ''
       },
       isAdmin: {
+        type: Boolean,
+        default: false
+      },
+      canManageTitle: {
         type: Boolean,
         default: false
       },

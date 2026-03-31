@@ -107,7 +107,7 @@
           <div class="text-center">
             <!-- English Title with Rating Button -->
             <div class="flex items-center justify-center gap-2">
-              <h1 class="text-2xl font-bold text-[var(--color-text)] leading-tight">{{ titleData.englishTitle }}</h1>
+              <h1 class="text-2xl font-bold leading-tight title-name-heading">{{ titleData.englishTitle }}</h1>
 
               <!-- Rating Button -->
               <button v-if="isAuthenticated"
@@ -127,7 +127,7 @@
                 </svg>
               </button>
               <div class="flex flex-col">
-                <span class="text-2xl font-bold text-[var(--color-text)]">
+                <span class="text-2xl font-bold title-name-heading">
                   {{ titleData.averageRating?.toFixed(1) || '0.0' }}
                 </span>
                 <span class="text-xs text-[var(--color-text)] opacity-75">
@@ -137,7 +137,7 @@
             </div>
             <!-- Original Title-->
             <h2 v-if="titleData.originalTitle !== titleData.englishTitle"
-                class="text-lg text-[var(--color-text)] opacity-75 font-medium mb-3">
+                class="text-lg font-medium mb-3 text-gray-700 dark:text-[var(--color-text)]">
               {{ titleData.originalTitle }}
             </h2>
           </div>
@@ -147,7 +147,7 @@
             <!-- Start Reading Button -->
             <Button v-if="canStartReading"
                     size="sm"
-                    class="w-full bg-[var(--color-heading)] hover:bg-[var(--color-heading)]/90 text-white reading-action-button"
+                    class="w-full bg-white text-[var(--color-heading)] border border-[var(--color-border)] hover:bg-gray-50 dark:bg-[var(--color-heading)] dark:text-white dark:border-transparent dark:hover:bg-[var(--color-heading)]/90 reading-action-button"
                     @click="$router.push(getFirstChapterUrl())">
               <BookOpenIcon class="w-4 h-4 mr-2" />
               Start Reading
@@ -157,7 +157,7 @@
             <!-- Continue Reading Button -->
             <Button v-if="canContinueReading"
                     size="sm"
-                    class="w-full bg-[var(--color-heading)] hover:bg-[var(--color-heading)]/90 text-white reading-action-button"
+                    class="w-full bg-white text-[var(--color-heading)] border border-[var(--color-border)] hover:bg-gray-50 dark:bg-[var(--color-heading)] dark:text-white dark:border-transparent dark:hover:bg-[var(--color-heading)]/90 reading-action-button"
                     @click="$router.push(getContinueReadingUrl())">
               <PlayIcon class="w-4 h-4 mr-2" />
               Continue (Ch. {{ userBookmark?.lastReadChapter || readingProgress?.lastReadChapter }})
@@ -188,7 +188,7 @@
                 <DrawerContent class="bg-[var(--color-background-soft)]">
                   <div class="mx-auto w-full max-w-sm ">
                     <DrawerHeader>
-                      <DrawerTitle class="text-[var(--color-white)] text-center">Bookmark Status</DrawerTitle>
+                      <DrawerTitle class="text-black dark:text-white text-center">Bookmark Status</DrawerTitle>
                       <DrawerDescription class="text-center text-muted-foreground">
                         Change your reading status for this title.
                       </DrawerDescription>
@@ -196,31 +196,31 @@
 
                     <div class="text-center p-4 pb-0 space-y-2">
                       <Button variant="destructive"
-                              class="w-full justify-center bg-[var(--color-input-bg)] hover:text-white"
+                              class="w-full justify-center bg-[var(--color-input-bg)] !text-black dark:!text-white hover:!text-white"
                               @click="changeBookmarkStatus('reading')">
                         Reading
                       </Button>
 
                       <Button variant="destructive"
-                              class="w-full justify-center bg-[var(--color-input-bg)] hover:text-white"
+                              class="w-full justify-center bg-[var(--color-input-bg)] !text-black dark:!text-white hover:!text-white"
                               @click="changeBookmarkStatus('completed')">
                         Completed
                       </Button>
 
                       <Button variant="destructive"
-                              class="w-full justify-center bg-[var(--color-input-bg)] hover:text-white"
+                              class="w-full justify-center bg-[var(--color-input-bg)] !text-black dark:!text-white hover:!text-white"
                               @click="changeBookmarkStatus('on-hold')">
                         On Hold
                       </Button>
 
                       <Button variant="destructive"
-                              class="w-full justify-center bg-[var(--color-input-bg)] hover:text-white"
+                              class="w-full justify-center bg-[var(--color-input-bg)] !text-black dark:!text-white hover:!text-white"
                               @click="changeBookmarkStatus('plan-to-read')">
                         Plan to Read
                       </Button>
 
                       <Button variant="destructive"
-                              class="w-full justify-center bg-[var(--color-input-bg)] hover:text-white"
+                              class="w-full justify-center bg-[var(--color-input-bg)] !text-black dark:!text-white hover:!text-white"
                               @click="changeBookmarkStatus('dropped')">
                         Dropped
                       </Button>
@@ -232,7 +232,7 @@
                         <Button v-for="folder in userCustomFolders"
                                 :key="folder.id"
                                 variant="destructive"
-                                class="w-full justify-center bg-[var(--color-input-bg)] hover:text-white"
+                                class="w-full justify-center bg-[var(--color-input-bg)] !text-black dark:!text-white hover:!text-white"
                                 @click="moveToCustomFolder(folder.id, folder.name)">
                           {{ folder.name }}
                         </Button>
@@ -242,11 +242,11 @@
                     <DrawerFooter>
                       <DrawerClose as-child>
                         <Button variant="destructive"
-                                class=" w-full justify-center bg-[#e6e6e6] text-black hover:bg-gray-100 hover:text-black"
+                                class="w-full justify-center bg-[#e6e6e6] text-black hover:bg-gray-100 hover:text-black dark:bg-zinc-700 dark:text-white dark:hover:bg-zinc-600"
                                 @click="removeBookmark">
                           Remove Bookmark
                         </Button>
-                        <Button variant="destructive" class=" w-full justify-center bg-[#e6e6e6] text-black hover:bg-gray-100 hover:text-black">
+                        <Button variant="destructive" class="w-full justify-center bg-[#e6e6e6] text-black hover:bg-gray-100 hover:text-black dark:bg-zinc-700 dark:text-white dark:hover:bg-zinc-600">
                           Cancel
                         </Button>
                       </DrawerClose>
@@ -394,7 +394,7 @@
                     <!-- Start Reading Button -->
                     <Button v-if="canStartReading"
                             size="sm"
-                            class="w-full bg-[var(--color-heading)] hover:bg-[var(--color-heading)]/90 text-white border-0"
+                            class="w-full bg-white text-[var(--color-heading)] border border-[var(--color-border)] hover:bg-gray-50 dark:bg-[var(--color-heading)] dark:text-white dark:border-transparent dark:hover:bg-[var(--color-heading)]/90 reading-action-button"
                             @click="$router.push(getFirstChapterUrl())">
                       <BookOpenIcon class="w-4 h-4 mr-2" />
                       Start Reading
@@ -403,7 +403,7 @@
                     <!-- Continue Reading Button -->
                     <Button v-if="canContinueReading"
                             size="sm"
-                            class="w-full bg-[var(--color-heading)] hover:bg-[var(--color-heading)]/90 text-white border-0"
+                            class="w-full bg-white text-[var(--color-heading)] border border-[var(--color-border)] hover:bg-gray-50 dark:bg-[var(--color-heading)] dark:text-white dark:border-transparent dark:hover:bg-[var(--color-heading)]/90 reading-action-button"
                             @click="$router.push(getContinueReadingUrl())">
                       <PlayIcon class="w-4 h-4 mr-2" />
                       Continue (Ch. {{ userBookmark?.lastReadChapter || readingProgress?.lastReadChapter }})
@@ -857,18 +857,20 @@
 
   const bookmarkButtonClass = computed(() => {
     if (!userBookmark.value || !bookmarkStatus.value) {
-      return 'bg-[var(--color-background)] hover:bg-[var(--color-background)]'
+      // Use ! (important) to override shadcn's dark:bg-input/30 which makes outline
+      // buttons semi-transparent in dark mode.
+      return '!bg-[var(--color-background-soft)] hover:!bg-[var(--color-background-mute)] !text-[var(--color-text)]'
     }
 
     const statusColors = {
-      'reading': 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600',
-      'completed': 'bg-green-600 hover:bg-green-700 text-white border-green-600',
-      'on-hold': 'bg-yellow-600 hover:bg-yellow-700 text-white border-yellow-600',
-      'plan-to-read': 'bg-purple-600 hover:bg-purple-700 text-white border-purple-600',
-      'dropped': 'bg-red-600 hover:bg-red-700 text-white border-red-600'
+      'reading':      '!bg-blue-600   hover:!bg-blue-700   !text-white !border-blue-600',
+      'completed':    '!bg-green-600  hover:!bg-green-700  !text-white !border-green-600',
+      'on-hold':      '!bg-yellow-600 hover:!bg-yellow-700 !text-white !border-yellow-600',
+      'plan-to-read': '!bg-purple-600 hover:!bg-purple-700 !text-white !border-purple-600',
+      'dropped':      '!bg-red-600    hover:!bg-red-700    !text-white !border-red-600',
     }
 
-    return statusColors[bookmarkStatus.value] || 'bg-[var(--color-background)] hover:bg-[var(--color-background)]'
+    return statusColors[bookmarkStatus.value] || '!bg-[var(--color-background-soft)] hover:!bg-[var(--color-background-mute)] !text-[var(--color-text)]'
   })
 
 
@@ -1496,6 +1498,16 @@
   })
 </script>
 <style scoped>
+  .title-name-heading {
+    color: #ffffff !important;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45), 0 2px 10px rgba(0, 0, 0, 0.30);
+  }
+
+  :global(html.dark) .title-name-heading {
+    color: #ffffff !important;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.60), 0 2px 14px rgba(0, 0, 0, 0.40);
+  }
+
   @media (max-width: 1024px) {
     :deep(.reading-action-button) {
       border-radius: 0 !important;

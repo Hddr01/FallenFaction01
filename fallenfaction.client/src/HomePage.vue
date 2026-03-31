@@ -83,7 +83,7 @@
                 <button @click="fetchTopUsers" class="retry-button-small">Retry</button>
               </div>
               <div v-else class="users-grid">
-                <div v-for="user in topUsers" :key="user.id" class="user-card">
+                <a v-for="user in topUsers" :key="user.id" :href="`/user/${user.id}`" class="user-card" style="text-decoration:none;">
                   <div class="user-avatar">
                     <img :src="getImageUrl(user.avatar)"
                          :alt="user.name"
@@ -95,7 +95,7 @@
                     <div class="user-level">lvl {{ user.level }}</div>
                   </div>
                   <div class="user-score">{{ user.score }}</div>
-                </div>
+                </a>
               </div>
             </section>
           </div>

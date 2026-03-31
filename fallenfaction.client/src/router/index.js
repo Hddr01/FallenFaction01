@@ -156,6 +156,9 @@ const routes = [
   { path: '/user/titles', redirect: '/user/content/titles' },
   { path: '/user/teams', redirect: '/user/content/teams' },
 
+  // ── Public user profiles — must come after all specific /user/* routes ────
+  { path: '/user/:id', name: 'PublicUserProfile', component: () => import('../components/user/PublicUserProfile.vue'), props: true, meta: { title: 'User Profile' } },
+
   // ── Titles ────────────────────────────────────────────────────────────────
   { path: '/novel/addtitle', name: 'Add Title', component: AddTitle, meta: { requiresAuth: true, title: 'Add Title' } },
   { path: '/:titleSlug/AddChapter', name: 'Add Chapter', component: AddChapter, meta: { requiresAuth: true, title: 'Add Chapter' } },

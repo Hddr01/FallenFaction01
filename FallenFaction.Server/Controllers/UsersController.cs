@@ -134,6 +134,42 @@ namespace FallenFaction.Server.Controllers
         }
 
         /// <summary>
+        /// Get full public profile for a user.
+        /// GET: api/Users/{id}/profile
+        /// </summary>
+        [HttpGet("{id}/profile")]
+        public async Task<ActionResult<PublicUserProfileDto>> GetPublicProfile(string id)
+        {
+            try
+            {
+                var user = await _userManager.FindByIdAsync(id);
+                if (user == null || !user.IsActive)
+                    return NotFound(new { message = "User not found" });
+
+                var dto = new PublicUserProfileDto
+                {
+                    Id = user.Id,
+                    Name = user.UserName ?? "Unknown",
+                    Avatar = user.ProfilePicturePath ?? "/img/default-avatar.png",
+                    Banner = user.BannerImagePath,
+                    Bio = user.Bio,
+                    Level = user.UserLevel,
+                    XpPoints = user.XpPoints,
+                    IsOnline = user.IsOnline,
+                    RegistrationDate = user.RegistrationDate,
+                    IsVerified = user.IsVerified
+                };
+
+                return Ok(dto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching public profile for {UserId}", id);
+                return StatusCode(500, new { message = "Error fetching user profile" });
+            }
+        }
+
+        /// <summary>
         /// Search users by username for global search bar.
         /// GET: api/Users/search?query=...
         /// </summary>

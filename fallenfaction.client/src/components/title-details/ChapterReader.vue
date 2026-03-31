@@ -87,28 +87,25 @@
     <!-- Chapter Text Content -->
     <div v-else-if="chapterData" class="reader-body" ref="readerBodyRef">
 
-      <!-- Tap zones overlay.
-           position:absolute inside reader-body.
-           JS (updateTapZonesDimensions) sizes it to exactly match
-           text-content-wrapper using offsetTop/offsetLeft/offsetWidth/offsetHeight —
-           the novel equivalent of the manga image getBoundingClientRect algorithm.
-           Each zone handles its own click so bottom-nav and comments are never covered. -->
-      <div v-if="tapZonesEnabled && !showSettings && !showChapterList"
-           class="tap-zones-overlay"
-           ref="tapZonesOverlayRef">
-        <div class="tap-zone tap-zone-left"  @click="handleZoneTap('prev')">
-          <span class="tap-zone-label">‹</span>
-        </div>
-        <div class="tap-zone tap-zone-center" @click="handleZoneTap('toggle')"></div>
-        <div class="tap-zone tap-zone-right" @click="handleZoneTap('next')">
-          <span class="tap-zone-label">›</span>
-        </div>
-      </div>
-
-      <!-- text-content-wrapper wraps ONLY reading content (header + text).
-           bottom-nav and comments-section are intentionally outside so they
-           are never covered by the tap zones overlay. -->
+      <!-- text-content-wrapper: wraps ONLY the reading content.
+           position:relative so the tap-zones-on-text overlay (position:absolute)
+           is anchored to it — exactly the same pattern the manga reader used for
+           the manga-image-container / tap-zones-on-image pair.
+           bottom-nav and comments-section are intentionally OUTSIDE this wrapper
+           so the overlay never covers them. -->
       <div class="text-content-wrapper" :style="contentStyles" ref="textWrapperRef">
+
+        <!-- Tap zones — 3-column overlay covering the entire text column.
+             Mirrors the manga's tap-zones-on-image inside manga-image-container.
+             pointer-events:none on the container; each zone has pointer-events:auto.
+             bottom-nav and comments are outside this element so they are safe. -->
+        <div v-if="tapZonesEnabled && !showSettings && !showChapterList"
+             class="tap-zones-on-text"
+             aria-hidden="true">
+          <div class="tap-zone tap-zone-left"   @click="handleZoneTap('prev')"   data-zone="Previous"></div>
+          <div class="tap-zone tap-zone-center" @click="handleZoneTap('toggle')" data-zone="Toggle UI"></div>
+          <div class="tap-zone tap-zone-right"  @click="handleZoneTap('next')"   data-zone="Next"></div>
+        </div>
 
         <!-- Chapter Header -->
         <div class="chapter-header">
@@ -204,6 +201,7 @@
 
     <!-- Chapter List Popup -->
     <div v-if="showChapterList" class="popup" @click="handleBackdropClick">
+      <div class="popup__center">
       <div class="popup__content scrollable" @click.stop>
         <div class="popup__header">
           <h3>Chapter List</h3>
@@ -223,10 +221,12 @@
           </div>
         </div>
       </div>
+      </div>
     </div>
 
     <!-- Settings Popup -->
     <div v-if="showSettings" class="popup" @click="handleBackdropClick">
+      <div class="popup__center">
       <div class="popup__content" @click.stop>
         <div class="popup__header">
           <h3>Reading Settings</h3>
@@ -241,7 +241,7 @@
             <div class="settings-options">
               <button class="opt-btn" :class="{ active: currentTheme === 'dark' }" @click="setTheme('dark')">Dark</button>
               <button class="opt-btn" :class="{ active: currentTheme === 'light' }" @click="setTheme('light')">Light</button>
-              <button class="opt-btn" :class="{ active: currentTheme === 'sepia' }" @click="setTheme('sepia')">Sepia</button>
+              <button class="opt-btn" :class="{ active: currentTheme === 'theme-sepia' }" @click="setTheme('theme-sepia')">Sepia</button>
             </div>
           </div>
           <!-- Font Size -->
@@ -284,6 +284,7 @@
           </div>
         </div>
       </div>
+      </div>
     </div>
   </div>
 
@@ -297,7 +298,7 @@
 </template>
 
 <script setup>
-  import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+  import { ref, computed, onMounted, onUnmounted } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { titleDetailsService } from '../../services/titleDetailsService'
   import { chapterService } from '../../services/chapterService'
@@ -335,10 +336,9 @@
     (wallet.value?.goldBalance ?? 0) + (wallet.value?.silverBalance ?? 0)
   )
 
-  // Refs for tap zone measurement (novel equivalent of manga's image measurement)
+  // Refs for tap zone measurement
   const readerBodyRef = ref(null)
   const textWrapperRef = ref(null)
-  const tapZonesOverlayRef = ref(null)
 
   // UI State
   const uiVisible = ref(true)
@@ -386,36 +386,14 @@
 
   // =============================================
   // TAP ZONE LOGIC
-  // Novel equivalent of the manga getBoundingClientRect image algorithm.
-  //
-  // The overlay (position:absolute inside reader-body) is sized in JS to
-  // exactly match text-content-wrapper's offsetTop/offsetLeft/Width/Height —
-  // the same approach the manga reader used for the rendered image.
-  //
-  // Each zone div has its own @click handler (handleZoneTap) so the browser's
-  // native tap/scroll discrimination applies: a vertical scroll gesture never
-  // fires click, so scrolling through the chapter works normally.
-  //
-  // bottom-nav and comments-section are outside text-content-wrapper so the
-  // overlay never covers them — they remain fully interactive.
+  // Mirrors the manga reader's tap-zones-on-image pattern exactly.
+  // The overlay (tap-zones-on-text) is position:absolute inside
+  // text-content-wrapper (position:relative), covering the text column
+  // with 3 equal zones — no JS sizing needed.
+  // left → prev chapter, center → toggle UI, right → next chapter.
+  // bottom-nav and comments are outside the wrapper so they're never covered.
   // =============================================
 
-  // Sizes the overlay to exactly match the text-content-wrapper element.
-  // Called after chapter loads and on every window resize.
-  const updateTapZonesDimensions = () => {
-    const wrapper = textWrapperRef.value
-    const overlay = tapZonesOverlayRef.value
-    if (!wrapper || !overlay) return
-
-    // offsetTop/Left/Width/Height are relative to offsetParent (reader-body),
-    // which is position:relative — same coordinate space as position:absolute.
-    overlay.style.top    = `${wrapper.offsetTop}px`
-    overlay.style.left   = `${wrapper.offsetLeft}px`
-    overlay.style.width  = `${wrapper.offsetWidth}px`
-    overlay.style.height = `${wrapper.offsetHeight}px`
-  }
-
-  // Handles a tap on one of the three zones.
   const handleZoneTap = (zone) => {
     if (zone === 'prev') {
       showHint('← Previous chapter')
@@ -426,19 +404,6 @@
     } else {
       toggleUI()
     }
-  }
-
-  let resizeObserver = null
-
-  const startResizeObserver = () => {
-    if (!textWrapperRef.value) return
-    resizeObserver = new ResizeObserver(() => updateTapZonesDimensions())
-    resizeObserver.observe(textWrapperRef.value)
-  }
-
-  const stopResizeObserver = () => {
-    resizeObserver?.disconnect()
-    resizeObserver = null
   }
 
   // =============================================
@@ -513,11 +478,6 @@
         await updateReadingProgress()
         await loadUnlockData()
         window.scrollTo({ top: 0, behavior: 'auto' })
-        // Size overlay to match text-content-wrapper after DOM renders
-        await nextTick()
-        stopResizeObserver()
-        updateTapZonesDimensions()
-        startResizeObserver()
       } else {
         error.value = result.error || 'Chapter not found'
       }
@@ -669,7 +629,9 @@
   }
 
   const loadPreferences = () => {
-    currentTheme.value = loadPref('theme', 'dark')
+    const savedTheme = loadPref('theme', 'dark')
+    // migrate old 'sepia' value saved before the rename
+    currentTheme.value = savedTheme === 'sepia' ? 'theme-sepia' : savedTheme
     fontSize.value = loadPref('fontSize', 18)
     lineHeight.value = loadPref('lineHeight', 1.8)
     contentWidth.value = loadPref('contentWidth', 75)
@@ -705,12 +667,18 @@
   onUnmounted(() => {
     restoreZoom()
     document.removeEventListener('keydown', handleKeydown)
-    stopResizeObserver()
     clearTimeout(hintTimer)
   })
 </script>
 
 <style scoped>
+  /* =========================================================
+   Global shadow ban — no text-shadow anywhere in this component
+   ========================================================= */
+  * {
+    text-shadow: none !important;
+  }
+
   /* =========================================================
    Base container
    ========================================================= */
@@ -728,61 +696,58 @@
       --reader-text: #e8e8e8;
       --reader-navbar: rgba(0,0,0,0.95);
       --reader-border: #2a2a2a;
+      --reader-surface: #1a1a1a;
+      --reader-mute: #222222;
     }
 
     .chapter-container.light {
       --reader-bg: #fafafa;
-      --reader-text: var(--color-text);
+      --reader-text: #213547;
       --reader-navbar: rgba(255,255,255,0.95);
       --reader-border: #ddd;
+      --reader-surface: #ffffff;
+      --reader-mute: #f0f0f0;
     }
 
-    .chapter-container.sepia {
+    .chapter-container.theme-sepia {
       --reader-bg: #f4ecd8;
       --reader-text: #3b2f2f;
       --reader-navbar: rgba(244,236,216,0.95);
       --reader-border: #c9b99a;
+      --reader-surface: #ece4cf;
+      --reader-mute: #e4d9c3;
     }
 
   /* =========================================================
-   TAP ZONES OVERLAY
-   position:absolute inside reader-body (which is position:relative).
-   JavaScript (updateTapZonesDimensions) sets top/left/width/height to
-   exactly match text-content-wrapper — the novel equivalent of the manga
-   getBoundingClientRect image algorithm.
-   Each zone is individually clickable (pointer-events:auto) so the browser
-   native tap/scroll detection applies: scrolling never fires a click.
-   bottom-nav and comments-section sit outside the wrapper so they are
-   never covered.
+   TAP ZONES ON TEXT
+   Mirrors the manga reader's .tap-zones-on-image pattern exactly.
+   position:absolute inside .text-content-wrapper (position:relative),
+   so it covers the full text column with no JS sizing.
+   Container: pointer-events:none.  Each zone: pointer-events:auto.
+   3 equal columns — left=prev, center=toggle UI, right=next.
+   bottom-nav and comments live OUTSIDE text-content-wrapper so they
+   are never covered by this overlay.
    ========================================================= */
-  .tap-zones-overlay {
+  .tap-zones-on-text {
     position: absolute;
-    z-index: 400;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     display: grid;
-    grid-template-columns: 25% 50% 25%;
-    /* top/left/width/height set by updateTapZonesDimensions() */
-    pointer-events: none; /* container transparent */
+    grid-template-columns: 1fr 1fr 1fr;
+    pointer-events: none;
+    z-index: 50;
   }
 
   .tap-zone {
-    pointer-events: auto; /* each zone catches its own clicks */
+    pointer-events: auto;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-  }
-
-  .tap-zone-left  { border-right: 1px solid rgba(128, 128, 128, 0.12); }
-  .tap-zone-right { border-left:  1px solid rgba(128, 128, 128, 0.12); }
-
-  .tap-zone-label {
-    font-size: 2rem;
-    font-weight: 300;
-    opacity: 0.12;
-    color: var(--reader-text, #e8e8e8);
-    user-select: none;
-    pointer-events: none;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    position: relative;
   }
 
   /* =========================================================
@@ -965,7 +930,7 @@
     padding-bottom: 4rem;
     min-height: 100vh;
     background-color: var(--reader-bg);
-    position: relative; /* offsetParent for the absolute tap-zones-overlay */
+    position: relative;
     z-index: 0;
   }
 
@@ -973,6 +938,7 @@
     margin: 0 auto;
     padding: 2rem 1.5rem;
     color: var(--reader-text);
+    position: relative; /* anchor for the absolute tap-zones-on-text overlay */
   }
 
   /* Chapter header */
@@ -1206,21 +1172,34 @@
     background: rgba(0,0,0,0.7);
     backdrop-filter: blur(4px);
     z-index: 2000;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  /* Inner wrapper owns the flex centering — immune to any external
+     justify-content / align-items overrides on the overlay itself */
+  .popup__center {
+    min-height: 100%;
+    width: 100%;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     padding: 1rem;
+    box-sizing: border-box;
   }
 
   .popup__content {
-    background: var(--color-background-soft);
-    border: 1px solid var(--color-border);
+    background: var(--reader-surface);
+    border: 1px solid var(--reader-border);
     border-radius: 1rem;
     max-width: 480px;
     width: 100%;
     max-height: 80vh;
     display: flex;
     flex-direction: column;
+    position: relative;
+    z-index: 1;
   }
 
     .popup__content.scrollable {
@@ -1232,27 +1211,27 @@
     justify-content: space-between;
     align-items: center;
     padding: 1.25rem 1.5rem;
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--reader-border);
   }
 
     .popup__header h3 {
       margin: 0;
       font-size: 1.2rem;
       font-weight: 600;
-      color: var(--color-text);
+      color: var(--reader-text);
     }
 
   .close-btn {
     padding: 0.4rem;
     background: transparent;
     border: none;
-    color: var(--color-text);
+    color: var(--reader-text);
     cursor: pointer;
     border-radius: 0.25rem;
   }
 
     .close-btn:hover {
-      background: var(--color-background-mute);
+      background: var(--reader-mute);
     }
 
   /* Chapter list */
@@ -1263,12 +1242,12 @@
   .chapter-item {
     padding: 0.9rem 1.5rem;
     cursor: pointer;
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--reader-border);
     transition: background 0.15s;
   }
 
     .chapter-item:hover {
-      background: var(--color-background-mute);
+      background: var(--reader-mute);
     }
 
     .chapter-item.active {
@@ -1283,10 +1262,12 @@
   .chapter-title {
     font-weight: 500;
     font-size: 0.9rem;
+    color: var(--reader-text);
   }
 
   .chapter-team-tag {
     font-size: 0.8rem;
+    color: var(--reader-text);
     opacity: 0.65;
     margin-top: 0.2rem;
   }
@@ -1314,7 +1295,7 @@
   .settings-label {
     font-weight: 500;
     font-size: 0.9rem;
-    color: var(--color-text);
+    color: var(--reader-text);
   }
 
   .settings-options {
@@ -1325,10 +1306,10 @@
 
   .opt-btn {
     padding: 0.45rem 1rem;
-    background: var(--color-background-mute);
-    border: 1px solid var(--color-border);
+    background: var(--reader-mute);
+    border: 1px solid var(--reader-border);
     border-radius: 0.4rem;
-    color: var(--color-text);
+    color: var(--reader-text);
     cursor: pointer;
     font-size: 0.875rem;
     transition: all 0.2s;

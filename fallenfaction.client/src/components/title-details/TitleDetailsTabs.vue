@@ -40,17 +40,23 @@
             <!-- Description -->
             <div class="mb-6 px-2">
               <div class="text-base leading-relaxed">
-                <div class="transition-all duration-300 ease-in-out text-[var(--color-heading)]"
-                     style="word-break: break-all; overflow-wrap: anywhere;"
-                     :class="descriptionExpanded ? '' : 'line-clamp-3'">
+                <div class="transition-all duration-300 ease-in-out text-[var(--color-heading)] dark:text-white"
+                     style="overflow-wrap: break-word; word-break: break-word;"
+                     :class="descriptionExpanded ? '' : 'line-clamp-5'">
                   {{ titleData.description }}
                 </div>
               </div>
-              <button v-if="titleData.description && titleData.description.length > 200"
-                      class="mt-2 text-sm text-purple-500 hover:text-purple-400 transition-colors"
+              <button v-if="titleData.description && titleData.description.length > 300"
+                      class="mt-3 flex items-center gap-1 text-sm font-medium text-gray-800 hover:text-gray-600 dark:text-white dark:hover:text-gray-300 transition-colors"
                       type="button"
                       @click="toggleDescription">
-                {{ descriptionExpanded ? 'Read less...' : 'Read more...' }}
+                <svg v-if="!descriptionExpanded" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>
+                </svg>
+                {{ descriptionExpanded ? 'Show less' : 'Show more' }}
               </button>
             </div>
 
@@ -61,7 +67,7 @@
                       variant="outline"
                       size="sm"
                       as-child
-                      class="border-red-800 text-red-100 bg-red-900 hover:bg-red-800 hover:text-white hover:border-red-700 dark:border-red-700 dark:text-red-100 dark:bg-red-900 dark:hover:bg-red-800 dark:hover:text-white transition-all duration-300">
+                      class="border-red-800 !text-white !bg-red-900 hover:!bg-red-800 hover:!text-white hover:border-red-700 transition-all duration-300">
                 <a :href="`/catalog?ageRestriction=${titleData.ageRestriction}`">
                   {{ titleData.ageRestriction }}+
                 </a>
@@ -375,7 +381,7 @@
                 :animate="{ opacity: 1 }"
                 :transition="{ duration: 0.2 }">
           <template v-if="tabData.chapters.loaded">
-            <div v-if="!titleData.areChapterCommentsEnabled" class="flex items-center gap-3 p-4 mb-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 font-medium">
+            <div v-if="titleData.areChapterCommentsEnabled === false" class="flex items-center gap-3 p-4 mb-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 font-medium">
               <i class="fas fa-comment-slash text-xl"></i>
               Comments have been disabled for chapters of this title.
             </div>
@@ -449,6 +455,9 @@
                                  :target-id="titleId"
                                  target-type="1"
                                  :is-authenticated="isAuthenticated"
+                                 :current-user-id="authStore.user?.id || ''"
+                                 :is-admin="authStore.isAdmin"
+                                 :can-manage-title="canManageTitle"
                                  @comments-updated="onCommentsUpdated" />
             </div>
           </template>
@@ -667,6 +676,16 @@
 
   // ── Auth ──────────────────────────────────────────────────────────────────────
   const authStore = useAuthStore()
+
+  // ── User teams for permission checks ──────────────────────────────────────
+  const userTeams = ref([])
+
+  const canManageTitle = computed(() => {
+    if (authStore.isAdmin || authStore.isModerator) return true
+    if (!props.isAuthenticated || !userTeams.value.length) return false
+    const titleTeamIds = new Set((props.titleData.teams || []).map(t => t.id))
+    return userTeams.value.some(t => titleTeamIds.has(t.id))
+  })
 
   // ── Team filter (Chapters tab) ─────────────────────────────────────────────
   const selectedTeamFilter = ref(null)
@@ -1067,6 +1086,11 @@
         checkTranslatorButtons()
       }
     })
+    if (props.isAuthenticated) {
+      teamService.getMyTeams().then(res => {
+        userTeams.value = res.data || []
+      }).catch(() => {})
+    }
 
   // Called by AIUnlockBanner or ChaptersComponent when a chapter is unlocked
   const onChapterUnlocked = () => {

@@ -1,7 +1,7 @@
 <template>
   <div class="w-full space-y-5">
     <!-- Header with Sort and Search -->
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4  text-white">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
       <!-- Sort Controls -->
       <div class="flex items-center gap-3">
         <span class="text-sm font-medium text-foreground">Sort by:</span>
@@ -37,10 +37,10 @@
         <CardContent class="p-0">
           <!-- Table Header -->
           <div class="chapters-table-header">
-            <div class="chapter-col-number text-white">№</div>
-            <div class="chapter-col-name text-white">Name</div>
-            <div class="chapter-col-team text-white">Team</div>
-            <div class="chapter-col-date text-white">Date</div>
+            <div class="chapter-col-number text-[var(--color-text)]">№</div>
+            <div class="chapter-col-name text-[var(--color-text)]">Name</div>
+            <div class="chapter-col-team text-[var(--color-text)]">Team</div>
+            <div class="chapter-col-date text-[var(--color-text)]">Date</div>
           </div>
 
           <!-- Table Body -->
@@ -51,11 +51,11 @@
                        :href="chapter.isAILocked ? undefined : getChapterUrl(chapter)"
                        :class="['chapter-row', chapter.isAILocked ? 'opacity-60 cursor-default' : '']">
               <div class="chapter-col-number ">
-                <Badge variant="secondary" class=" text-white">
+                <Badge variant="secondary" class="text-[var(--color-text)]">
                   Vol. {{ chapter.volumeNumber }}
                 </Badge>
               </div>
-              <div class="chapter-col-name font-medium text-white flex items-center gap-2">
+              <div class="chapter-col-name font-medium text-[var(--color-text)] flex items-center gap-2">
                 <!-- Lock icon for AI-locked chapters -->
                 <span v-if="isAiTitle && chapter.isAILocked"
                       class="inline-flex items-center justify-center w-5 h-5 rounded bg-red-500/20 text-red-400 shrink-0"
@@ -78,7 +78,7 @@
               <div class="chapter-col-team">
                 <Button variant="outline"
                         size="sm"
-                        class="text-white"
+                        class="text-[var(--color-text)]"
                         as-child>
                   <span class="flex items-center gap-2">
                     <span v-if="chapter.team" class="flex items-center gap-2">
@@ -94,7 +94,7 @@
                   </span>
                 </Button>
               </div>
-              <div class="chapter-col-date text-sm text-muted-foreground text-white">
+              <div class="chapter-col-date text-sm text-[var(--color-text)]">
                 {{ formatDate(chapter.createdDate) }}
               </div>
             </component>
