@@ -33,5 +33,13 @@ namespace FallenFaction.Server.Data.Models
         public int TeamId { get; set; }
         [ForeignKey("TeamId")]
         public Team Team { get; set; }
+
+        /// <summary>
+        /// When set, this pending entry is an edit of an already-published chapter.
+        /// Null means this is a brand-new chapter submission.
+        /// </summary>
+        public int? OriginalChapterId { get; set; }
+        [ForeignKey("OriginalChapterId")]
+        public Chapter OriginalChapter { get; set; }
     }
 }
