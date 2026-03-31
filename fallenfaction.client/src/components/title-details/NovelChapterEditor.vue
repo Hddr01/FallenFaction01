@@ -27,10 +27,10 @@
           <h1 class="font-semibold text-foreground truncate">{{ titleName }}</h1>
           <p class="text-xs text-muted-foreground">Chapter Editor</p>
         </div>
-        <!-- Tab: Главы only — Озвучка omitted (no model) -->
+        <!-- Tab: Chapters only — Narration omitted (no model) -->
         <div class="flex gap-1">
           <Button size="sm" variant="default" class="pointer-events-none">
-            Главы
+            Chapters
           </Button>
         </div>
         <Button variant="ghost" size="icon" as-child>
@@ -58,19 +58,14 @@
               v-for="ch in filteredChapters"
               :key="ch.id"
               @click="selectChapter(ch)"
-              :disabled="!ch.canEdit"
               :class="[
-                'w-full text-left px-3 py-2.5 border-b border-border/50 transition-colors',
-                selectedChapterId === ch.id
-                  ? 'bg-green-600/20 border-l-2 border-l-green-500'
-                  : ch.canEdit
-                    ? 'hover:bg-muted/50 cursor-pointer'
-                    : 'opacity-40 cursor-not-allowed',
+                'w-full text-left px-3 py-2.5 border-b border-border/50 transition-colors hover:bg-muted/50 cursor-pointer',
+                selectedChapterId === ch.id ? 'bg-green-600/20 border-l-2 border-l-green-500' : '',
               ]"
             >
               <div class="flex items-center justify-between gap-2">
                 <span class="text-xs font-medium text-foreground truncate">
-                  Том {{ ch.volumeNumber }} Глава {{ ch.chapterNumber }}
+                  Vol. {{ ch.volumeNumber }} Ch. {{ ch.chapterNumber }}
                 </span>
                 <div class="flex gap-1 shrink-0">
                   <Badge v-if="ch.hasPendingEdit" variant="outline" class="text-[10px] px-1 py-0 text-amber-500 border-amber-500">
@@ -120,7 +115,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <!-- Volume -->
               <div class="space-y-1.5">
-                <Label class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Том</Label>
+                <Label class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Volume</Label>
                 <Input
                   v-model.number="editForm.volumeNumber"
                   type="number"
@@ -131,7 +126,7 @@
 
               <!-- Chapter number -->
               <div class="space-y-1.5">
-                <Label class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Глава</Label>
+                <Label class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Chapter No.</Label>
                 <Input
                   v-model.number="editForm.chapterNumber"
                   type="number"
@@ -143,7 +138,7 @@
 
               <!-- Chapter name -->
               <div class="sm:col-span-2 space-y-1.5">
-                <Label class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Название главы</Label>
+                <Label class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Chapter Name</Label>
                 <Input
                   v-model="editForm.name"
                   placeholder="Optional chapter name"
@@ -152,9 +147,9 @@
               </div>
             </div>
 
-            <!-- Team selector -->
-            <div class="space-y-1.5">
-              <Label class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Команда</Label>
+            <!-- Team selector — Translation titles only -->
+            <div v-if="isTranslationTitle" class="space-y-1.5">
+              <Label class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Team</Label>
               <Select v-model="editForm.teamId">
                 <SelectTrigger class="bg-[var(--color-background)]">
                   <SelectValue placeholder="Select team" />
@@ -169,7 +164,7 @@
 
             <!-- Word count bar -->
             <div class="flex items-center justify-between">
-              <Label class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Контент главы</Label>
+              <Label class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Chapter Content</Label>
               <span class="text-xs text-muted-foreground">{{ wordCount }} words</span>
             </div>
 
@@ -182,19 +177,56 @@
 
             <!-- Action bar -->
             <div class="flex items-center justify-between pt-2 border-t border-border">
-              <Button variant="outline" @click="resetForm">
-                Reset changes
-              </Button>
+
+              <!-- Left: Reset / Delete -->
+              <div class="flex items-center gap-2">
+                <Button variant="outline" @click="resetForm" :disabled="isSaving || isDeleting">
+                  Reset changes
+                </Button>
+
+                <!-- Normal delete button -->
+                <Button
+                  v-if="confirmDelete === null"
+                  variant="outline"
+                  @click="confirmDelete = 'pending'"
+                  :disabled="isSaving || isDeleting"
+                  class="text-red-500 border-red-500/40 hover:bg-red-500/10 hover:text-red-400"
+                >
+                  <Trash2Icon class="h-4 w-4 mr-1.5" />
+                  Delete
+                </Button>
+
+                <!-- Inline confirm row -->
+                <template v-else>
+                  <span class="text-sm text-red-400 font-medium">Delete this chapter?</span>
+                  <Button
+                    @click="deleteChapter"
+                    :disabled="isDeleting"
+                    class="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    <svg v-if="isDeleting" class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    {{ isDeleting ? 'Deleting...' : 'Yes, delete' }}
+                  </Button>
+                  <Button variant="outline" @click="confirmDelete = null" :disabled="isDeleting">
+                    Cancel
+                  </Button>
+                </template>
+              </div>
+
+              <!-- Right: Save -->
               <Button
                 @click="submitEdit"
-                :disabled="isSaving || !editForm.content.trim()"
+                :disabled="isSaving || isDeleting || !editForm.content.trim()"
                 class="bg-green-600 hover:bg-green-700 text-white min-w-[120px]"
               >
                 <svg v-if="isSaving" class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                 </svg>
-                {{ isSaving ? 'Saving...' : 'Сохранить' }}
+                {{ isSaving ? 'Saving...' : 'Save' }}
               </Button>
             </div>
 
@@ -243,7 +275,8 @@ import {
   ExternalLinkIcon,
   ClockIcon,
   CheckCircleIcon,
-  XCircleIcon
+  XCircleIcon,
+  Trash2Icon
 } from 'lucide-vue-next'
 
 const props = defineProps({
@@ -262,12 +295,16 @@ const isLoadingList = ref(true)
 const loadError = ref('')
 const search = ref('')
 
+const titleCategory = ref(1) // 1=Translation, 2=Original, 3=Fanfic, 4=AITranslation
 const selectedChapterId = ref(null)
 const isLoadingChapter = ref(false)
 const editForm = ref(null)   // populated when a chapter is selected
 const originalSnapshot = ref(null) // for reset
 
 const isSaving = ref(false)
+const isDeleting = ref(false)
+// confirmDelete: null = idle, 'pending' = waiting for confirmation
+const confirmDelete = ref(null)
 const toast = reactive({ show: false, type: 'success', message: '' })
 
 // ── Computed ───────────────────────────────────────────────────────────────────
@@ -281,6 +318,11 @@ const filteredChapters = computed(() => {
     c.teamName?.toLowerCase().includes(q)
   )
 })
+
+// Only Translation titles (category 1) use a team selector.
+// Original / Fanfic: single creator, no team.
+// AI/TL: admin-only, no per-team selector.
+const isTranslationTitle = computed(() => titleCategory.value === 1)
 
 const wordCount = computed(() => {
   if (!editForm.value?.content) return 0
@@ -310,6 +352,7 @@ const loadChapterList = async () => {
     }
     chapters.value = result.data.chapters || []
     userTeams.value = result.data.userTeams || []
+    titleCategory.value = result.data.titleCategory ?? 1
   } catch (err) {
     loadError.value = err.message || 'Unexpected error.'
   } finally {
@@ -319,7 +362,6 @@ const loadChapterList = async () => {
 
 // ── Select chapter for editing ─────────────────────────────────────────────────
 const selectChapter = async (ch) => {
-  if (!ch.canEdit) return
   if (selectedChapterId.value === ch.id) return
 
   selectedChapterId.value = ch.id
@@ -398,6 +440,33 @@ const submitEdit = async () => {
 const resetForm = () => {
   if (originalSnapshot.value) {
     editForm.value = { ...originalSnapshot.value }
+  }
+  confirmDelete.value = null
+}
+
+// ── Delete chapter ──────────────────────────────────────────────────────────────
+const deleteChapter = async () => {
+  if (!editForm.value) return
+  isDeleting.value = true
+
+  try {
+    const result = await chapterService.deleteChapter(titleId.value, editForm.value.chapterId)
+
+    if (result.success) {
+      // Remove from sidebar list
+      chapters.value = chapters.value.filter(c => c.id !== editForm.value.chapterId)
+      // Clear the editor panel
+      selectedChapterId.value = null
+      editForm.value = null
+      originalSnapshot.value = null
+      confirmDelete.value = null
+      showToast('success', 'Chapter deleted.')
+    } else {
+      showToast('error', result.error || 'Failed to delete chapter.')
+      confirmDelete.value = null
+    }
+  } finally {
+    isDeleting.value = false
   }
 }
 

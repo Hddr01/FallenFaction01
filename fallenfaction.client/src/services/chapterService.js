@@ -592,6 +592,27 @@ export const chapterService = {
   },
 
   /**
+   * Permanently delete a published chapter.
+   * Requires CanDeleteChapter permission in the chapter's team (or admin / title creator).
+   * @param {number} titleId
+   * @param {number} chapterId
+   */
+  async deleteChapter(titleId, chapterId) {
+    try {
+      const response = await api.delete(`/Titles/${titleId}/chapters/${chapterId}`)
+      return {
+        success: true,
+        message: response.data.message || 'Chapter deleted successfully.'
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message || 'Failed to delete chapter'
+      }
+    }
+  },
+
+  /**
    * Test API connectivity
    * @returns {boolean} - Connection status
    */

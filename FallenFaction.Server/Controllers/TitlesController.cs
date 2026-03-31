@@ -271,40 +271,48 @@ namespace FallenFaction.Server.Controllers
         /// <summary>
         /// Check if user can edit specific chapter
         /// </summary>
+        /// <summary>
+        /// Category-aware chapter edit permission check.
+        /// IMPORTANT: chapter must be loaded with .Include(c => c.Title) for category rules to work.
+        /// </summary>
         private async Task<bool> CanUserEditChapter(string userId, Chapter chapter)
         {
-            // Admins can edit all chapters
+            // Admins can edit everything regardless of category
             var user = await _userManager.FindByIdAsync(userId);
-            if (user != null)
-            {
-                var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
-                if (isAdmin)
-                {
-                    return true;
-                }
-            }
-
-            // Check if user created the chapter
-            if (chapter.UpdatedByUserId == userId)
-            {
+            if (user != null && await _userManager.IsInRoleAsync(user, "Admin"))
                 return true;
+
+            var category = chapter.Title?.TitleCategory ?? TitleCategory.Translation;
+
+            switch (category)
+            {
+                // ── AI/TL: admin-only (non-admins already blocked above) ───────
+                case TitleCategory.AITranslation:
+                    return false;
+
+                // ── Original / Fanfic: only the title creator can edit ─────────
+                case TitleCategory.Original:
+                case TitleCategory.Fanfic:
+                    return chapter.Title?.CreatedByUserId == userId;
+
+                // ── Translation: team-based permission ────────────────────────
+                case TitleCategory.Translation:
+                default:
+                    // The user who last submitted the chapter retains edit access
+                    if (chapter.UpdatedByUserId == userId)
+                        return true;
+
+                    // Must have CanEditChapter permission within the chapter's team
+                    return await _context.UserTeamRoles
+                        .Where(utr => utr.AppUserId == userId && utr.TeamId == chapter.TeamId)
+                        .Where(utr =>
+                            utr.Team.CreatorId == userId ||
+                            utr.Role == TeamRole.Admin ||
+                            (utr.Role == TeamRole.Member &&
+                             utr.UserTeamRolePermissions.Any(p =>
+                                 p.UserTeamPermission.PermissionName == "CanEditChapter")))
+                        .AnyAsync();
             }
-
-            // Check if user has edit permissions in the chapter's team
-            var hasPermission = await _context.UserTeamRoles
-                .Where(utr => utr.AppUserId == userId && utr.TeamId == chapter.TeamId)
-                .Where(utr =>
-                    // Team creators have all permissions
-                    utr.Team.CreatorId == userId ||
-                    // Team admins have all permissions
-                    utr.Role == TeamRole.Admin ||
-                    // Members with specific permission - UPDATED permission name
-                    (utr.Role == TeamRole.Member &&
-                     utr.UserTeamRolePermissions.Any(p => p.UserTeamPermission.PermissionName == "CanEditChapter"))
-                )
-                .AnyAsync();
-
-            return hasPermission;
         }
 
         /// <summary>
@@ -2434,7 +2442,10 @@ namespace FallenFaction.Server.Controllers
         /// <summary>
         /// Get chapters for a title that the current user can edit.
         /// GET: api/Titles/{titleId}/chapters/manage
-        /// Returns chapters grouped by volume, with per-chapter edit permission flag.
+        /// Returns chapters + team dropdown scoped by title category:
+        ///   Translation (1)  → team-based filtering
+        ///   Original (2) / Fanfic (3) → title creator only
+        ///   AITranslation (4) → admin only
         /// </summary>
         [HttpGet("{titleId:int}/chapters/manage")]
         [Authorize]
@@ -2451,29 +2462,59 @@ namespace FallenFaction.Server.Controllers
                     return NotFound(new { message = "Title not found" });
 
                 var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
+                var category = title.TitleCategory;
 
-                // Teams the user can edit chapters for
-                var editableTeamIds = await GetAuthorizedTeamIds(user.Id, "CanEditChapter");
+                // ── Category gate ──────────────────────────────────────────────
+                // AI/TL: admin-only editing
+                if (category == TitleCategory.AITranslation && !isAdmin)
+                    return StatusCode(403, new { message = "Only admins can edit AI-translated chapters." });
 
-                var chapters = await _context.Chapters
+                // Original / Fanfic: only the title creator (or admin)
+                if ((category == TitleCategory.Original || category == TitleCategory.Fanfic)
+                    && !isAdmin && title.CreatedByUserId != user.Id)
+                    return StatusCode(403, new { message = "Only the title author can edit chapters for this title." });
+
+                // ── Load all chapters for this title ──────────────────────────
+                var allChapters = await _context.Chapters
                     .Include(c => c.Team)
                     .Where(c => c.TitleId == titleId)
                     .OrderBy(c => c.VolumeNumber)
                     .ThenBy(c => c.ChapterNumber)
                     .ToListAsync();
 
-                // Find any pending edits submitted by anyone in editable teams for this title
+                // ── Determine which chapters this user can see/edit ────────────
+                List<Chapter> visibleChapters;
+                if (isAdmin)
+                {
+                    visibleChapters = allChapters;
+                }
+                else if (category == TitleCategory.Original || category == TitleCategory.Fanfic)
+                {
+                    // Creator sees all chapters of their own title
+                    visibleChapters = allChapters;
+                }
+                else
+                {
+                    // Translation: only chapters from teams the user can edit in
+                    var editableTeamIds = await GetAuthorizedTeamIds(user.Id, "CanEditChapter");
+                    visibleChapters = allChapters.Where(c =>
+                        c.UpdatedByUserId == user.Id ||
+                        (c.TeamId.HasValue && editableTeamIds.Contains(c.TeamId.Value))
+                    ).ToList();
+                }
+
+                // ── Pending-edit map (scoped to visible chapters) ─────────────
+                var visibleChapterIds = visibleChapters.Select(c => c.Id).ToHashSet();
                 var pendingEdits = await _context.PendingChapters
-                    .Where(pc => pc.TitleId == titleId && pc.OriginalChapterId != null)
+                    .Where(pc => pc.TitleId == titleId &&
+                                 pc.OriginalChapterId != null &&
+                                 visibleChapterIds.Contains(pc.OriginalChapterId.Value))
                     .Select(pc => new { pc.OriginalChapterId, pc.Id })
                     .ToListAsync();
                 var pendingEditMap = pendingEdits.ToDictionary(p => p.OriginalChapterId!.Value, p => p.Id);
 
-                var result = chapters.Select(c =>
+                var chapterList = visibleChapters.Select(c =>
                 {
-                    bool canEdit = isAdmin
-                        || c.UpdatedByUserId == user.Id
-                        || (c.TeamId.HasValue && editableTeamIds.Contains(c.TeamId.Value));
                     pendingEditMap.TryGetValue(c.Id, out int pendingId);
                     return new
                     {
@@ -2482,42 +2523,87 @@ namespace FallenFaction.Server.Controllers
                         c.VolumeNumber,
                         c.ChapterNumber,
                         c.TitleId,
-                        TeamId = c.TeamId,
-                        TeamName = c.Team?.Name,
+                        TeamId        = c.TeamId,
+                        TeamName      = c.Team?.Name,
                         c.CreatedDate,
                         c.LastUpdatedAt,
-                        CanEdit = canEdit,
+                        CanEdit        = true,
                         HasPendingEdit = pendingId != 0,
-                        PendingEditId = pendingId != 0 ? (int?)pendingId : null
+                        PendingEditId  = pendingId != 0 ? (int?)pendingId : null
                     };
                 }).ToList();
 
-                // Also return the list of teams the user belongs to with CanAddChapter permission
-                // so the editor can populate the Team dropdown
-                var userTeams = await _context.UserTeamRoles
-                    .Where(utr => utr.AppUserId == user.Id)
-                    .Include(utr => utr.Team)
-                    .Include(utr => utr.UserTeamRolePermissions)
-                        .ThenInclude(p => p.UserTeamPermission)
-                    .Where(utr =>
-                        utr.Team.CreatorId == user.Id ||
-                        utr.Role == TeamRole.Admin ||
-                        (utr.Role == TeamRole.Member &&
-                         utr.UserTeamRolePermissions.Any(p => p.UserTeamPermission.PermissionName == "CanEditChapter" ||
-                                                               p.UserTeamPermission.PermissionName == "CanAddChapter")))
-                    .Select(utr => new { utr.Team.Id, utr.Team.Name })
+                // ── Team dropdown ──────────────────────────────────────────────
+                // Translation: intersection of user's authorised teams ∩ teams with chapters here
+                // Original / Fanfic: no team selector (creator edits directly)
+                // AI/TL: admin sees all teams on this title
+                var teamIdsOnTitle = allChapters
+                    .Where(c => c.TeamId.HasValue)
+                    .Select(c => c.TeamId!.Value)
                     .Distinct()
-                    .ToListAsync();
+                    .ToHashSet();
 
-                return Ok(new
+                if (category == TitleCategory.Translation)
                 {
-                    TitleId = titleId,
-                    TitleName = title.OriginalTitle,
-                    Chapters = result,
-                    UserTeams = isAdmin
-                        ? await _context.Teams.Select(t => new { t.Id, t.Name }).ToListAsync()
-                        : userTeams
-                });
+                    if (isAdmin)
+                    {
+                        var adminTeams = await _context.Teams
+                            .Where(t => teamIdsOnTitle.Contains(t.Id))
+                            .Select(t => new { t.Id, t.Name })
+                            .ToListAsync();
+
+                        return Ok(new
+                        {
+                            TitleId       = titleId,
+                            TitleName     = title.OriginalTitle,
+                            TitleCategory = (int)category,
+                            Chapters      = chapterList,
+                            UserTeams     = adminTeams
+                        });
+                    }
+                    else
+                    {
+                        var authorisedTeamsOnTitle = await _context.UserTeamRoles
+                            .Include(utr => utr.Team)
+                            .Include(utr => utr.UserTeamRolePermissions)
+                                .ThenInclude(p => p.UserTeamPermission)
+                            .Where(utr =>
+                                utr.AppUserId == user.Id &&
+                                teamIdsOnTitle.Contains(utr.TeamId) &&
+                                (
+                                    utr.Team.CreatorId == user.Id ||
+                                    utr.Role == TeamRole.Admin ||
+                                    (utr.Role == TeamRole.Member &&
+                                     utr.UserTeamRolePermissions.Any(p =>
+                                         p.UserTeamPermission.PermissionName == "CanEditChapter" ||
+                                         p.UserTeamPermission.PermissionName == "CanAddChapter"))
+                                ))
+                            .Select(utr => new { utr.Team.Id, utr.Team.Name })
+                            .Distinct()
+                            .ToListAsync();
+
+                        return Ok(new
+                        {
+                            TitleId       = titleId,
+                            TitleName     = title.OriginalTitle,
+                            TitleCategory = (int)category,
+                            Chapters      = chapterList,
+                            UserTeams     = authorisedTeamsOnTitle
+                        });
+                    }
+                }
+                else
+                {
+                    // Original / Fanfic / AITranslation — no team dropdown needed
+                    return Ok(new
+                    {
+                        TitleId       = titleId,
+                        TitleName     = title.OriginalTitle,
+                        TitleCategory = (int)category,
+                        Chapters      = chapterList,
+                        UserTeams     = Array.Empty<object>()
+                    });
+                }
             }
             catch (Exception ex)
             {
@@ -2704,6 +2790,88 @@ namespace FallenFaction.Server.Controllers
             {
                 _logger.LogError(ex, "Error updating chapter {ChapterId}", chapterId);
                 return StatusCode(500, new { message = "Error updating chapter" });
+            }
+        }
+
+        /// <summary>
+        /// Permanently delete a published chapter and any associated pending edits.
+        /// DELETE: api/Titles/{titleId}/chapters/{chapterId}
+        /// Requires CanDeleteChapter permission within the chapter's team (or admin).
+        /// </summary>
+        [HttpDelete("{titleId:int}/chapters/{chapterId:int}")]
+        [Authorize]
+        public async Task<ActionResult> DeleteChapter(int titleId, int chapterId)
+        {
+            try
+            {
+                var user = await _userManager.GetUserAsync(User);
+                if (user == null) return Unauthorized();
+
+                var chapter = await _context.Chapters
+                    .Include(c => c.Title)
+                    .Include(c => c.Team)
+                    .FirstOrDefaultAsync(c => c.Id == chapterId && c.TitleId == titleId);
+
+                if (chapter == null)
+                    return NotFound(new { message = "Chapter not found." });
+
+                var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
+                var category = chapter.Title?.TitleCategory ?? TitleCategory.Translation;
+
+                // ── Category-aware delete permission ─────────────────────────────
+                bool canDelete = false;
+
+                if (isAdmin)
+                {
+                    canDelete = true;
+                }
+                else if (category == TitleCategory.AITranslation)
+                {
+                    // AI/TL: admin-only
+                    canDelete = false;
+                }
+                else if (category == TitleCategory.Original || category == TitleCategory.Fanfic)
+                {
+                    // Own work: only the title creator
+                    canDelete = chapter.Title?.CreatedByUserId == user.Id;
+                }
+                else
+                {
+                    // Translation: must have CanDeleteChapter in the chapter's team
+                    canDelete = await _context.UserTeamRoles
+                        .Where(utr => utr.AppUserId == user.Id && utr.TeamId == chapter.TeamId)
+                        .Where(utr =>
+                            utr.Team.CreatorId == user.Id ||
+                            utr.Role == TeamRole.Admin ||
+                            (utr.Role == TeamRole.Member &&
+                             utr.UserTeamRolePermissions.Any(p =>
+                                 p.UserTeamPermission.PermissionName == "CanDeleteChapter")))
+                        .AnyAsync();
+                }
+
+                if (!canDelete)
+                    return StatusCode(403, new { message = "You do not have permission to delete this chapter." });
+
+                // Remove any pending edits that reference this chapter
+                var pendingEdits = await _context.PendingChapters
+                    .Where(pc => pc.OriginalChapterId == chapterId)
+                    .ToListAsync();
+                if (pendingEdits.Any())
+                    _context.PendingChapters.RemoveRange(pendingEdits);
+
+                _context.Chapters.Remove(chapter);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "Chapter {ChapterId} (title {TitleId}) deleted by user {UserId}",
+                    chapterId, titleId, user.Id);
+
+                return Ok(new { message = "Chapter deleted successfully." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting chapter {ChapterId}", chapterId);
+                return StatusCode(500, new { message = "Error deleting chapter." });
             }
         }
 
