@@ -397,18 +397,11 @@
               class="mb-4"
             />
 
-            <!-- Team filter selector — only when multiple human teams -->
-            <div v-if="humanTeams.length > 1" class="mb-4">
+            <!-- Team filter selector — Translation titles with multiple teams get mandatory
+                 per-team tabs (no "All" combined view); other categories skip this block entirely -->
+            <div v-if="isTranslationTitle && humanTeams.length > 1" class="mb-4">
               <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-sm text-[var(--color-text)] opacity-60 shrink-0">Reading:</span>
-                <button
-                  @click="selectedTeamFilter = null"
-                  :class="['px-3 py-1.5 rounded-full text-xs font-medium transition border',
-                    selectedTeamFilter === null
-                      ? 'bg-[var(--color-accent)] text-white border-transparent'
-                      : 'border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-background-mute)]']">
-                  All translations
-                </button>
+                <span class="text-sm text-[var(--color-text)] opacity-60 shrink-0">Team:</span>
                 <button
                   v-for="team in humanTeams" :key="team.id"
                   @click="selectedTeamFilter = team.id"
@@ -688,9 +681,17 @@
   })
 
   // ── Team filter (Chapters tab) ─────────────────────────────────────────────
+  // For Translation titles: always filter by a specific team (no "All" combined view).
+  // Default to the first human team; updated when chapters tab loads.
   const selectedTeamFilter = ref(null)
+
   const humanTeams = computed(() =>
     (props.titleData.teams || []).filter(t => !t.isSystemTeam)
+  )
+
+  // Category 1 = Translation (multiple teams, each owns their chapters)
+  const isTranslationTitle = computed(() =>
+    props.titleData.titleCategory === 1
   )
 
   // ── Join Request Modal ────────────────────────────────────────────────────────
@@ -1023,6 +1024,11 @@
         const result = await response.json()
         tabData.value.chapters.data = Array.isArray(result) ? result : []
         tabData.value.chapters.loaded = true
+        // For Translation titles, always default to the first team so chapters
+        // are never shown as a mixed-team combined list.
+        if (isTranslationTitle.value && humanTeams.value.length > 1 && selectedTeamFilter.value === null) {
+          selectedTeamFilter.value = humanTeams.value[0]?.id ?? null
+        }
       } else if (tabKey === 'comments') {
         // CommentsComponent handles its own data loading via commentsService
         tabData.value.comments.loaded = true
