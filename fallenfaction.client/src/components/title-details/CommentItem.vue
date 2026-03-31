@@ -24,12 +24,12 @@
           <!-- Comment header -->
           <div class="comment-header">
             <div class="user-info">
-              <a :href="`/user/${comment.userId}`" class="avatar-link">
+              <a :href="`/user/${comment.userId}`" class="avatar-link" @click.prevent="$router.push(`/user/${comment.userId}`)">
                 <img :src="comment.userAvatarUrl || '/img/default-avatar.png'"
                      :alt="comment.userName"
                      class="avatar" />
               </a>
-              <a :href="`/user/${comment.userId}`" class="username">
+              <a :href="`/user/${comment.userId}`" class="username" @click.prevent="$router.push(`/user/${comment.userId}`)">
                 {{ comment.userName }}
               </a>
               <time class="timestamp" :datetime="comment.postedDate">
@@ -113,7 +113,7 @@
               Delete
             </button>
             <button @click="handlePin" class="action-btn"
-                    v-if="isAuthenticated && !comment.isDeleted && !comment.parentCommentId"
+                    v-if="canPin"
                     :disabled="isPinning">
               <Pin :size="14" />
               {{ comment.isPinned ? 'Unpin' : 'Pin' }}
@@ -228,6 +228,10 @@
       type: Boolean,
       default: false
     },
+    canManageTitle: {
+      type: Boolean,
+      default: false
+    },
     canReply: {
       type: Boolean,
       default: true
@@ -290,6 +294,12 @@
     if (props.comment.isDeleted) return false
     // User can delete their own comment, or admin can delete any comment
     return props.comment.userId === props.currentUserId || props.isAdmin
+  })
+
+  const canPin = computed(() => {
+    if (!props.isAuthenticated) return false
+    if (props.comment.isDeleted || props.comment.parentCommentId) return false
+    return props.isAdmin || props.canManageTitle
   })
 
   // Watch for parent collapse - auto collapse this comment if parent collapses
@@ -814,7 +824,7 @@
     position: absolute;
     top: calc(100% + 6px);
     left: 0;
-    z-index: 120;
+    z-index: 1000;
     min-width: 160px;
     background: var(--color-background, #fff);
     border: 1px solid var(--color-border, #e5e5e5);

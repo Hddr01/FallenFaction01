@@ -480,7 +480,7 @@
     }
 
   .s-tab-active {
-    color: var(--color-heading, var(--color-text));
+    color: var(--color-text);
     opacity: 1;
     font-weight: 600;
   }
