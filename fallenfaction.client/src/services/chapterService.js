@@ -528,6 +528,70 @@ export const chapterService = {
   },
 
   /**
+   * Get all published chapters for a title with edit permission info.
+   * @param {number} titleId
+   */
+  async getChaptersForManagement(titleId) {
+    try {
+      const response = await api.get(`/Titles/${titleId}/chapters/manage`)
+      return { success: true, data: response.data }
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message || 'Failed to load chapters for management',
+        data: null
+      }
+    }
+  },
+
+  /**
+   * Get a single published chapter's full content for editing.
+   * @param {number} titleId
+   * @param {number} chapterId
+   */
+  async getChapterForEdit(titleId, chapterId) {
+    try {
+      const response = await api.get(`/Titles/${titleId}/chapters/${chapterId}/edit`)
+      return { success: true, data: response.data }
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message || 'Failed to load chapter for editing',
+        data: null
+      }
+    }
+  },
+
+  /**
+   * Submit an edit for a published chapter.
+   * @param {number} titleId
+   * @param {number} chapterId
+   * @param {{ name: string, volumeNumber: number, chapterNumber: number, teamId: number, content: string }} chapterData
+   */
+  async updateChapter(titleId, chapterId, chapterData) {
+    try {
+      const response = await api.put(`/Titles/${titleId}/chapters/${chapterId}`, {
+        name: chapterData.name,
+        volumeNumber: chapterData.volumeNumber,
+        chapterNumber: chapterData.chapterNumber,
+        teamId: chapterData.teamId,
+        content: chapterData.content
+      })
+      return {
+        success: true,
+        message: response.data.message,
+        autoApproved: response.data.autoApproved,
+        data: response.data
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message || 'Failed to update chapter'
+      }
+    }
+  },
+
+  /**
    * Test API connectivity
    * @returns {boolean} - Connection status
    */

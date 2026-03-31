@@ -97,7 +97,10 @@
                   Submitted
                 </th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-[var(--color-text)] uppercase tracking-wider">
-                  Images
+                  Type
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-[var(--color-text)] uppercase tracking-wider">
+                  Words
                 </th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-[var(--color-text)] uppercase tracking-wider">
                   Actions
@@ -131,6 +134,16 @@
                     <span>{{ formatDate(chapter.createdDate) }}</span>
                     <span class="text-xs opacity-75">by {{ chapter.updatedByUserName }}</span>
                   </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-text)]">
+                  <span v-if="chapter.originalChapterId"
+                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                    Edit
+                  </span>
+                  <span v-else
+                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    New
+                  </span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-text)]">
                   <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">

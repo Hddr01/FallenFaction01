@@ -329,10 +329,12 @@ namespace FallenFaction.Server.Controllers
                         VolumeNumber = c.VolumeNumber,
                         ChapterNumber = c.ChapterNumber,
                         TitleName = c.Title.OriginalTitle,
+                        TitleId = c.TitleId,
                         TeamName = c.Team.Name,
                         CreatedDate = c.CreatedDate,
                         UpdatedByUserName = c.UpdatedByUser.UserName,
-                        WordCount = c.Content != null ? c.Content.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length : 0
+                        WordCount = c.Content != null ? c.Content.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length : 0,
+                        OriginalChapterId = c.OriginalChapterId
                     })
                     .ToListAsync();
 
@@ -408,7 +410,6 @@ namespace FallenFaction.Server.Controllers
                 }
 
                 var pendingChapter = await _context.PendingChapters
-
                     .Include(pc => pc.Title)
                     .Include(pc => pc.Team)
                     .FirstOrDefaultAsync(pc => pc.Id == id);
@@ -437,59 +438,123 @@ namespace FallenFaction.Server.Controllers
 
                 try
                 {
-                    // Create the approved chapter
-                    var chapter = new Chapter
+                    Chapter resultChapter;
+
+                    if (pendingChapter.OriginalChapterId.HasValue)
                     {
-                        Name = pendingChapter.Name,
-                        VolumeNumber = pendingChapter.VolumeNumber,
-                        ChapterNumber = pendingChapter.ChapterNumber,
-                        TitleId = pendingChapter.TitleId,
-                        TeamId = pendingChapter.TeamId,
-                        CreatedDate = DateTime.UtcNow,
-                        ReleaseDate = DateTime.UtcNow,
-                        UpdatedByUserId = user.Id,
-                        Content = pendingChapter.Content
-                    };
+                        // This is an edit of an existing chapter — update it in-place
+                        var original = await _context.Chapters
+                            .Include(c => c.Title)
+                            .Include(c => c.Team)
+                            .FirstOrDefaultAsync(c => c.Id == pendingChapter.OriginalChapterId.Value);
 
-                    _context.Chapters.Add(chapter);
-                    await _context.SaveChangesAsync(); // Save to get the ID
+                        if (original == null)
+                            return NotFound(new { message = "Original chapter no longer exists" });
 
-                    // Remove the pending chapter
-                    _context.PendingChapters.Remove(pendingChapter);
-                    await _context.SaveChangesAsync();
+                        string oldName = original.Name;
+                        original.Name = pendingChapter.Name;
+                        original.VolumeNumber = pendingChapter.VolumeNumber;
+                        original.ChapterNumber = pendingChapter.ChapterNumber;
+                        original.TeamId = pendingChapter.TeamId;
+                        original.Content = pendingChapter.Content;
+                        original.LastUpdatedAt = DateTime.UtcNow;
+                        original.UpdatedByUserId = user.Id;
 
-                    // Write change log entry
-                    var approveLog = new TitleChangeLog
+                        _context.PendingChapters.Remove(pendingChapter);
+                        await _context.SaveChangesAsync();
+
+                        // Mark any pending change-log entry as Approved
+                        var pendingLog = await _context.TitleChangeLogs
+                            .Where(l => l.TitleId == pendingChapter.TitleId
+                                     && l.UpdatedByUserId == pendingChapter.UpdatedByUserId
+                                     && l.ChangeType == "Edit Chapter"
+                                     && l.Status == ChangeLogStatus.Pending)
+                            .OrderByDescending(l => l.CreatedAt)
+                            .FirstOrDefaultAsync();
+
+                        if (pendingLog != null)
+                        {
+                            pendingLog.Status = ChangeLogStatus.Approved;
+                            pendingLog.ReviewedByUserId = user.Id;
+                            pendingLog.ReviewedAt = DateTime.UtcNow;
+                            pendingLog.AdminComment = "Approved by admin";
+                        }
+                        else
+                        {
+                            _context.TitleChangeLogs.Add(new TitleChangeLog
+                            {
+                                TitleId = pendingChapter.TitleId,
+                                UpdatedByUserId = pendingChapter.UpdatedByUserId,
+                                ReviewedByUserId = user.Id,
+                                CreatedAt = pendingChapter.CreatedDate,
+                                ReviewedAt = DateTime.UtcNow,
+                                ChangeType = "Edit Chapter",
+                                OldValue = $"Ch.{original.ChapterNumber} - {oldName}",
+                                NewValue = $"Ch.{pendingChapter.ChapterNumber} - {pendingChapter.Name}",
+                                AdminComment = "Approved by admin",
+                                Status = ChangeLogStatus.Approved,
+                            });
+                        }
+
+                        await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
+
+                        await _trustService.RecordApprovalAsync(pendingChapter.UpdatedByUserId, TrustActionType.AddChapter);
+
+                        resultChapter = await _context.Chapters.Include(c => c.Title).Include(c => c.Team)
+                            .FirstAsync(c => c.Id == original.Id);
+
+                        _logger.LogInformation("Chapter edit approved by {Admin}: Ch.{Num} for {Title}",
+                            user.UserName, original.ChapterNumber, pendingChapter.Title.OriginalTitle);
+                    }
+                    else
                     {
-                        TitleId = pendingChapter.TitleId,
-                        UpdatedByUserId = pendingChapter.UpdatedByUserId,
-                        ReviewedByUserId = user.Id,
-                        CreatedAt = pendingChapter.CreatedDate,
-                        ReviewedAt = DateTime.UtcNow,
-                        ChangeType = "Add Chapter",
-                        OldValue = "",
-                        NewValue = $"Ch.{pendingChapter.ChapterNumber} - {pendingChapter.Name}",
-                        AdminComment = "Approved by admin",
-                        Status = ChangeLogStatus.Approved,
-                    };
-                    _context.TitleChangeLogs.Add(approveLog);
-                    await _context.SaveChangesAsync();
-                    await transaction.CommitAsync();
+                        // New chapter submission — create it
+                        var chapter = new Chapter
+                        {
+                            Name = pendingChapter.Name,
+                            VolumeNumber = pendingChapter.VolumeNumber,
+                            ChapterNumber = pendingChapter.ChapterNumber,
+                            TitleId = pendingChapter.TitleId,
+                            TeamId = pendingChapter.TeamId,
+                            CreatedDate = DateTime.UtcNow,
+                            ReleaseDate = DateTime.UtcNow,
+                            UpdatedByUserId = user.Id,
+                            Content = pendingChapter.Content
+                        };
 
-                    // Record trust approval
-                    await _trustService.RecordApprovalAsync(pendingChapter.UpdatedByUserId, TrustActionType.AddChapter);
+                        _context.Chapters.Add(chapter);
+                        await _context.SaveChangesAsync();
 
-                    // Load the chapter with all relationships for DTO mapping
-                    var fullChapter = await _context.Chapters
-                        .Include(c => c.Title)
-                        .Include(c => c.Team)
-                        .FirstOrDefaultAsync(c => c.Id == chapter.Id);
+                        _context.PendingChapters.Remove(pendingChapter);
+                        await _context.SaveChangesAsync();
 
-                    var result = ChapterMapper.ToDTO(fullChapter);
+                        _context.TitleChangeLogs.Add(new TitleChangeLog
+                        {
+                            TitleId = pendingChapter.TitleId,
+                            UpdatedByUserId = pendingChapter.UpdatedByUserId,
+                            ReviewedByUserId = user.Id,
+                            CreatedAt = pendingChapter.CreatedDate,
+                            ReviewedAt = DateTime.UtcNow,
+                            ChangeType = "Add Chapter",
+                            OldValue = "",
+                            NewValue = $"Ch.{pendingChapter.ChapterNumber} - {pendingChapter.Name}",
+                            AdminComment = "Approved by admin",
+                            Status = ChangeLogStatus.Approved,
+                        });
+                        await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
 
-                    _logger.LogInformation("Chapter approved by {UserName}: {ChapterName} for {TitleName}",
-                        user.UserName, chapter.Name, pendingChapter.Title.OriginalTitle);
+                        await _trustService.RecordApprovalAsync(pendingChapter.UpdatedByUserId, TrustActionType.AddChapter);
 
+                        resultChapter = await _context.Chapters.Include(c => c.Title).Include(c => c.Team)
+                            .FirstAsync(c => c.Id == chapter.Id);
+
+                        _logger.LogInformation("Chapter approved by {UserName}: {ChapterName} for {TitleName}",
+                            user.UserName, chapter.Name, pendingChapter.Title.OriginalTitle);
+                    }
+
+                    var result = ChapterMapper.ToDTO(resultChapter);
                     return Ok(result);
                 }
                 catch
@@ -522,7 +587,7 @@ namespace FallenFaction.Server.Controllers
                 }
 
                 var pendingChapter = await _context.PendingChapters
-
+                    .Include(pc => pc.Title)
                     .FirstOrDefaultAsync(pc => pc.Id == id);
 
                 if (pendingChapter == null)
@@ -548,7 +613,45 @@ namespace FallenFaction.Server.Controllers
                     };
 
                     _context.RejectedChapters.Add(rejectedChapter);
-                    await _context.SaveChangesAsync(); // Save to get the ID
+                    await _context.SaveChangesAsync();
+
+                    // If this was an edit, update the pending change-log entry to Rejected
+                    bool isEdit = pendingChapter.OriginalChapterId.HasValue;
+                    string changeType = isEdit ? "Edit Chapter" : "Add Chapter";
+
+                    var pendingLog = await _context.TitleChangeLogs
+                        .Where(l => l.TitleId == pendingChapter.TitleId
+                                 && l.UpdatedByUserId == pendingChapter.UpdatedByUserId
+                                 && l.ChangeType == changeType
+                                 && l.Status == ChangeLogStatus.Pending)
+                        .OrderByDescending(l => l.CreatedAt)
+                        .FirstOrDefaultAsync();
+
+                    if (pendingLog != null)
+                    {
+                        pendingLog.Status = ChangeLogStatus.Rejected;
+                        pendingLog.ReviewedByUserId = user.Id;
+                        pendingLog.ReviewedAt = DateTime.UtcNow;
+                        pendingLog.RejectionReason = request?.Reason;
+                        pendingLog.AdminComment = "Rejected by admin";
+                    }
+                    else
+                    {
+                        _context.TitleChangeLogs.Add(new TitleChangeLog
+                        {
+                            TitleId = pendingChapter.TitleId,
+                            UpdatedByUserId = pendingChapter.UpdatedByUserId,
+                            ReviewedByUserId = user.Id,
+                            CreatedAt = pendingChapter.CreatedDate,
+                            ReviewedAt = DateTime.UtcNow,
+                            ChangeType = changeType,
+                            OldValue = "",
+                            NewValue = $"Ch.{pendingChapter.ChapterNumber} - {pendingChapter.Name}",
+                            AdminComment = "Rejected by admin",
+                            RejectionReason = request?.Reason,
+                            Status = ChangeLogStatus.Rejected,
+                        });
+                    }
 
                     // Remove the pending chapter
                     _context.PendingChapters.Remove(pendingChapter);
@@ -559,7 +662,7 @@ namespace FallenFaction.Server.Controllers
 
                     await transaction.CommitAsync();
 
-                    return Ok(new { message = "Chapter rejected successfully", reason = request?.Reason });
+                    return Ok(new { message = isEdit ? "Chapter edit rejected" : "Chapter rejected successfully", reason = request?.Reason });
                 }
                 catch
                 {
@@ -2325,5 +2428,294 @@ namespace FallenFaction.Server.Controllers
                 Tags = title.Tags.Select(t => t.Name).ToList()
             };
         }
+
+        #region Chapter Management (Edit) Endpoints
+
+        /// <summary>
+        /// Get chapters for a title that the current user can edit.
+        /// GET: api/Titles/{titleId}/chapters/manage
+        /// Returns chapters grouped by volume, with per-chapter edit permission flag.
+        /// </summary>
+        [HttpGet("{titleId:int}/chapters/manage")]
+        [Authorize]
+        public async Task<ActionResult> GetChaptersForManagement(int titleId)
+        {
+            try
+            {
+                var user = await _userManager.GetUserAsync(User);
+                if (user == null) return Unauthorized();
+
+                var title = await _context.Titles
+                    .FirstOrDefaultAsync(t => t.Id == titleId);
+                if (title == null)
+                    return NotFound(new { message = "Title not found" });
+
+                var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
+
+                // Teams the user can edit chapters for
+                var editableTeamIds = await GetAuthorizedTeamIds(user.Id, "CanEditChapter");
+
+                var chapters = await _context.Chapters
+                    .Include(c => c.Team)
+                    .Where(c => c.TitleId == titleId)
+                    .OrderBy(c => c.VolumeNumber)
+                    .ThenBy(c => c.ChapterNumber)
+                    .ToListAsync();
+
+                // Find any pending edits submitted by anyone in editable teams for this title
+                var pendingEdits = await _context.PendingChapters
+                    .Where(pc => pc.TitleId == titleId && pc.OriginalChapterId != null)
+                    .Select(pc => new { pc.OriginalChapterId, pc.Id })
+                    .ToListAsync();
+                var pendingEditMap = pendingEdits.ToDictionary(p => p.OriginalChapterId!.Value, p => p.Id);
+
+                var result = chapters.Select(c =>
+                {
+                    bool canEdit = isAdmin
+                        || c.UpdatedByUserId == user.Id
+                        || (c.TeamId.HasValue && editableTeamIds.Contains(c.TeamId.Value));
+                    pendingEditMap.TryGetValue(c.Id, out int pendingId);
+                    return new
+                    {
+                        c.Id,
+                        c.Name,
+                        c.VolumeNumber,
+                        c.ChapterNumber,
+                        c.TitleId,
+                        TeamId = c.TeamId,
+                        TeamName = c.Team?.Name,
+                        c.CreatedDate,
+                        c.LastUpdatedAt,
+                        CanEdit = canEdit,
+                        HasPendingEdit = pendingId != 0,
+                        PendingEditId = pendingId != 0 ? (int?)pendingId : null
+                    };
+                }).ToList();
+
+                // Also return the list of teams the user belongs to with CanAddChapter permission
+                // so the editor can populate the Team dropdown
+                var userTeams = await _context.UserTeamRoles
+                    .Where(utr => utr.AppUserId == user.Id)
+                    .Include(utr => utr.Team)
+                    .Include(utr => utr.UserTeamRolePermissions)
+                        .ThenInclude(p => p.UserTeamPermission)
+                    .Where(utr =>
+                        utr.Team.CreatorId == user.Id ||
+                        utr.Role == TeamRole.Admin ||
+                        (utr.Role == TeamRole.Member &&
+                         utr.UserTeamRolePermissions.Any(p => p.UserTeamPermission.PermissionName == "CanEditChapter" ||
+                                                               p.UserTeamPermission.PermissionName == "CanAddChapter")))
+                    .Select(utr => new { utr.Team.Id, utr.Team.Name })
+                    .Distinct()
+                    .ToListAsync();
+
+                return Ok(new
+                {
+                    TitleId = titleId,
+                    TitleName = title.OriginalTitle,
+                    Chapters = result,
+                    UserTeams = isAdmin
+                        ? await _context.Teams.Select(t => new { t.Id, t.Name }).ToListAsync()
+                        : userTeams
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting chapters for management for title {TitleId}", titleId);
+                return StatusCode(500, new { message = "Error retrieving chapters for management" });
+            }
+        }
+
+        /// <summary>
+        /// Get a single published chapter's content for editing.
+        /// GET: api/Titles/{titleId}/chapters/{chapterId}/edit
+        /// </summary>
+        [HttpGet("{titleId:int}/chapters/{chapterId:int}/edit")]
+        [Authorize]
+        public async Task<ActionResult> GetChapterForEdit(int titleId, int chapterId)
+        {
+            try
+            {
+                var user = await _userManager.GetUserAsync(User);
+                if (user == null) return Unauthorized();
+
+                var chapter = await _context.Chapters
+                    .Include(c => c.Title)
+                    .Include(c => c.Team)
+                    .FirstOrDefaultAsync(c => c.Id == chapterId && c.TitleId == titleId);
+
+                if (chapter == null)
+                    return NotFound(new { message = "Chapter not found" });
+
+                bool canEdit = await CanUserEditChapter(user.Id, chapter);
+                if (!canEdit)
+                    return StatusCode(403, new { message = "You do not have permission to edit this chapter." });
+
+                // Check for an existing pending edit
+                var pendingEdit = await _context.PendingChapters
+                    .FirstOrDefaultAsync(pc => pc.OriginalChapterId == chapterId);
+
+                return Ok(new
+                {
+                    chapter.Id,
+                    chapter.Name,
+                    chapter.VolumeNumber,
+                    chapter.ChapterNumber,
+                    chapter.TitleId,
+                    TitleName = chapter.Title.OriginalTitle,
+                    chapter.TeamId,
+                    TeamName = chapter.Team?.Name,
+                    chapter.Content,
+                    chapter.CreatedDate,
+                    chapter.LastUpdatedAt,
+                    HasPendingEdit = pendingEdit != null,
+                    PendingEdit = pendingEdit == null ? null : new
+                    {
+                        pendingEdit.Id,
+                        pendingEdit.Name,
+                        pendingEdit.VolumeNumber,
+                        pendingEdit.ChapterNumber,
+                        pendingEdit.Content,
+                        pendingEdit.TeamId,
+                        pendingEdit.CreatedDate
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting chapter {ChapterId} for edit", chapterId);
+                return StatusCode(500, new { message = "Error retrieving chapter for editing" });
+            }
+        }
+
+        /// <summary>
+        /// Submit an edit to a published chapter.
+        /// PUT: api/Titles/{titleId}/chapters/{chapterId}
+        /// Creates a PendingChapter with OriginalChapterId set, or directly updates if trusted.
+        /// </summary>
+        [HttpPut("{titleId:int}/chapters/{chapterId:int}")]
+        [Authorize]
+        public async Task<ActionResult> UpdateChapter(int titleId, int chapterId, [FromBody] UpdateChapterRequest request)
+        {
+            try
+            {
+                var user = await _userManager.GetUserAsync(User);
+                if (user == null) return Unauthorized();
+
+                var chapter = await _context.Chapters
+                    .Include(c => c.Title)
+                    .Include(c => c.Team)
+                    .FirstOrDefaultAsync(c => c.Id == chapterId && c.TitleId == titleId);
+
+                if (chapter == null)
+                    return NotFound(new { message = "Chapter not found" });
+
+                bool canEdit = await CanUserEditChapter(user.Id, chapter);
+                if (!canEdit)
+                    return StatusCode(403, new { message = "You do not have permission to edit this chapter." });
+
+                if (string.IsNullOrWhiteSpace(request.Content))
+                    return BadRequest(new { message = "Chapter content cannot be empty." });
+
+                // Validate team if changed
+                int resolvedTeamId = request.TeamId > 0 ? request.TeamId : (chapter.TeamId ?? 0);
+                if (resolvedTeamId <= 0)
+                    return BadRequest(new { message = "A valid team must be selected." });
+
+                // Remove any existing pending edit for this chapter to avoid duplicates
+                var existingPending = await _context.PendingChapters
+                    .FirstOrDefaultAsync(pc => pc.OriginalChapterId == chapterId);
+                if (existingPending != null)
+                    _context.PendingChapters.Remove(existingPending);
+
+                bool isTrusted = await _trustService.IsTrustedAsync(user.Id, TrustActionType.AddChapter);
+
+                if (isTrusted)
+                {
+                    // Directly update the chapter
+                    string oldContent = chapter.Content;
+                    string oldName = chapter.Name;
+
+                    chapter.Name = request.Name ?? chapter.Name;
+                    chapter.VolumeNumber = request.VolumeNumber > 0 ? request.VolumeNumber : chapter.VolumeNumber;
+                    chapter.ChapterNumber = request.ChapterNumber > 0 ? request.ChapterNumber : chapter.ChapterNumber;
+                    chapter.TeamId = resolvedTeamId;
+                    chapter.Content = request.Content;
+                    chapter.LastUpdatedAt = DateTime.UtcNow;
+                    chapter.UpdatedByUserId = user.Id;
+
+                    var changeLog = new TitleChangeLog
+                    {
+                        TitleId = titleId,
+                        UpdatedByUserId = user.Id,
+                        ReviewedByUserId = user.Id,
+                        CreatedAt = DateTime.UtcNow,
+                        ReviewedAt = DateTime.UtcNow,
+                        ChangeType = "Edit Chapter",
+                        OldValue = $"Ch.{chapter.ChapterNumber} - {oldName}",
+                        NewValue = $"Ch.{chapter.ChapterNumber} - {chapter.Name}",
+                        AdminComment = "Auto-approved (trusted user)",
+                        Status = ChangeLogStatus.AutoApproved,
+                    };
+                    _context.TitleChangeLogs.Add(changeLog);
+
+                    await _context.SaveChangesAsync();
+
+                    _logger.LogInformation("Chapter {ChapterId} directly updated (trusted) by {User}", chapterId, user.UserName);
+                    return Ok(new { message = "Chapter updated successfully!", autoApproved = true, chapterId });
+                }
+                else
+                {
+                    // Create a pending edit
+                    var pendingChapter = new PendingChapter
+                    {
+                        Name = request.Name ?? chapter.Name,
+                        VolumeNumber = request.VolumeNumber > 0 ? request.VolumeNumber : chapter.VolumeNumber,
+                        ChapterNumber = request.ChapterNumber > 0 ? request.ChapterNumber : chapter.ChapterNumber,
+                        TitleId = titleId,
+                        TeamId = resolvedTeamId,
+                        Content = request.Content,
+                        CreatedDate = DateTime.UtcNow,
+                        UpdatedByUserId = user.Id,
+                        OriginalChapterId = chapterId
+                    };
+                    _context.PendingChapters.Add(pendingChapter);
+
+                    // Log to change history as Pending
+                    var changeLog = new TitleChangeLog
+                    {
+                        TitleId = titleId,
+                        UpdatedByUserId = user.Id,
+                        CreatedAt = DateTime.UtcNow,
+                        ChangeType = "Edit Chapter",
+                        OldValue = $"Ch.{chapter.ChapterNumber} - {chapter.Name}",
+                        NewValue = $"Ch.{request.ChapterNumber} - {request.Name ?? chapter.Name}",
+                        Status = ChangeLogStatus.Pending,
+                    };
+                    _context.TitleChangeLogs.Add(changeLog);
+
+                    await _context.SaveChangesAsync();
+
+                    _logger.LogInformation("Chapter edit pending review for chapter {ChapterId} by {User}", chapterId, user.UserName);
+                    return Ok(new { message = "Chapter edit submitted for review.", autoApproved = false, pendingId = pendingChapter.Id });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating chapter {ChapterId}", chapterId);
+                return StatusCode(500, new { message = "Error updating chapter" });
+            }
+        }
+
+        #endregion
     }
 }
+
+// DTO for chapter update request
+public record UpdateChapterRequest(
+    string? Name,
+    int VolumeNumber,
+    int ChapterNumber,
+    int TeamId,
+    string Content
+);

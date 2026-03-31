@@ -903,6 +903,9 @@ namespace FallenFaction.Server.Migrations
                     b.Property<int>("VolumeNumber")
                         .HasColumnType("int");
 
+                    b.Property<int?>("OriginalChapterId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("TeamId");
@@ -910,6 +913,8 @@ namespace FallenFaction.Server.Migrations
                     b.HasIndex("TitleId");
 
                     b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("OriginalChapterId");
 
                     b.ToTable("PendingChapters");
                 });
@@ -2739,11 +2744,18 @@ namespace FallenFaction.Server.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("FallenFaction.Server.Data.Models.Chapter", "OriginalChapter")
+                        .WithMany()
+                        .HasForeignKey("OriginalChapterId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Team");
 
                     b.Navigation("Title");
 
                     b.Navigation("UpdatedByUser");
+
+                    b.Navigation("OriginalChapter");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.PendingTitle", b =>
