@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -1125,8 +1125,19 @@ namespace FallenFaction.Server.Controllers
                 };
 
                 _context.Set<Title>().Add(title);
-                _context.Set<PendingTitle>().Remove(pendingTitle);
+                await _context.SaveChangesAsync(); // Save to get the new Title ID
 
+                // Migrate pending chapters from pending title to approved title
+                var pendingChapters = await _context.PendingChapters
+                    .Where(pc => pc.PendingTitleId == pendingTitle.Id)
+                    .ToListAsync();
+                foreach (var pc in pendingChapters)
+                {
+                    pc.TitleId = title.Id;
+                    pc.PendingTitleId = null;
+                }
+
+                _context.Set<PendingTitle>().Remove(pendingTitle);
                 await _context.SaveChangesAsync();
 
                 // Write change log

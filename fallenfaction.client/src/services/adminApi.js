@@ -413,6 +413,25 @@ const adminApi = {
     }
   },
 
+  // Mass approve a list of pending chapters by ID
+  async massApproveChapters(chapterIds) {
+    try {
+      console.log(`Calling: POST /api/Titles/chapters/pending/mass-approve`, chapterIds);
+      const response = await api.post('/Titles/chapters/pending/mass-approve', { chapterIds });
+      return {
+        success: true,
+        message: response.data.message || 'Chapters mass-approved successfully!',
+        data: response.data
+      };
+    } catch (error) {
+      console.error('Error mass approving chapters:', error);
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message || 'Failed to mass approve chapters'
+      };
+    }
+  },
+
   // UTILITY METHODS
 
   // Test API connectivity

@@ -24,10 +24,13 @@ namespace FallenFaction.Server.Data.Models
 
         public DateTime CreatedDate { get; set; } = DateTime.Now;
 
-        [Required]
-        public int TitleId { get; set; }
+        public int? TitleId { get; set; }
         [ForeignKey("TitleId")]
         public Title Title { get; set; }
+
+        public int? PendingTitleId { get; set; }
+        [ForeignKey("PendingTitleId")]
+        public PendingTitle PendingTitle { get; set; }
 
         [Required]
         public int TeamId { get; set; }

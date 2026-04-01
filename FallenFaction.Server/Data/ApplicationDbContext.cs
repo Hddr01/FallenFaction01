@@ -1,4 +1,4 @@
-﻿using FallenFaction.Server.Data.Models;
+using FallenFaction.Server.Data.Models;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -239,7 +239,15 @@ namespace FallenFaction.Server.Data
                 .HasOne(pc => pc.Title)
                 .WithMany(t => t.PendingChapters)
                 .HasForeignKey(pc => pc.TitleId)
-                .OnDelete(DeleteBehavior.NoAction);
+                .OnDelete(DeleteBehavior.NoAction)
+                .IsRequired(false);
+
+            builder.Entity<PendingChapter>()
+                .HasOne(pc => pc.PendingTitle)
+                .WithMany(pt => pt.PendingChapters)
+                .HasForeignKey(pc => pc.PendingTitleId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired(false);
 
             builder.Entity<PendingChapter>()
                 .HasOne(pc => pc.Team)

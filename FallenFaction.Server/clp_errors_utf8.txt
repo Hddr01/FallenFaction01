@@ -1,0 +1,13 @@
+﻿C:\Users\Serhii\Desktop\FallenFaction\FallenFaction.Server\Controllers\TitlesController.cs(494,43): error CS0266: Cannot implicitly convert type 'int?' to 'int'. An explicit conversion exists (are you missing a cast?) [C:\Users\Serhii\Desktop\FallenFaction\FallenFaction.Server\FallenFaction.Server.csproj]
+C:\Users\Serhii\Desktop\FallenFaction\FallenFaction.Server\Controllers\TitlesController.cs(526,39): error CS0266: Cannot implicitly convert type 'int?' to 'int'. An explicit conversion exists (are you missing a cast?) [C:\Users\Serhii\Desktop\FallenFaction\FallenFaction.Server\FallenFaction.Server.csproj]
+C:\Users\Serhii\Desktop\FallenFaction\FallenFaction.Server\Controllers\TitlesController.cs(542,39): error CS0266: Cannot implicitly convert type 'int?' to 'int'. An explicit conversion exists (are you missing a cast?) [C:\Users\Serhii\Desktop\FallenFaction\FallenFaction.Server\FallenFaction.Server.csproj]
+C:\Users\Serhii\Desktop\FallenFaction\FallenFaction.Server\Controllers\TitlesController.cs(616,35): error CS0266: Cannot implicitly convert type 'int?' to 'int'. An explicit conversion exists (are you missing a cast?) [C:\Users\Serhii\Desktop\FallenFaction\FallenFaction.Server\FallenFaction.Server.csproj]
+C:\Users\Serhii\Desktop\FallenFaction\FallenFaction.Server\Controllers\TitlesController.cs(650,39): error CS0266: Cannot implicitly convert type 'int?' to 'int'. An explicit conversion exists (are you missing a cast?) [C:\Users\Serhii\Desktop\FallenFaction\FallenFaction.Server\FallenFaction.Server.csproj]
+
+Build FAILED.
+    153 Warning(s)
+    5 Error(s)
+
+Time Elapsed 00:00:02.02
+
+Workload updates are available. Run `dotnet workload list` for more information.
