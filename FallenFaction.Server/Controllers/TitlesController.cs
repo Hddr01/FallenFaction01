@@ -327,6 +327,7 @@ namespace FallenFaction.Server.Controllers
             {
                 var pendingChapters = await _context.PendingChapters
                     .Include(c => c.Title)
+                    .Include(c => c.PendingTitle)
                     .Include(c => c.Team)
                     .Include(c => c.UpdatedByUser)
                     .OrderByDescending(c => c.CreatedDate)
@@ -336,8 +337,10 @@ namespace FallenFaction.Server.Controllers
                         Name = c.Name,
                         VolumeNumber = c.VolumeNumber,
                         ChapterNumber = c.ChapterNumber,
-                        TitleName = c.Title.OriginalTitle,
+                        TitleName = c.Title != null ? c.Title.OriginalTitle : (c.PendingTitle != null ? c.PendingTitle.OriginalTitle : "Unknown"),
                         TitleId = c.TitleId,
+                        PendingTitleId = c.PendingTitleId,
+                        IsTitleApproved = c.TitleId.HasValue,
                         TeamName = c.Team.Name,
                         CreatedDate = c.CreatedDate,
                         UpdatedByUserName = c.UpdatedByUser.UserName,
@@ -367,6 +370,7 @@ namespace FallenFaction.Server.Controllers
             {
                 var pendingChapter = await _context.PendingChapters
                     .Include(c => c.Title)
+                    .Include(c => c.PendingTitle)
                     .Include(c => c.Team)
                     .Include(c => c.UpdatedByUser)
                     .FirstOrDefaultAsync(c => c.Id == id);
@@ -383,7 +387,9 @@ namespace FallenFaction.Server.Controllers
                     VolumeNumber = pendingChapter.VolumeNumber,
                     ChapterNumber = pendingChapter.ChapterNumber,
                     TitleId = pendingChapter.TitleId,
-                    TitleName = pendingChapter.Title.OriginalTitle,
+                    PendingTitleId = pendingChapter.PendingTitleId,
+                    TitleName = pendingChapter.Title != null ? pendingChapter.Title.OriginalTitle : (pendingChapter.PendingTitle != null ? pendingChapter.PendingTitle.OriginalTitle : "Unknown"),
+                    IsTitleApproved = pendingChapter.TitleId.HasValue,
                     TeamId = pendingChapter.TeamId,
                     TeamName = pendingChapter.Team.Name,
                     CreatedDate = pendingChapter.CreatedDate,
@@ -425,6 +431,11 @@ namespace FallenFaction.Server.Controllers
                 if (pendingChapter == null)
                 {
                     return NotFound(new { message = "Pending chapter not found" });
+                }
+
+                if (!pendingChapter.TitleId.HasValue)
+                {
+                    return BadRequest(new { message = "Cannot approve this chapter because its title is still pending approval" });
                 }
 
                 // Additional authorization: Non-admin moderators can only approve chapters for teams they're part of
@@ -491,7 +502,7 @@ namespace FallenFaction.Server.Controllers
                         {
                             _context.TitleChangeLogs.Add(new TitleChangeLog
                             {
-                                TitleId = pendingChapter.TitleId,
+                                TitleId = pendingChapter.TitleId.Value,
                                 UpdatedByUserId = pendingChapter.UpdatedByUserId,
                                 ReviewedByUserId = user.Id,
                                 CreatedAt = pendingChapter.CreatedDate,
@@ -523,7 +534,7 @@ namespace FallenFaction.Server.Controllers
                             Name = pendingChapter.Name,
                             VolumeNumber = pendingChapter.VolumeNumber,
                             ChapterNumber = pendingChapter.ChapterNumber,
-                            TitleId = pendingChapter.TitleId,
+                            TitleId = pendingChapter.TitleId.Value,
                             TeamId = pendingChapter.TeamId,
                             CreatedDate = DateTime.UtcNow,
                             ReleaseDate = DateTime.UtcNow,
@@ -539,7 +550,7 @@ namespace FallenFaction.Server.Controllers
 
                         _context.TitleChangeLogs.Add(new TitleChangeLog
                         {
-                            TitleId = pendingChapter.TitleId,
+                            TitleId = pendingChapter.TitleId.Value,
                             UpdatedByUserId = pendingChapter.UpdatedByUserId,
                             ReviewedByUserId = user.Id,
                             CreatedAt = pendingChapter.CreatedDate,
@@ -578,6 +589,142 @@ namespace FallenFaction.Server.Controllers
             }
         }
 
+        public class MassApproveRequest
+        {
+            public List<int> ChapterIds { get; set; } = new List<int>();
+        }
+
+        /// <summary>
+        /// Mass approve pending chapters
+        /// POST: api/Titles/chapters/pending/mass-approve
+        /// </summary>
+        [HttpPost("chapters/pending/mass-approve")]
+        [Authorize(Roles = "Admin,Moderator")]
+        public async Task<ActionResult> MassApproveChapters([FromBody] MassApproveRequest request)
+        {
+            try
+            {
+                var user = await _userManager.GetUserAsync(User);
+                if (user == null) return Unauthorized();
+
+                if (request.ChapterIds == null || !request.ChapterIds.Any())
+                    return BadRequest(new { message = "No chapter IDs provided" });
+
+                var pendingChapters = await _context.PendingChapters
+                    .Include(pc => pc.Title)
+                    .Include(pc => pc.Team)
+                    .Where(pc => request.ChapterIds.Contains(pc.Id))
+                    .ToListAsync();
+
+                if (!pendingChapters.Any())
+                    return NotFound(new { message = "No valid pending chapters found" });
+
+                var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
+                if (!isAdmin)
+                {
+                    var teamIds = pendingChapters.Select(pc => pc.TeamId).Distinct().ToList();
+                    foreach (var teamId in teamIds)
+                    {
+                        var canApprove = await _context.UserTeamRoles
+                            .Where(utr => utr.AppUserId == user.Id && utr.TeamId == teamId && utr.Role == TeamRole.Admin)
+                            .AnyAsync();
+                        if (!canApprove) return Forbid($"You lack admin rights for team {teamId}");
+                    }
+                }
+
+                int approvedCount = 0;
+                using var transaction = await _context.Database.BeginTransactionAsync();
+
+                try
+                {
+                    foreach (var pendingChapter in pendingChapters)
+                    {
+                        if (!pendingChapter.TitleId.HasValue) continue;
+
+                        if (pendingChapter.OriginalChapterId.HasValue)
+                        {
+                            var original = await _context.Chapters.FirstOrDefaultAsync(c => c.Id == pendingChapter.OriginalChapterId.Value);
+                            if (original != null)
+                            {
+                                original.Name = pendingChapter.Name;
+                                original.VolumeNumber = pendingChapter.VolumeNumber;
+                                original.ChapterNumber = pendingChapter.ChapterNumber;
+                                original.TeamId = pendingChapter.TeamId;
+                                original.Content = pendingChapter.Content;
+                                original.LastUpdatedAt = DateTime.UtcNow;
+                                original.UpdatedByUserId = user.Id;
+
+                                _context.TitleChangeLogs.Add(new TitleChangeLog
+                                {
+                                    TitleId = pendingChapter.TitleId.Value,
+                                    UpdatedByUserId = pendingChapter.UpdatedByUserId,
+                                    ReviewedByUserId = user.Id,
+                                    CreatedAt = pendingChapter.CreatedDate,
+                                    ReviewedAt = DateTime.UtcNow,
+                                    ChangeType = "Edit Chapter",
+                                    OldValue = $"Ch.{original.ChapterNumber}",
+                                    NewValue = $"Ch.{pendingChapter.ChapterNumber} - {pendingChapter.Name}",
+                                    AdminComment = "Mass-Approved by admin",
+                                    Status = ChangeLogStatus.Approved,
+                                });
+                            }
+                        }
+                        else
+                        {
+                            var chapter = new Chapter
+                            {
+                                Name = pendingChapter.Name,
+                                VolumeNumber = pendingChapter.VolumeNumber,
+                                ChapterNumber = pendingChapter.ChapterNumber,
+                                TitleId = pendingChapter.TitleId.Value,
+                                TeamId = pendingChapter.TeamId,
+                                CreatedDate = DateTime.UtcNow,
+                                ReleaseDate = DateTime.UtcNow,
+                                UpdatedByUserId = user.Id,
+                                Content = pendingChapter.Content
+                            };
+                            _context.Chapters.Add(chapter);
+                            
+                            _context.TitleChangeLogs.Add(new TitleChangeLog
+                            {
+                                TitleId = pendingChapter.TitleId.Value,
+                                UpdatedByUserId = pendingChapter.UpdatedByUserId,
+                                ReviewedByUserId = user.Id,
+                                CreatedAt = pendingChapter.CreatedDate,
+                                ReviewedAt = DateTime.UtcNow,
+                                ChangeType = "Add Chapter",
+                                OldValue = "",
+                                NewValue = $"Ch.{pendingChapter.ChapterNumber} - {pendingChapter.Name}",
+                                AdminComment = "Mass-Approved by admin",
+                                Status = ChangeLogStatus.Approved,
+                            });
+                            
+                            await _trustService.RecordApprovalAsync(pendingChapter.UpdatedByUserId, TrustActionType.AddChapter);
+                        }
+                        
+                        _context.PendingChapters.Remove(pendingChapter);
+                        approvedCount++;
+                    }
+
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    _logger.LogInformation("Mass-approved {Count} chapters by {User}", approvedCount, user.UserName);
+                    return Ok(new { message = $"Successfully mass-approved {approvedCount} chapters." });
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error mass approving chapters");
+                return StatusCode(500, new { message = "Error mass approving chapters" });
+            }
+        }
+
         /// <summary>
         /// Reject a pending chapter
         /// POST: api/Titles/chapters/pending/{id}/reject
@@ -603,6 +750,11 @@ namespace FallenFaction.Server.Controllers
                     return NotFound(new { message = "Pending chapter not found" });
                 }
 
+                if (!pendingChapter.TitleId.HasValue)
+                {
+                    return BadRequest(new { message = "Cannot reject this chapter because its title is still pending approval" });
+                }
+
                 using var transaction = await _context.Database.BeginTransactionAsync();
 
                 try
@@ -613,7 +765,7 @@ namespace FallenFaction.Server.Controllers
                         Name = pendingChapter.Name,
                         VolumeNumber = pendingChapter.VolumeNumber,
                         ChapterNumber = pendingChapter.ChapterNumber,
-                        TitleId = pendingChapter.TitleId,
+                        TitleId = pendingChapter.TitleId.Value,
                         TeamId = pendingChapter.TeamId,
                         CreatedDate = DateTime.UtcNow,
                         UpdatedByUserId = user.Id,
@@ -647,7 +799,7 @@ namespace FallenFaction.Server.Controllers
                     {
                         _context.TitleChangeLogs.Add(new TitleChangeLog
                         {
-                            TitleId = pendingChapter.TitleId,
+                            TitleId = pendingChapter.TitleId.Value,
                             UpdatedByUserId = pendingChapter.UpdatedByUserId,
                             ReviewedByUserId = user.Id,
                             CreatedAt = pendingChapter.CreatedDate,

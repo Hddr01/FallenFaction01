@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Collections.Generic;
 
@@ -30,6 +30,7 @@ namespace FallenFaction.Server.Data.Models
         public ICollection<Artist> Artists { get; set; } = new List<Artist>();
         public ICollection<Publisher> Publishers { get; set; } = new List<Publisher>();
         public ICollection<Team> Teams { get; set; } = new List<Team>();
+        public ICollection<PendingChapter> PendingChapters { get; set; } = new List<PendingChapter>();
 
         public string? CreatedByUserId { get; set; }
         public virtual AppUser? CreatedByUser { get; set; }
