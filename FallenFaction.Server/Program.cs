@@ -15,6 +15,16 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ── Sentry ────────────────────────────────────────────────────────────────────
+builder.WebHost.UseSentry(o =>
+{
+    o.Dsn = "https://3e16ba7f675f7e2275f6be74470da89d@o4511149751795712.ingest.de.sentry.io/4511149790789712";
+    o.TracesSampleRate = 1.0;
+    o.EnableLogs = true;
+    o.SendDefaultPii = true;
+    o.Debug = false;
+});
+
 #region Controllers
 builder.Services.AddControllers(options =>
 {
@@ -59,8 +69,8 @@ builder.Services.AddCors(options =>
                 "https://localhost:5173",
                 "http://localhost:49217",
                 "https://localhost:49217",
-                "https://fallenfaction.com",   // ← add this
-                "http://fallenfaction.com"     // ← and this
+                "https://fallenfaction.com",   
+                "http://fallenfaction.com"     
             )
             .AllowAnyHeader()
             .AllowAnyMethod()
@@ -217,6 +227,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHsts();
 app.UseRouting();
+app.UseSentryTracing();  // ← traces every request
 
 // CORS must be between UseRouting() and UseAuthentication() for endpoint routing
 if (app.Environment.IsDevelopment())

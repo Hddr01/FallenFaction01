@@ -4,6 +4,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
+import * as Sentry from '@sentry/vue'
 
 // ── Apply saved theme BEFORE mount to prevent a flash of wrong theme ─────────
 import { initTheme } from './composables/useTheme.js'
@@ -12,6 +13,27 @@ initTheme()
 // Create app instance
 const app = createApp(App)
 const pinia = createPinia()
+
+// ── Sentry ────────────────────────────────────────────────────────────────────
+Sentry.init({
+  app,
+  dsn: 'https://666a4b7f27399e2bfd01ab4a25fa4c8e@o4511149751795712.ingest.de.sentry.io/4511149827358800',
+  sendDefaultPii: true,
+  integrations: [
+    Sentry.browserTracingIntegration({ router }),
+    Sentry.replayIntegration(),
+  ],
+  tracesSampleRate: 1.0,
+  tracePropagationTargets: [
+    'localhost',
+    /^https:\/\/fallenfaction\.com\/api/,
+  ],
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1.0,
+  enableLogs: true,
+  // Only send events in production builds — no noise during local dev
+  enabled: import.meta.env.PROD,
+})
 
 // Use plugins
 app.use(pinia)
