@@ -1,4 +1,4 @@
-using FallenFaction.Server.Data;
+﻿using FallenFaction.Server.Data;
 using FallenFaction.Server.Data.Models;
 using FallenFaction.Server.DTOs.Comment;
 using Microsoft.EntityFrameworkCore;
@@ -24,66 +24,58 @@ public class CommentService : ICommentService
 
         bool commentsEnabled = await CheckCommentsEnabled(targetId, targetType);
 
-        IQueryable<Comment> query = _context.Comments.AsQueryable();
+        // ── FIX: Single SQL query computes all aggregates in the database.
+        // Old code ran a GroupBy query and THEN pulled all comment rows for
+        // client-side counting — loading potentially thousands of rows twice.
+        IQueryable<Comment> query = _context.Comments.AsNoTracking();
 
-        switch (targetType)
-        {
-            case 1: // Title
-                query = query.Where(c => c.TitleId == targetId && !c.IsDeleted);
-                break;
-            case 2: // Chapter
-                query = query.Where(c => c.ChapterId == targetId && !c.IsDeleted);
-                break;
-        }
+        query = targetType == 1
+            ? query.Where(c => c.TitleId == targetId && !c.IsDeleted)
+            : query.Where(c => c.ChapterId == targetId && !c.IsDeleted);
 
         var stats = await query
             .GroupBy(c => 1)
-            .Select(g => new
+            .Select(g => new CommentStatsDto
             {
                 TotalComments = g.Count(),
                 TopLevelComments = g.Count(c => c.ParentCommentId == null),
-                LastCommentDate = g.Max(c => (DateTime?)c.PostedDate)
+                Replies = g.Count(c => c.ParentCommentId != null),
+                LastCommentDate = g.Max(c => (DateTime?)c.PostedDate),
+                CommentsEnabled = commentsEnabled
             })
             .FirstOrDefaultAsync();
 
-        if (stats == null)
+        return stats ?? new CommentStatsDto
         {
-            return new CommentStatsDto
-            {
-                TotalComments = 0,
-                TopLevelComments = 0,
-                Replies = 0,
-                LastCommentDate = null,
-                CommentsEnabled = commentsEnabled
-            };
-        }
-
-        var comments = await query.ToListAsync();
-
-        return new CommentStatsDto
-        {
-            TotalComments = comments.Count,
-            TopLevelComments = comments.Count(c => c.ParentCommentId == null),
-            Replies = comments.Count(c => c.ParentCommentId != null),
-            LastCommentDate = comments.OrderByDescending(c => c.PostedDate).FirstOrDefault()?.PostedDate,
+            TotalComments = 0,
+            TopLevelComments = 0,
+            Replies = 0,
+            LastCommentDate = null,
             CommentsEnabled = commentsEnabled
         };
     }
 
     private async Task<bool> CheckCommentsEnabled(int targetId, int targetType)
     {
-        switch (targetType)
+        // ── FIX: Added explicit OrderBy(id) to silence the EF Core
+        // "FirstOrDefault without OrderBy" warning, and use a projection
+        // (Select) so only the single boolean column is fetched — not the
+        // whole entity row.
+        return targetType switch
         {
-            case 1:
-                var title = await _context.Titles.FirstOrDefaultAsync(t => t.Id == targetId);
-                return title?.AreCommentsEnabled ?? true;
-            case 2:
-                var chapter = await _context.Chapters
-                    .Include(c => c.Title)
-                    .FirstOrDefaultAsync(c => c.Id == targetId);
-                return chapter?.Title?.AreChapterCommentsEnabled ?? true;
-            default:
-                return false;
-        }
+            1 => await _context.Titles
+                    .Where(t => t.Id == targetId)
+                    .OrderBy(t => t.Id)
+                    .Select(t => t.AreCommentsEnabled)
+                    .FirstOrDefaultAsync(),
+
+            2 => await _context.Chapters
+                    .Where(c => c.Id == targetId)
+                    .OrderBy(c => c.Id)
+                    .Select(c => c.Title.AreChapterCommentsEnabled)
+                    .FirstOrDefaultAsync(),
+
+            _ => false
+        };
     }
 }

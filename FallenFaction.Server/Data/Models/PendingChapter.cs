@@ -22,6 +22,13 @@ namespace FallenFaction.Server.Data.Models
         /// </summary>
         public string Content { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Character count of the raw content. Stored on insert so the admin
+        /// list can show an approximate word count without loading Content.
+        /// Mirrors the same field on the published Chapter model.
+        /// </summary>
+        public int CharacterCount { get; set; } = 0;
+
         public DateTime CreatedDate { get; set; } = DateTime.Now;
 
         public int? TitleId { get; set; }

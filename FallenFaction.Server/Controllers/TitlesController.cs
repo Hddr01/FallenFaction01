@@ -204,7 +204,8 @@ namespace FallenFaction.Server.Controllers
                     UpdatedByUserId = user.Id,
                     CreatedAt = DateTime.UtcNow,
                     CreatedDate = DateTime.UtcNow,
-                    Content = request.Content
+                    Content = request.Content,
+                    CharacterCount = request.Content?.Length ?? 0   // ← ADD THIS LINE
                 };
 
                 _context.PendingChapters.Add(pendingChapter);
@@ -220,7 +221,7 @@ namespace FallenFaction.Server.Controllers
                     TitleName = title.OriginalTitle,
                     TeamName = team?.Name,
                     CreatedDate = pendingChapter.CreatedDate,
-                    WordCount = request.Content.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length
+                    WordCount = request.Content?.Length / 5 ?? 0
                 };
 
                 _logger.LogInformation("Chapter created by user {UserName} for title {TitleName}, team {TeamName}",
@@ -326,26 +327,27 @@ namespace FallenFaction.Server.Controllers
             try
             {
                 var pendingChapters = await _context.PendingChapters
-                    .Include(c => c.Title)
-                    .Include(c => c.PendingTitle)
-                    .Include(c => c.Team)
-                    .Include(c => c.UpdatedByUser)
+                    .AsNoTracking()
                     .OrderByDescending(c => c.CreatedDate)
                     .Select(c => new
                     {
-                        Id = c.Id,
-                        Name = c.Name,
-                        VolumeNumber = c.VolumeNumber,
-                        ChapterNumber = c.ChapterNumber,
-                        TitleName = c.Title != null ? c.Title.OriginalTitle : (c.PendingTitle != null ? c.PendingTitle.OriginalTitle : "Unknown"),
-                        TitleId = c.TitleId,
-                        PendingTitleId = c.PendingTitleId,
+                        c.Id,
+                        c.Name,
+                        c.VolumeNumber,
+                        c.ChapterNumber,
+                        TitleName = c.Title != null
+                            ? c.Title.OriginalTitle
+                            : (c.PendingTitle != null ? c.PendingTitle.OriginalTitle : "Unknown"),
+                        c.TitleId,
+                        c.PendingTitleId,
                         IsTitleApproved = c.TitleId.HasValue,
                         TeamName = c.Team.Name,
-                        CreatedDate = c.CreatedDate,
+                        c.CreatedDate,
                         UpdatedByUserName = c.UpdatedByUser.UserName,
-                        WordCount = c.Content != null ? c.Content.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length : 0,
-                        OriginalChapterId = c.OriginalChapterId
+                        // Approximate word count from pre-stored character count (no Content load).
+                        // CharacterCount / 5.5 ≈ average English words. 0 if content not yet set.
+                        WordCount = c.CharacterCount > 0 ? (int)(c.CharacterCount / 5.5) : 0,
+                        c.OriginalChapterId
                     })
                     .ToListAsync();
 
@@ -684,7 +686,7 @@ namespace FallenFaction.Server.Controllers
                                 Content = pendingChapter.Content
                             };
                             _context.Chapters.Add(chapter);
-                            
+
                             _context.TitleChangeLogs.Add(new TitleChangeLog
                             {
                                 TitleId = pendingChapter.TitleId.Value,
@@ -698,10 +700,10 @@ namespace FallenFaction.Server.Controllers
                                 AdminComment = "Mass-Approved by admin",
                                 Status = ChangeLogStatus.Approved,
                             });
-                            
+
                             await _trustService.RecordApprovalAsync(pendingChapter.UpdatedByUserId, TrustActionType.AddChapter);
                         }
-                        
+
                         _context.PendingChapters.Remove(pendingChapter);
                         approvedCount++;
                     }
@@ -910,22 +912,44 @@ namespace FallenFaction.Server.Controllers
         {
             try
             {
-                var title = await _context.Titles.FirstOrDefaultAsync(t => t.Id == titleId && t.IsAvailable);
-                if (title == null)
-                {
+                // Verify the title exists and is available in the same round-trip
+                var titleExists = await _context.Titles
+                    .AsNoTracking()
+                    .AnyAsync(t => t.Id == titleId && t.IsAvailable);
+
+                if (!titleExists)
                     return NotFound(new { message = "Title not found" });
-                }
 
-                var chapters = await _context.Chapters
-                    .Include(c => c.Team)
-                    .Include(c => c.Title)
-
+                // Project to DTO in SQL — Content is intentionally excluded from the
+                // chapter list. It is fetched only by GetChapterByRoute/GetChapterForReading.
+                var chapterDtos = await _context.Chapters
+                    .AsNoTracking()
                     .Where(c => c.TitleId == titleId)
                     .OrderByDescending(c => c.VolumeNumber)
                     .ThenByDescending(c => c.ChapterNumber)
+                    .Select(c => new ChapterDTO
+                    {
+                        Id = c.Id,
+                        Name = c.Name ?? string.Empty,
+                        VolumeNumber = c.VolumeNumber,
+                        ChapterNumber = c.ChapterNumber,
+                        TitleId = c.TitleId,
+                        TitleName = string.Empty, // not needed on the list
+                        TeamId = c.TeamId,
+                        Team = c.Team != null ? new NameIdDTO
+                        {
+                            Id = c.Team.Id,
+                            Name = c.Team.Name ?? string.Empty,
+                            AvatarImagePath = c.Team.AvatarImagePath,
+                            BackgroundImagePath = c.Team.BackgroundImagePath
+                        } : null,
+                        CreatedDate = c.CreatedDate,
+                        ReleaseDate = c.ReleaseDate,
+                        IsAILocked = c.IsAILocked,
+                        CharacterCount = c.CharacterCount,
+                        Content = string.Empty   // explicitly excluded from list
+                    })
                     .ToListAsync();
-
-                var chapterDtos = chapters.Select(ChapterMapper.ToDTO).ToList();
 
                 return Ok(chapterDtos);
             }
@@ -1421,66 +1445,64 @@ namespace FallenFaction.Server.Controllers
             {
                 _logger.LogInformation("Fetching popular titles");
 
-                // Take top 60 by popularity score, then re-sort by most recent chapter date
-                // so the carousel shows popular titles that have been actively updated.
-                // Fanfics (TitleCategory.Fanfic = 3) are excluded from the public carousel.
                 var popularPool = await _context.Titles
+                    .AsNoTracking()
                     .Where(t => t.IsAvailable && t.TitleCategory != TitleCategory.Fanfic)
-                    .Include(t => t.Chapters)
-                        .ThenInclude(c => c.Views)
-                    .Include(t => t.Ratings)
-                    .Include(t => t.Bookmarks)
                     .Select(t => new
                     {
-                        Title = t,
+                        t.Id,
+                        t.OriginalTitle,
+                        t.EnglishTitle,
+                        t.CoverImagePath,
+                        t.Type,
+                        t.TitleCategory,
+                        t.ReleaseDate,
                         ChapterCount = t.Chapters.Count(),
                         ViewCount = t.Chapters.SelectMany(c => c.Views).Count(),
-                        AverageRating = t.Ratings.Any() ? t.Ratings.Average(r => r.Value) : 0,
+                        AverageRating = t.Ratings.Any() ? t.Ratings.Average(r => r.Value) : 0.0,
                         BookmarkCount = t.Bookmarks.Count(),
-                        // Most recent upload time (any chapter)
                         LastChapterDate = t.Chapters.Any()
-                            ? t.Chapters.Max(c => c.ReleaseDate)
-                            : DateTime.MinValue,
-                        // Reading-order "latest" chapter — not by ReleaseDate (reposts of Ch.1 would steal the badge)
+                            ? (DateTime?)t.Chapters.Max(c => c.ReleaseDate)
+                            : null,
                         LatestChapterNumber = t.Chapters.Any()
                             ? (double)t.Chapters
                                 .OrderByDescending(c => c.VolumeNumber)
                                 .ThenByDescending(c => c.ChapterNumber)
-                                .First().ChapterNumber
-                            : 0,
-                        PopularityScore = (t.Chapters.Count() * 2) +
-                                          (t.Chapters.SelectMany(c => c.Views).Count() * 0.1) +
-                                          (t.Ratings.Any() ? t.Ratings.Average(r => r.Value) * 10 : 0) +
-                                          (t.Bookmarks.Count() * 5)
+                                .Select(c => c.ChapterNumber)
+                                .FirstOrDefault()
+                            : 0.0,
+                        PopularityScore =
+                            (t.Chapters.Count() * 2.0) +
+                            (t.Chapters.SelectMany(c => c.Views).Count() * 0.1) +
+                            (t.Ratings.Any() ? t.Ratings.Average(r => r.Value) * 10 : 0) +
+                            (t.Bookmarks.Count() * 5.0)
                     })
                     .OrderByDescending(x => x.PopularityScore)
                     .Take(60)
                     .ToListAsync();
 
-                // Re-sort the popular pool: most recently updated first
                 var result = popularPool
                     .OrderByDescending(x => x.LastChapterDate)
                     .Take(20)
                     .Select(item => new TitleListDto
                     {
-                        Id = item.Title.Id,
-                        OriginalTitle = item.Title.OriginalTitle ?? "Unknown Title",
-                        EnglishTitle = item.Title.EnglishTitle ?? item.Title.OriginalTitle ?? "Unknown Title",
-                        CoverImagePath = !string.IsNullOrEmpty(item.Title.CoverImagePath) ? item.Title.CoverImagePath : "/img/logo.png",
-                        Type = item.Title.Type,
-                        TitleCategory = item.Title.TitleCategory,
-                        LatestChapter = item.LatestChapterNumber > 0
-                            ? $"Ch. {(int)item.LatestChapterNumber}"
-                            : null,
+                        Id = item.Id,
+                        OriginalTitle = item.OriginalTitle ?? "Unknown Title",
+                        EnglishTitle = item.EnglishTitle ?? item.OriginalTitle ?? "Unknown Title",
+                        CoverImagePath = !string.IsNullOrEmpty(item.CoverImagePath) ? item.CoverImagePath : "/img/logo.png",
+                        Type = item.Type,
+                        TitleCategory = item.TitleCategory,
+                        LatestChapter = item.LatestChapterNumber > 0 ? $"Ch. {(int)item.LatestChapterNumber}" : null,
                         LatestChapterNumber = item.LatestChapterNumber,
-                        LastUpdated = item.LastChapterDate != DateTime.MinValue ? item.LastChapterDate : null,
+                        LastUpdated = item.LastChapterDate,
                         ChapterCount = item.ChapterCount,
                         AverageRating = item.AverageRating,
                         BookmarkCount = item.BookmarkCount,
-                        ReleaseDate = item.Title.ReleaseDate ?? "Unknown"
-                    }).ToList();
+                        ReleaseDate = item.ReleaseDate ?? "Unknown"
+                    })
+                    .ToList();
 
-                _logger.LogInformation($"Returning {result.Count} popular titles for carousel");
+                _logger.LogInformation("Returning {Count} popular titles", result.Count);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -1502,18 +1524,34 @@ namespace FallenFaction.Server.Controllers
                 _logger.LogInformation("Fetching recent updates");
 
                 var recentUpdates = await _context.Titles
+                    .AsNoTracking()
                     .Where(t => t.IsAvailable && t.Chapters.Any())
-                    .Include(t => t.Teams)
-                    .Include(t => t.Chapters)
-                        .ThenInclude(c => c.Team)
                     .Select(t => new
                     {
-                        Title = t,
-                        LastChapterDate = t.Chapters.OrderByDescending(c => c.ReleaseDate).First().ReleaseDate,
-                        LatestChapterNumber = t.Chapters.Max(c => c.ChapterNumber),
-                        LatestChapterName = t.Chapters.OrderByDescending(c => c.ReleaseDate).First().Name,
-                        LatestChapterTeam = t.Chapters.OrderByDescending(c => c.ReleaseDate).First().Team,
-                        LatestChapterVolume = t.Chapters.OrderByDescending(c => c.ReleaseDate).First().VolumeNumber
+                        t.Id,
+                        t.OriginalTitle,
+                        t.CoverImagePath,
+                        t.Description,
+                        LastChapterDate = t.Chapters
+                            .OrderByDescending(c => c.ReleaseDate)
+                            .Select(c => c.ReleaseDate)
+                            .FirstOrDefault(),
+                        LatestChapterNumber = t.Chapters
+                            .OrderByDescending(c => c.ReleaseDate)
+                            .Select(c => c.ChapterNumber)
+                            .FirstOrDefault(),
+                        LatestChapterName = t.Chapters
+                            .OrderByDescending(c => c.ReleaseDate)
+                            .Select(c => c.Name)
+                            .FirstOrDefault(),
+                        LatestChapterVolume = t.Chapters
+                            .OrderByDescending(c => c.ReleaseDate)
+                            .Select(c => c.VolumeNumber)
+                            .FirstOrDefault(),
+                        LatestChapterTeamName = t.Chapters
+                            .OrderByDescending(c => c.ReleaseDate)
+                            .Select(c => c.Team.Name)
+                            .FirstOrDefault()
                     })
                     .OrderByDescending(x => x.LastChapterDate)
                     .Take(10)
@@ -1521,21 +1559,20 @@ namespace FallenFaction.Server.Controllers
 
                 var result = recentUpdates.Select(item => new TitleUpdateDto
                 {
-                    Id = item.Title.Id,
-                    OriginalTitle = item.Title.OriginalTitle ?? "Unknown Title",
-                    CoverImagePath = !string.IsNullOrEmpty(item.Title.CoverImagePath) ? item.Title.CoverImagePath : "/img/logo.png",
-                    Description = !string.IsNullOrEmpty(item.Title.Description) && item.Title.Description.Length > 200
-                        ? item.Title.Description.Substring(0, 200) + "..."
-                        : item.Title.Description ?? "No description available",
-                    TeamName = item.LatestChapterTeam?.Name ??
-                              (item.Title.Teams.Any() ? item.Title.Teams.First().Name : "Unknown Team"),
+                    Id = item.Id,
+                    OriginalTitle = item.OriginalTitle ?? "Unknown Title",
+                    CoverImagePath = !string.IsNullOrEmpty(item.CoverImagePath) ? item.CoverImagePath : "/img/logo.png",
+                    Description = !string.IsNullOrEmpty(item.Description) && item.Description.Length > 200
+                                    ? item.Description.Substring(0, 200) + "..."
+                                    : item.Description ?? "No description available",
+                    TeamName = item.LatestChapterTeamName ?? "Unknown Team",
                     TimeAgo = GetTimeAgo(item.LastChapterDate),
                     LatestChapter = $"Vol.{item.LatestChapterVolume} Ch.{item.LatestChapterNumber}" +
-                                   (!string.IsNullOrEmpty(item.LatestChapterName) ? $": {item.LatestChapterName}" : ""),
+                                    (!string.IsNullOrEmpty(item.LatestChapterName) ? $": {item.LatestChapterName}" : ""),
                     LastUpdated = item.LastChapterDate
                 }).ToList();
 
-                _logger.LogInformation($"Returning {result.Count} recent updates");
+                _logger.LogInformation("Returning {Count} recent updates", result.Count);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -1672,6 +1709,8 @@ namespace FallenFaction.Server.Controllers
                     return BadRequest(new { message = "Invalid slug format — expected 'title-name-{id}'" });
 
                 var title = await _context.Titles
+                    .AsNoTracking()
+                    .AsSplitQuery()          // ← prevents cartesian explosion on multiple collections
                     .Where(t => t.IsAvailable && t.Id == titleId.Value)
                     .Include(t => t.Teams)
                     .Include(t => t.Authors)
@@ -2675,13 +2714,13 @@ namespace FallenFaction.Server.Controllers
                         c.VolumeNumber,
                         c.ChapterNumber,
                         c.TitleId,
-                        TeamId        = c.TeamId,
-                        TeamName      = c.Team?.Name,
+                        TeamId = c.TeamId,
+                        TeamName = c.Team?.Name,
                         c.CreatedDate,
                         c.LastUpdatedAt,
-                        CanEdit        = true,
+                        CanEdit = true,
                         HasPendingEdit = pendingId != 0,
-                        PendingEditId  = pendingId != 0 ? (int?)pendingId : null
+                        PendingEditId = pendingId != 0 ? (int?)pendingId : null
                     };
                 }).ToList();
 
@@ -2706,11 +2745,11 @@ namespace FallenFaction.Server.Controllers
 
                         return Ok(new
                         {
-                            TitleId       = titleId,
-                            TitleName     = title.OriginalTitle,
+                            TitleId = titleId,
+                            TitleName = title.OriginalTitle,
                             TitleCategory = (int)category,
-                            Chapters      = chapterList,
-                            UserTeams     = adminTeams
+                            Chapters = chapterList,
+                            UserTeams = adminTeams
                         });
                     }
                     else
@@ -2736,11 +2775,11 @@ namespace FallenFaction.Server.Controllers
 
                         return Ok(new
                         {
-                            TitleId       = titleId,
-                            TitleName     = title.OriginalTitle,
+                            TitleId = titleId,
+                            TitleName = title.OriginalTitle,
                             TitleCategory = (int)category,
-                            Chapters      = chapterList,
-                            UserTeams     = authorisedTeamsOnTitle
+                            Chapters = chapterList,
+                            UserTeams = authorisedTeamsOnTitle
                         });
                     }
                 }
@@ -2749,11 +2788,11 @@ namespace FallenFaction.Server.Controllers
                     // Original / Fanfic / AITranslation — no team dropdown needed
                     return Ok(new
                     {
-                        TitleId       = titleId,
-                        TitleName     = title.OriginalTitle,
+                        TitleId = titleId,
+                        TitleName = title.OriginalTitle,
                         TitleCategory = (int)category,
-                        Chapters      = chapterList,
-                        UserTeams     = Array.Empty<object>()
+                        Chapters = chapterList,
+                        UserTeams = Array.Empty<object>()
                     });
                 }
             }
@@ -2915,7 +2954,8 @@ namespace FallenFaction.Server.Controllers
                         Content = request.Content,
                         CreatedDate = DateTime.UtcNow,
                         UpdatedByUserId = user.Id,
-                        OriginalChapterId = chapterId
+                        OriginalChapterId = chapterId,
+                        CharacterCount = request.Content?.Length ?? 0
                     };
                     _context.PendingChapters.Add(pendingChapter);
 

@@ -489,42 +489,23 @@ namespace FallenFaction.Server.Services
             }
         }
 
-        // Replace the UpdateOnlineStatusAsync method in your AuthService.cs
         public async Task<bool> UpdateOnlineStatusAsync(string userId, bool isOnline)
         {
             try
             {
-                _logger.LogInformation("Updating online status for user {UserId} to {IsOnline}", userId, isOnline);
+                // Direct SQL UPDATE bypasses the ConcurrencyStamp check that
+                // UserManager.UpdateAsync() performs, eliminating the race condition
+                // when multiple browser tabs call this endpoint simultaneously.
+                var rows = await _context.Database.ExecuteSqlRawAsync(
+                    "UPDATE AspNetUsers SET IsOnline = {0}, LastActive = {1} WHERE Id = {2}",
+                    isOnline,
+                    DateTime.UtcNow,
+                    userId);
 
-                var user = await _userManager.FindByIdAsync(userId);
-                if (user == null)
-                {
-                    _logger.LogWarning("User {UserId} not found for online status update", userId);
-                    return false;
-                }
+                if (rows == 0)
+                    _logger.LogWarning("UpdateOnlineStatus: user {UserId} not found", userId);
 
-                // Log current state
-                _logger.LogDebug("Current state - User {UserId}: IsOnline={CurrentIsOnline}, LastActive={CurrentLastActive}",
-                    user.Id, user.IsOnline, user.LastActive);
-
-                // Update the user properties
-                user.IsOnline = isOnline;
-                user.LastActive = DateTime.UtcNow;
-
-                // Save changes
-                var result = await _userManager.UpdateAsync(user);
-
-                if (result.Succeeded)
-                {
-                    _logger.LogInformation("Successfully updated online status for user {UserId} to {IsOnline}", userId, isOnline);
-                    return true;
-                }
-                else
-                {
-                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                    _logger.LogWarning("Failed to update online status for user {UserId}: {Errors}", userId, errors);
-                    return false;
-                }
+                return rows > 0;
             }
             catch (Exception ex)
             {
@@ -533,36 +514,19 @@ namespace FallenFaction.Server.Services
             }
         }
 
-        // Also replace UpdateLastActiveAsync with a simpler version
         public async Task<bool> UpdateLastActiveAsync(string userId)
         {
             try
             {
-                _logger.LogDebug("Updating last active for user {UserId}", userId);
+                var rows = await _context.Database.ExecuteSqlRawAsync(
+                    "UPDATE AspNetUsers SET IsOnline = 1, LastActive = {0} WHERE Id = {1}",
+                    DateTime.UtcNow,
+                    userId);
 
-                var user = await _userManager.FindByIdAsync(userId);
-                if (user == null)
-                {
-                    _logger.LogWarning("User {UserId} not found for last active update", userId);
-                    return false;
-                }
+                if (rows == 0)
+                    _logger.LogWarning("UpdateLastActive: user {UserId} not found", userId);
 
-                user.LastActive = DateTime.UtcNow;
-                user.IsOnline = true;
-
-                var result = await _userManager.UpdateAsync(user);
-
-                if (result.Succeeded)
-                {
-                    _logger.LogDebug("Successfully updated last active for user {UserId}", userId);
-                    return true;
-                }
-                else
-                {
-                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                    _logger.LogWarning("Failed to update last active for user {UserId}: {Errors}", userId, errors);
-                    return false;
-                }
+                return rows > 0;
             }
             catch (Exception ex)
             {

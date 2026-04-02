@@ -2,27 +2,26 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="icon" href="/favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>Fallen Faction</title>
 
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/x-icon" href="/img/favicon.ico" />
     <link rel="icon" type="image/png" sizes="96x96" href="/img/favicon-96x96.png" />
     <link rel="icon" type="image/svg+xml" href="/img/favicon.svg" />
     <link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-title" content="FF" />
     <link rel="manifest" href="/site.webmanifest" />
 
-
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-9ZY1N66VMF"></script>
     <script>
+        /* eslint-disable */
         window.dataLayer = window.dataLayer || [];
-        function gtag() { dataLayer.push(arguments); }
+        function gtag() { window.dataLayer.push(arguments); }
         gtag('js', new Date());
-
         gtag('config', 'G-9ZY1N66VMF');
+        /* eslint-enable */
     </script>
     <style>
         body {
@@ -30,14 +29,13 @@
         }
     </style>
 </head>
-  <body>
+<body>
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
-    
     <script>
-      setTimeout(() => {
-        document.getElementById('app').classList.add('loaded');
-      }, 100);
+        setTimeout(() => {
+            document.getElementById('app').classList.add('loaded');
+        }, 100);
     </script>
-  </body>
+</body>
 </html>

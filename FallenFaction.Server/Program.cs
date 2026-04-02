@@ -5,10 +5,12 @@ using FallenFaction.Server.Mappings;
 using FallenFaction.Server.Services;
 using FallenFaction.Server.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.ActionConstraints;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -43,6 +45,15 @@ builder.Services.AddControllers(options =>
 
     options.JsonSerializerOptions.MaxDepth = 128;
 });
+#endregion
+
+#region DataProtection
+// Persist encryption keys to a Docker volume so they survive container restarts.
+// Without this, ASP.NET generates new keys on every restart, invalidating all
+// existing auth cookies / JWT validation material, and logs a noisy warning.
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo("/app/dataprotection-keys"))
+    .SetApplicationName("FallenFaction");
 #endregion
 
 #region Services
