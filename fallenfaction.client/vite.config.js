@@ -6,7 +6,8 @@ import path from 'path';
 import child_process from 'child_process';
 import { env } from 'process';
 import vueDevTools from 'vite-plugin-vue-devtools';
-import tailwindcss from '@tailwindcss/vite'; // Updated import
+import tailwindcss from '@tailwindcss/vite';
+import { sentryVitePlugin } from '@sentry/vite-plugin'; // ← NEW
 
 const baseFolder =
   env.APPDATA !== undefined && env.APPDATA !== ''
@@ -47,12 +48,43 @@ console.log(`Proxying API requests to: ${target}`);
 export default defineConfig({
   plugins: [
     plugin(),
-    tailwindcss(), // Keep this
+    tailwindcss(),
     vueDevTools({
       enabled: true,
       open: true,
-    })
+    }),
+    // ── Sentry source-map upload ──────────────────────────────────────────────
+    // Only active during `npm run build` (SENTRY_AUTH_TOKEN must be set in env).
+    // Uploads source maps so Sentry shows readable stack traces, and creates a
+    // release so "regressed in release X" features work.
+    sentryVitePlugin({
+      org: 'o4511149751795712',           // your Sentry org slug (numeric id also works)
+      project: 'javascript-vue',          // the Sentry project slug
+      // Auth token is read from SENTRY_AUTH_TOKEN env var automatically.
+      // Set it in your CI / Docker build args — never hard-code it here.
+      authToken: env.SENTRY_AUTH_TOKEN,
+      sourcemaps: {
+        // Vite puts the built assets here; adjust if you changed `build.outDir`
+        assets: './dist/**',
+        // Delete source maps from the final bundle after upload so they're
+        // not publicly accessible on your server.
+        filesToDeleteAfterUpload: './dist/**/*.map',
+      },
+      release: {
+        // Ties the upload to a specific release. Using the git SHA is the
+        // simplest approach; pass it as a build arg: --build-arg COMMIT_SHA=$(git rev-parse HEAD)
+        name: env.COMMIT_SHA ?? 'development',
+      },
+      // Don't fail the build if the upload fails (e.g. no auth token in dev)
+      errorHandler: (err) => {
+        console.warn('Sentry source map upload failed (non-fatal):', err.message);
+      },
+    }),
   ],
+  build: {
+    // Required for Sentry to generate source maps during `npm run build`
+    sourcemap: true,
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))

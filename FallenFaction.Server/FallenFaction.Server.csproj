@@ -39,7 +39,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Folder Include="Migrations\" />
 		<Folder Include="wwwroot\uploads\backgrounds\" />
 		<Folder Include="wwwroot\uploads\chapters\" />
 		<Folder Include="wwwroot\uploads\covers\" />

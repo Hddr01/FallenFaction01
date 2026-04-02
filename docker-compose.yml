@@ -31,6 +31,7 @@ services:
         TrustServerCertificate=True;
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:7217
+      HTTP_PORTS=
       JwtSettings__Secret: ${JWT_SECRET}
       JwtSettings__Issuer: "FallenFaction"
       JwtSettings__Audience: "FallenFactionUsers"
@@ -43,6 +44,7 @@ services:
       # Authentication__Facebook__AppSecret: ${FACEBOOK_APP_SECRET}
     volumes:
       - uploads_data:/app/wwwroot/uploads
+      dataprotection-keys:
     # No ports exposed publicly — nginx proxies to backend internally
 
   # ── Vue.js frontend (nginx) ──────────────────────────────────────────────────
