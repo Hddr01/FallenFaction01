@@ -1,11 +1,11 @@
-using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace FallenFaction.Server.Migrations
 {
     /// <inheritdoc />
-    public partial class AddCharacterCountToPendingChapter : Migration
+    public partial class AddLastUpdatesWithCount : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
