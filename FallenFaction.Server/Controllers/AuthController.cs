@@ -244,17 +244,11 @@ namespace FallenFaction.Server.Controllers
             }
         }
 
-        // FIXED: Support both PATCH and POST methods for online status updates
         [HttpPatch("online-status")]
-        [HttpPost("online-status")] // Add POST support for sendBeacon
+        [HttpPost("online-status")]
         [AllowAnonymous]
-        // FIXED: Body is no longer required. Mobile clients on flaky connections frequently drop the
-        // request body mid-send, causing Kestrel to throw BadHttpRequestException before the controller
-        // runs — making the null-body fallback unreachable. isOnline is now a query param (default: true).
-        // A body with { "isOnline": false } is still accepted for backward compat but is fully optional.
         public async Task<ActionResult> UpdateOnlineStatus(
-            [FromQuery] bool isOnline = true,
-            [FromBody] UpdateOnlineStatusRequest? request = null)
+            [FromQuery] bool isOnline = true)
         {
             try
             {
@@ -266,8 +260,7 @@ namespace FallenFaction.Server.Controllers
                     return Ok(new { success = false, message = "No user session found" });
                 }
 
-                // Resolve the actual status: body value takes priority, then query param (default true).
-                var statusIsOnline = request?.IsOnline ?? isOnline;
+                var statusIsOnline = isOnline;
 
                 _logger.LogDebug("Processing online status update for user {UserId}: {IsOnline}", userId, statusIsOnline);
 
@@ -385,8 +378,4 @@ namespace FallenFaction.Server.Controllers
         }
     }
 
-    public class UpdateOnlineStatusRequest
-    {
-        public bool IsOnline { get; set; } = false;
-    }
 }

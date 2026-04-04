@@ -168,34 +168,15 @@ const authApi = {
     }
   },
 
-  // IMPROVED: Update online status with better method handling
   async updateOnlineStatus(isOnline) {
     try {
-      // Try PATCH first (preferred method)
-      const response = await api.patch('/auth/online-status', { isOnline }, {
-        timeout: 5000, // 5 second timeout
-        validateStatus: function (status) {
-          // Accept 200-299 status codes as success
-          return status >= 200 && status < 300;
-        }
+      const response = await api.patch('/auth/online-status', null, {
+        params: { isOnline },
+        timeout: 5000,
+        validateStatus: (status) => status >= 200 && status < 300
       });
       return response.data;
     } catch (error) {
-      // If PATCH fails with 405 (Method Not Allowed), try POST
-      if (error.response?.status === 405) {
-        try {
-          console.log('PATCH not allowed, trying POST for online status update');
-          const response = await api.post('/auth/online-status', { isOnline }, {
-            timeout: 5000,
-            validateStatus: function (status) {
-              return status >= 200 && status < 300;
-            }
-          });
-          return response.data;
-        } catch (postError) {
-          console.warn('Both PATCH and POST failed for online status:', postError.message);
-        }
-      }
 
       console.warn('Failed to update online status:', error.message);
 

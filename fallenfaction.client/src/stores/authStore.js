@@ -429,35 +429,21 @@ export const useAuthStore = defineStore('auth', () => {
     };
     document.addEventListener('visibilitychange', visibilityChangeHandler.value);
 
-    // IMPROVED: Handle page unload with better error handling
     beforeUnloadHandler.value = () => {
-      if (user.value && !isLoggingOut.value && navigator.sendBeacon) {
+      if (user.value && !isLoggingOut.value) {
         try {
-          const data = JSON.stringify({ isOnline: false });
           const apiUrl = import.meta.env.VITE_API_BASE_URL;
-          const fullUrl = `${apiUrl}/Auth/online-status`;
+          const fullUrl = `${apiUrl}/auth/online-status?isOnline=false`;
 
-          // Use sendBeacon for reliable delivery during page unload
-          const success = navigator.sendBeacon(fullUrl, new Blob([data], {
-            type: 'application/json'
-          }));
+          // sendBeacon with no body — status carried entirely in the query string
+          const success = navigator.sendBeacon?.(fullUrl);
 
           if (!success) {
-            console.warn('SendBeacon failed, trying synchronous request');
-            // Fallback to synchronous request (last resort)
-            try {
-              fetch(fullUrl, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token.value}`
-                },
-                body: data,
-                keepalive: true
-              });
-            } catch (error) {
-              console.warn('Fallback request also failed:', error);
-            }
+            fetch(fullUrl, {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${token.value}` },
+              keepalive: true
+            }).catch(() => {});
           }
         } catch (error) {
           console.warn('Error in beforeUnload handler:', error);
