@@ -248,7 +248,13 @@ namespace FallenFaction.Server.Controllers
         [HttpPatch("online-status")]
         [HttpPost("online-status")] // Add POST support for sendBeacon
         [AllowAnonymous]
-        public async Task<ActionResult> UpdateOnlineStatus([FromBody] UpdateOnlineStatusRequest request)
+        // FIXED: Body is no longer required. Mobile clients on flaky connections frequently drop the
+        // request body mid-send, causing Kestrel to throw BadHttpRequestException before the controller
+        // runs — making the null-body fallback unreachable. isOnline is now a query param (default: true).
+        // A body with { "isOnline": false } is still accepted for backward compat but is fully optional.
+        public async Task<ActionResult> UpdateOnlineStatus(
+            [FromQuery] bool isOnline = true,
+            [FromBody] UpdateOnlineStatusRequest? request = null)
         {
             try
             {
@@ -260,17 +266,14 @@ namespace FallenFaction.Server.Controllers
                     return Ok(new { success = false, message = "No user session found" });
                 }
 
-                if (request == null)
-                {
-                    _logger.LogWarning("UpdateOnlineStatus: Null request body for user {UserId}, assuming offline", userId);
-                    request = new UpdateOnlineStatusRequest { IsOnline = false };
-                }
+                // Resolve the actual status: body value takes priority, then query param (default true).
+                var statusIsOnline = request?.IsOnline ?? isOnline;
 
-                _logger.LogDebug("Processing online status update for user {UserId}: {IsOnline}", userId, request.IsOnline);
+                _logger.LogDebug("Processing online status update for user {UserId}: {IsOnline}", userId, statusIsOnline);
 
                 try
                 {
-                    var result = await _authService.UpdateOnlineStatusAsync(userId, request.IsOnline);
+                    var result = await _authService.UpdateOnlineStatusAsync(userId, statusIsOnline);
                     if (!result)
                     {
                         _logger.LogWarning("Failed to update online status for user {UserId}", userId);

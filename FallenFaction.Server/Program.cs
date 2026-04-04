@@ -31,6 +31,10 @@ builder.WebHost.UseSentry(o =>
 builder.Services.AddControllers(options =>
 {
     options.SuppressAsyncSuffixInActionNames = false;
+    // Allow nullable [FromBody] parameters to receive an empty or absent body.
+    // Without this, Kestrel throws BadHttpRequestException("Unexpected end of request content")
+    // on mobile clients that send Content-Length but drop the connection before the body arrives.
+    options.AllowEmptyInputInBodyModelBinding = true;
 })
 .AddJsonOptions(options =>
 {
@@ -80,8 +84,8 @@ builder.Services.AddCors(options =>
                 "https://localhost:5173",
                 "http://localhost:49217",
                 "https://localhost:49217",
-                "https://fallenfaction.com",   
-                "http://fallenfaction.com"     
+                "https://fallenfaction.com",
+                "http://fallenfaction.com"
             )
             .AllowAnyHeader()
             .AllowAnyMethod()
