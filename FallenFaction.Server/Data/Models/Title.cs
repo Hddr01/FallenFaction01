@@ -6,11 +6,10 @@ namespace FallenFaction.Server.Data.Models
 {
     public enum MangaType
     {
-        Manga = 1,
-        Manhwa = 2,
-        Manhua = 3,
-        Comic = 4,
-        Webtoon = 5
+        Novel = 1,
+        LightNovel = 2,
+        WebNovel = 3,
+        ShortStory = 4
     }
 
     public enum TitleCategory

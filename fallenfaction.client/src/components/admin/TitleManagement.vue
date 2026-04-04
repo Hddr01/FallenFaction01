@@ -118,11 +118,10 @@
                     <label class="block text-sm font-medium text-[var(--color-text)] mb-1">Type:</label>
                     <select v-model="selectedTitle.type"
                             class="w-full px-3 py-2 border border-[var(--color-border)] rounded-md shadow-sm bg-[var(--color-background)] text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 hover:border-[var(--color-border-hover)] transition-colors duration-200">
-                      <option value="1">Manga</option>
-                      <option value="2">Manhwa</option>
-                      <option value="3">Manhua</option>
-                      <option value="4">Comic</option>
-                      <option value="5">Webtoon</option>
+                      <option value="1">Novel</option>
+                      <option value="2">Light Novel</option>
+                      <option value="3">Web Novel</option>
+                      <option value="4">Short Story</option>
                     </select>
                   </div>
 

@@ -124,11 +124,10 @@
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent class="select-dropdown-bg">
-                  <SelectItem :value="1">Manga</SelectItem>
-                  <SelectItem :value="2">Manhwa</SelectItem>
-                  <SelectItem :value="3">Manhua</SelectItem>
-                  <SelectItem :value="4">Comic</SelectItem>
-                  <SelectItem :value="5">Webtoon</SelectItem>
+                  <SelectItem :value="1">Novel</SelectItem>
+                  <SelectItem :value="2">Light Novel</SelectItem>
+                  <SelectItem :value="3">Web Novel</SelectItem>
+                  <SelectItem :value="4">Short Story</SelectItem>
                 </SelectContent>
               </Select>
             </div>
