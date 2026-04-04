@@ -2225,19 +2225,10 @@ namespace FallenFaction.Server.Controllers
                 if (pageSize < 1) pageSize = 24;
                 if (pageSize > 100) pageSize = 100;
 
-                // Start with base query - only available titles
-                // AsSplitQuery prevents the cartesian explosion (and the 1.18m db.connection span)
-                // when EF joins multiple collection navigations in a single SQL query.
+                // Base query for filtering, sorting, and counting — no Includes needed here
+                // because only title IDs are materialized from this query (.Select(t => t.Id)).
+                // Full navigation properties are loaded in the second targeted query below.
                 var query = _context.Titles
-                    .AsSplitQuery()
-                    .Include(t => t.Categories)
-                    .Include(t => t.Tags)
-                    .Include(t => t.Formats)
-                    .Include(t => t.Authors)
-                    .Include(t => t.Artists)
-                    .Include(t => t.Publishers)
-                    .Include(t => t.Teams)
-                    .Include(t => t.Chapters)
                     .Where(t => t.IsAvailable);
 
                 // Search filter
@@ -2371,9 +2362,13 @@ namespace FallenFaction.Server.Controllers
                     .Select(t => t.Id)
                     .ToListAsync();
 
-                // Get the full titles with navigation properties
+                // Load titles with lookup collections only.
+                // Chapters are NOT included here — loading full chapter content (which EF pulls via Include)
+                // for every chapter of every title on the page was the primary cause of the 30s timeout.
+                // Chapter stats are fetched as a separate lightweight batch query below.
                 var titles = await _context.Titles
                     .Where(t => titleIds.Contains(t.Id))
+                    .AsSplitQuery()
                     .Include(t => t.Categories)
                     .Include(t => t.Tags)
                     .Include(t => t.Formats)
@@ -2381,38 +2376,50 @@ namespace FallenFaction.Server.Controllers
                     .Include(t => t.Artists)
                     .Include(t => t.Publishers)
                     .Include(t => t.Teams)
-                    .Include(t => t.Chapters)
                     .ToListAsync();
 
-                // Calculate stats for each title (similar to your TitleDetailDto approach)
+                // Batch-fetch all stats for the page in 3 queries (eliminates N+1 — was up to 72 queries).
+
+                var ratingStatsByTitle = await _context.Ratings
+                    .Where(r => titleIds.Contains(r.TitleId))
+                    .GroupBy(r => r.TitleId)
+                    .Select(g => new { TitleId = g.Key, Average = g.Average(r => (double)r.Value), Count = g.Count() })
+                    .ToDictionaryAsync(x => x.TitleId);
+
+                var bookmarkCountByTitle = await _context.Bookmarks
+                    .Where(b => titleIds.Contains(b.TitleId))
+                    .GroupBy(b => b.TitleId)
+                    .Select(g => new { TitleId = g.Key, Count = g.Count() })
+                    .ToDictionaryAsync(x => x.TitleId, x => x.Count);
+
+                // Chapter count + latest chapter info — projected fields only, no Content column.
+                var chapterStatsByTitle = await _context.Chapters
+                    .Where(c => titleIds.Contains(c.TitleId))
+                    .GroupBy(c => c.TitleId)
+                    .Select(g => new {
+                        TitleId = g.Key,
+                        Count = g.Count(),
+                        LatestChapterNumber = (int?)g.Max(c => (int?)c.ChapterNumber),
+                        LatestReleaseDate = (DateTime?)g.Max(c => c.ReleaseDate)
+                    })
+                    .ToDictionaryAsync(x => x.TitleId);
+
+                // Aggregate view counts per title in one query via Chapter navigation.
+                // Avoids passing potentially thousands of chapter IDs as SQL parameters.
+                var viewCountByTitle = await _context.ChapterViews
+                    .Where(cv => titleIds.Contains(cv.Chapter.TitleId))
+                    .GroupBy(cv => cv.Chapter.TitleId)
+                    .Select(g => new { TitleId = g.Key, Count = g.Count() })
+                    .ToDictionaryAsync(x => x.TitleId, x => x.Count);
+
                 var items = new List<TitleCatalogDto>();
 
                 foreach (var title in titles)
                 {
-                    // Calculate rating stats
-                    var ratingStats = await _context.Ratings
-                        .Where(r => r.TitleId == title.Id)
-                        .GroupBy(r => r.TitleId)
-                        .Select(g => new { Average = g.Average(r => (double)r.Value), Count = g.Count() })
-                        .FirstOrDefaultAsync();
-
-                    // Calculate bookmark count
-                    var bookmarkCount = await _context.Bookmarks
-                        .Where(b => b.TitleId == title.Id)
-                        .CountAsync();
-
-                    // Calculate view count
-                    var viewCount = await _context.ChapterViews
-                        .Where(cv => _context.Chapters
-                            .Where(c => c.TitleId == title.Id)
-                            .Select(c => c.Id)
-                            .Contains(cv.ChapterId))
-                        .CountAsync();
-
-                    // Get latest chapter info
-                    var latestChapter = title.Chapters
-                        .OrderByDescending(c => c.ReleaseDate)
-                        .FirstOrDefault();
+                    var ratingStats   = ratingStatsByTitle.TryGetValue(title.Id, out var rs) ? rs : null;
+                    var bookmarkCount = bookmarkCountByTitle.TryGetValue(title.Id, out var bc) ? bc : 0;
+                    var viewCount     = viewCountByTitle.TryGetValue(title.Id, out var vc) ? vc : 0;
+                    var chapterStats  = chapterStatsByTitle.TryGetValue(title.Id, out var cs) ? cs : null;
 
                     var catalogDto = new TitleCatalogDto
                     {
@@ -2429,12 +2436,12 @@ namespace FallenFaction.Server.Controllers
                         Description = title.Description != null && title.Description.Length > 200
                             ? title.Description.Substring(0, 200) + "..."
                             : title.Description ?? "",
-                        LatestChapter = latestChapter != null
-                            ? $"Ch. {latestChapter.ChapterNumber}"
+                        LatestChapter = chapterStats?.LatestChapterNumber != null
+                            ? $"Ch. {chapterStats.LatestChapterNumber}"
                             : null,
-                        ChapterCount = title.Chapters.Count,
+                        ChapterCount = chapterStats?.Count ?? 0,
                         ReleaseDate = title.ReleaseDate ?? "Unknown",
-                        LastUpdated = latestChapter?.ReleaseDate,
+                        LastUpdated = chapterStats?.LatestReleaseDate,
                         AverageRating = ratingStats?.Average ?? 0.0,
                         RatingCount = ratingStats?.Count ?? 0,
                         BookmarkCount = bookmarkCount,

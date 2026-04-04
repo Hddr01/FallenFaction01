@@ -183,7 +183,8 @@ namespace FallenFaction.Server.Controllers
                     var searchTerm = search.ToLower();
                     query = query.Where(c =>
                         c.Content.ToLower().Contains(searchTerm) ||
-                        (c.User != null && c.User.UserName.ToLower().Contains(searchTerm)) ||
+                        (c.User != null && (c.User.UserName.ToLower().Contains(searchTerm) ||
+                            (c.User.ProfileName != null && c.User.ProfileName.ToLower().Contains(searchTerm)))) ||
                         (c.Title != null && c.Title.OriginalTitle.ToLower().Contains(searchTerm)) ||
                         (c.Chapter != null && c.Chapter.Title != null && c.Chapter.Title.OriginalTitle.ToLower().Contains(searchTerm))
                     );
