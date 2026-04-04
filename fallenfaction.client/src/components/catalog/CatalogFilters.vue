@@ -9,12 +9,10 @@
         </SelectTrigger>
         <SelectContent class="bg-background" style="background-color: hsl(20 14.3% 4.1%) !important;">
           <SelectItem :value="null">All Types</SelectItem>
-          <SelectItem value="1">Manga</SelectItem>
-          <SelectItem value="2">Manhwa</SelectItem>
-          <SelectItem value="3">Manhua</SelectItem>
-          <SelectItem value="4">Western Comic</SelectItem>
-          <SelectItem value="5">Russian Comic</SelectItem>
-          <SelectItem value="6">Indonesian Comic</SelectItem>
+          <SelectItem value="1">Novel</SelectItem>
+          <SelectItem value="2">Light Novel</SelectItem>
+          <SelectItem value="3">Web Novel</SelectItem>
+          <SelectItem value="4">Short Story</SelectItem>
         </SelectContent>
       </Select>
     </div>

@@ -1337,13 +1337,12 @@
 
   const getMangaType = (type) => {
     const types = {
-      0: 'Manga',
-      1: 'Manhwa',
-      2: 'Manhua',
-      3: 'Comic',
-      4: 'Novel'
+      1: 'Novel',
+      2: 'Light Novel',
+      3: 'Web Novel',
+      4: 'Short Story'
     }
-    return types[type] || 'Manga'
+    return types[type] || 'Novel'
   }
 
   const formatNumber = (num) => {

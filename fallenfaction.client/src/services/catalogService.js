@@ -42,14 +42,12 @@ api.interceptors.response.use(
   }
 );
 
-// MangaType enum (matches backend)
+// NovelType enum (matches backend)
 export const MangaType = {
-  Manga: 1,
-  Manhwa: 2,
-  Manhua: 3,
-  WesternComic: 4,
-  RussianComic: 5,
-  IndonesianComic: 6
+  Novel: 1,
+  LightNovel: 2,
+  WebNovel: 3,
+  ShortStory: 4
 };
 
 export const catalogService = {
@@ -265,12 +263,10 @@ export const catalogService = {
    */
   getTypeDisplayName(type) {
     const types = {
-      1: 'Manga',
-      2: 'Manhwa',
-      3: 'Manhua',
-      4: 'Western Comic',
-      5: 'Russian Comic',
-      6: 'Indonesian Comic'
+      1: 'Novel',
+      2: 'Light Novel',
+      3: 'Web Novel',
+      4: 'Short Story'
     };
     return types[type] || 'Unknown';
   },

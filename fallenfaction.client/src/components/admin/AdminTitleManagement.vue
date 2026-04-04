@@ -295,13 +295,12 @@
   const similarityCache = ref({})
 
   // ── Type helpers ──────────────────────────────────────────────────────────────
-  const TYPE_NAMES = { 1: 'Manga', 2: 'Manhwa', 3: 'Manhua', 4: 'Comic', 5: 'Webtoon' }
+  const TYPE_NAMES = { 1: 'Novel', 2: 'Light Novel', 3: 'Web Novel', 4: 'Short Story' }
   const TYPE_COLORS = {
     1: 'bg-red-900/40 text-red-300 border border-red-700/40',
     2: 'bg-blue-900/40 text-blue-300 border border-blue-700/40',
     3: 'bg-yellow-900/40 text-yellow-300 border border-yellow-700/40',
     4: 'bg-purple-900/40 text-purple-300 border border-purple-700/40',
-    5: 'bg-green-900/40 text-green-300 border border-green-700/40',
   }
   const getTypeName = (t) => TYPE_NAMES[t] || 'Unknown'
   const getTypeColor = (t) => TYPE_COLORS[t] || 'bg-gray-900/40 text-gray-300'
