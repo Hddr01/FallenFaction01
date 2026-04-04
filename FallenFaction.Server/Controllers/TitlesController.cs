@@ -635,90 +635,115 @@ namespace FallenFaction.Server.Controllers
                 }
 
                 int approvedCount = 0;
-                using var transaction = await _context.Database.BeginTransactionAsync();
 
-                try
+                // Pre-fetch all original chapters BEFORE opening the transaction.
+                // Previously, FirstOrDefaultAsync ran inside the transaction loop, holding
+                // write locks on Chapters/PendingChapters for 30+ seconds and starving
+                // Featured/Popular/RecentUpdates queries (causing timeouts & deadlocks).
+                var originalChapterIds = pendingChapters
+                    .Where(pc => pc.OriginalChapterId.HasValue)
+                    .Select(pc => pc.OriginalChapterId!.Value)
+                    .Distinct()
+                    .ToList();
+
+                var originalChaptersMap = originalChapterIds.Any()
+                    ? await _context.Chapters
+                        .Where(c => originalChapterIds.Contains(c.Id))
+                        .ToDictionaryAsync(c => c.Id)
+                    : new Dictionary<int, Chapter>();
+
+                // Process in chunks of 500. A single SaveChangesAsync for 4850 entities
+                // generates a ~100 KB SQL batch that blocks the entire DB for 30+ seconds.
+                // Each chunk commits independently so each transaction is short-lived.
+                const int chunkSize = 500;
+                var chunks = pendingChapters
+                    .Where(pc => pc.TitleId.HasValue)
+                    .Chunk(chunkSize);
+
+                foreach (var chunk in chunks)
                 {
-                    foreach (var pendingChapter in pendingChapters)
+                    using var transaction = await _context.Database.BeginTransactionAsync();
+                    try
                     {
-                        if (!pendingChapter.TitleId.HasValue) continue;
-
-                        if (pendingChapter.OriginalChapterId.HasValue)
+                        foreach (var pendingChapter in chunk)
                         {
-                            var original = await _context.Chapters.FirstOrDefaultAsync(c => c.Id == pendingChapter.OriginalChapterId.Value);
-                            if (original != null)
+                            if (pendingChapter.OriginalChapterId.HasValue)
                             {
-                                original.Name = pendingChapter.Name;
-                                original.VolumeNumber = pendingChapter.VolumeNumber;
-                                original.ChapterNumber = pendingChapter.ChapterNumber;
-                                original.TeamId = pendingChapter.TeamId;
-                                original.Content = pendingChapter.Content;
-                                original.LastUpdatedAt = DateTime.UtcNow;
-                                original.UpdatedByUserId = user.Id;
+                                originalChaptersMap.TryGetValue(pendingChapter.OriginalChapterId.Value, out var original);
+                                if (original != null)
+                                {
+                                    original.Name = pendingChapter.Name;
+                                    original.VolumeNumber = pendingChapter.VolumeNumber;
+                                    original.ChapterNumber = pendingChapter.ChapterNumber;
+                                    original.TeamId = pendingChapter.TeamId;
+                                    original.Content = pendingChapter.Content;
+                                    original.LastUpdatedAt = DateTime.UtcNow;
+                                    original.UpdatedByUserId = user.Id;
+
+                                    _context.TitleChangeLogs.Add(new TitleChangeLog
+                                    {
+                                        TitleId = pendingChapter.TitleId!.Value,
+                                        UpdatedByUserId = pendingChapter.UpdatedByUserId,
+                                        ReviewedByUserId = user.Id,
+                                        CreatedAt = pendingChapter.CreatedDate,
+                                        ReviewedAt = DateTime.UtcNow,
+                                        ChangeType = "Edit Chapter",
+                                        OldValue = $"Ch.{original.ChapterNumber}",
+                                        NewValue = $"Ch.{pendingChapter.ChapterNumber} - {pendingChapter.Name}",
+                                        AdminComment = "Mass-Approved by admin",
+                                        Status = ChangeLogStatus.Approved,
+                                    });
+                                }
+                            }
+                            else
+                            {
+                                var chapter = new Chapter
+                                {
+                                    Name = pendingChapter.Name,
+                                    VolumeNumber = pendingChapter.VolumeNumber,
+                                    ChapterNumber = pendingChapter.ChapterNumber,
+                                    TitleId = pendingChapter.TitleId!.Value,
+                                    TeamId = pendingChapter.TeamId,
+                                    CreatedDate = DateTime.UtcNow,
+                                    ReleaseDate = DateTime.UtcNow,
+                                    UpdatedByUserId = user.Id,
+                                    Content = pendingChapter.Content
+                                };
+                                _context.Chapters.Add(chapter);
 
                                 _context.TitleChangeLogs.Add(new TitleChangeLog
                                 {
-                                    TitleId = pendingChapter.TitleId.Value,
+                                    TitleId = pendingChapter.TitleId!.Value,
                                     UpdatedByUserId = pendingChapter.UpdatedByUserId,
                                     ReviewedByUserId = user.Id,
                                     CreatedAt = pendingChapter.CreatedDate,
                                     ReviewedAt = DateTime.UtcNow,
-                                    ChangeType = "Edit Chapter",
-                                    OldValue = $"Ch.{original.ChapterNumber}",
+                                    ChangeType = "Add Chapter",
+                                    OldValue = "",
                                     NewValue = $"Ch.{pendingChapter.ChapterNumber} - {pendingChapter.Name}",
                                     AdminComment = "Mass-Approved by admin",
                                     Status = ChangeLogStatus.Approved,
                                 });
+
+                                await _trustService.RecordApprovalAsync(pendingChapter.UpdatedByUserId, TrustActionType.AddChapter);
                             }
-                        }
-                        else
-                        {
-                            var chapter = new Chapter
-                            {
-                                Name = pendingChapter.Name,
-                                VolumeNumber = pendingChapter.VolumeNumber,
-                                ChapterNumber = pendingChapter.ChapterNumber,
-                                TitleId = pendingChapter.TitleId.Value,
-                                TeamId = pendingChapter.TeamId,
-                                CreatedDate = DateTime.UtcNow,
-                                ReleaseDate = DateTime.UtcNow,
-                                UpdatedByUserId = user.Id,
-                                Content = pendingChapter.Content
-                            };
-                            _context.Chapters.Add(chapter);
 
-                            _context.TitleChangeLogs.Add(new TitleChangeLog
-                            {
-                                TitleId = pendingChapter.TitleId.Value,
-                                UpdatedByUserId = pendingChapter.UpdatedByUserId,
-                                ReviewedByUserId = user.Id,
-                                CreatedAt = pendingChapter.CreatedDate,
-                                ReviewedAt = DateTime.UtcNow,
-                                ChangeType = "Add Chapter",
-                                OldValue = "",
-                                NewValue = $"Ch.{pendingChapter.ChapterNumber} - {pendingChapter.Name}",
-                                AdminComment = "Mass-Approved by admin",
-                                Status = ChangeLogStatus.Approved,
-                            });
-
-                            await _trustService.RecordApprovalAsync(pendingChapter.UpdatedByUserId, TrustActionType.AddChapter);
+                            _context.PendingChapters.Remove(pendingChapter);
+                            approvedCount++;
                         }
 
-                        _context.PendingChapters.Remove(pendingChapter);
-                        approvedCount++;
+                        await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
                     }
-
-                    await _context.SaveChangesAsync();
-                    await transaction.CommitAsync();
-
-                    _logger.LogInformation("Mass-approved {Count} chapters by {User}", approvedCount, user.UserName);
-                    return Ok(new { message = $"Successfully mass-approved {approvedCount} chapters." });
+                    catch
+                    {
+                        await transaction.RollbackAsync();
+                        throw;
+                    }
                 }
-                catch
-                {
-                    await transaction.RollbackAsync();
-                    throw;
-                }
+
+                _logger.LogInformation("Mass-approved {Count} chapters by {User}", approvedCount, user.UserName);
+                return Ok(new { message = $"Successfully mass-approved {approvedCount} chapters." });
             }
             catch (Exception ex)
             {
@@ -1393,11 +1418,12 @@ namespace FallenFaction.Server.Controllers
             {
                 _logger.LogInformation("Fetching featured titles");
 
+                // FIXED: Use pure projection (no Include) so EF translates everything to SQL
+                // instead of loading all Chapters+Views into memory (which caused timeouts
+                // when a long mass-approve transaction was holding locks on the Chapters table).
                 var featuredTitles = await _context.Titles
+                    .AsNoTracking()
                     .Where(t => t.IsAvailable)
-                    .Include(t => t.Chapters)
-                        .ThenInclude(c => c.Views)
-                    .Include(t => t.Ratings)
                     .Select(t => new TitleFeaturedDto
                     {
                         Id = t.Id,
@@ -1412,7 +1438,7 @@ namespace FallenFaction.Server.Controllers
                         ReleaseDate = t.ReleaseDate ?? "Unknown",
                         ChapterCount = t.Chapters.Count(),
                         LastUpdated = t.Chapters.Any() ?
-                            t.Chapters.OrderByDescending(c => c.ReleaseDate).First().ReleaseDate :
+                            t.Chapters.OrderByDescending(c => c.ReleaseDate).Select(c => c.ReleaseDate).FirstOrDefault() :
                             (DateTime?)null,
                         AverageRating = t.Ratings.Any() ? t.Ratings.Average(r => (double)r.Value) : 0.0,
                         ViewCount = t.Chapters.SelectMany(c => c.Views).Count(),
@@ -1420,7 +1446,7 @@ namespace FallenFaction.Server.Controllers
                         StatusTranslation = t.StatusTranslation ?? "",
                         AgeRestriction = t.AgeRestriction
                     })
-                    .OrderBy(x => Guid.NewGuid()) // Better randomization
+                    .OrderBy(x => Guid.NewGuid())
                     .Take(14)
                     .ToListAsync();
 
@@ -2200,7 +2226,10 @@ namespace FallenFaction.Server.Controllers
                 if (pageSize > 100) pageSize = 100;
 
                 // Start with base query - only available titles
+                // AsSplitQuery prevents the cartesian explosion (and the 1.18m db.connection span)
+                // when EF joins multiple collection navigations in a single SQL query.
                 var query = _context.Titles
+                    .AsSplitQuery()
                     .Include(t => t.Categories)
                     .Include(t => t.Tags)
                     .Include(t => t.Formats)
