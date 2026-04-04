@@ -371,7 +371,11 @@
       1: 'Novel',
       2: 'Light Novel',
       3: 'Web Novel',
-      4: 'Short Story'
+      4: 'Short Story',
+      5: 'Wuxia',
+      6: 'Xianxia',
+      7: 'Xuanhuan',
+      8: 'Classic Fiction'
     }
     return types[type] || 'Novel'
   }

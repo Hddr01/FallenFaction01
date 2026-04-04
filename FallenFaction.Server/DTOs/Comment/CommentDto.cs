@@ -6,7 +6,10 @@
         public string Content { get; set; } = string.Empty;
         public DateTime PostedDate { get; set; }
         public string UserId { get; set; } = string.Empty;
+        /// <summary>Display name for the commenter (ProfileName ?? UserName).</summary>
         public string UserName { get; set; } = string.Empty;
+        /// <summary>Unique @handle for the commenter.</summary>
+        public string UserHandle { get; set; } = string.Empty;
         public string? UserAvatarUrl { get; set; }
         public int LikesCount { get; set; }
         public int DislikesCount { get; set; }

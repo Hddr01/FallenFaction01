@@ -47,10 +47,11 @@ namespace FallenFaction.Server.Controllers
 
                 if (!string.IsNullOrEmpty(searchString))
                 {
-                    searchString = searchString.ToLower();
+                    var s = searchString.ToLower().TrimStart('@');
                     users = users.Where(u =>
-                        u.UserName.ToLower().Contains(searchString) ||
-                        u.Email.ToLower().Contains(searchString)).ToList();
+                        (u.UserName != null && u.UserName.ToLower().Contains(s)) ||
+                        (u.ProfileName != null && u.ProfileName.ToLower().Contains(s)) ||
+                        (u.Email != null && u.Email.ToLower().Contains(s))).ToList();
                 }
 
                 var result = new List<object>();
@@ -62,6 +63,8 @@ namespace FallenFaction.Server.Controllers
                     {
                         id = user.Id,
                         userName = user.UserName,
+                        profileName = user.ProfileName,
+                        displayName = user.ProfileName ?? user.UserName,
                         email = user.Email,
                         roles = roles,
                         isBanned = !user.IsActive, // Assuming IsActive is the site ban
@@ -115,6 +118,8 @@ namespace FallenFaction.Server.Controllers
                 {
                     id = user.Id,
                     userName = user.UserName,
+                    profileName = user.ProfileName,
+                    displayName = user.ProfileName ?? user.UserName,
                     email = user.Email,
                     roles = roles,
                     isBanned = !user.IsActive,

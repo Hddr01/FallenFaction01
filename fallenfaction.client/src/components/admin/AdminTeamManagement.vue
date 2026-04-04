@@ -246,7 +246,8 @@
                 <tbody class="bg-[var(--color-background-soft)] divide-y divide-[var(--color-border)]">
                   <tr v-for="member in membersTeam?.members || []" :key="member.userId">
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-[var(--color-text)]">
-                      {{ member.userName }}
+                      <div>{{ member.displayName || member.userName }}</div>
+                      <div class="text-xs opacity-50">@{{ member.userName }}</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-text)]">
                       {{ member.email }}

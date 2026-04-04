@@ -27,6 +27,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!token.value && !!user.value && !isLoggingOut.value);
   const userName = computed(() => user.value?.userName || '');
   const userFullName = computed(() => {
+    if (user.value?.profileName) return user.value.profileName;
     if (user.value?.firstName && user.value?.lastName) {
       return `${user.value.firstName} ${user.value.lastName}`;
     }

@@ -83,6 +83,7 @@ const mapCommentFromDto = (dto) => {
     content: dto.content || dto.Content,
     userId: dto.userId || dto.UserId,
     userName: dto.userName || dto.UserName,
+    userHandle: dto.userHandle || dto.UserHandle,
     userAvatarUrl: dto.userAvatarUrl || dto.UserAvatarUrl,
     postedDate: dto.postedDate || dto.PostedDate,
     likesCount: dto.likesCount || dto.LikesCount || 0,

@@ -46,7 +46,7 @@
             <Avatar class="size-20 sm:size-24 ring-4 ring-[var(--color-background)] shadow-2xl">
               <AvatarImage :src="profile.avatar" :alt="profile.name" />
               <AvatarFallback class="text-2xl sm:text-3xl font-bold bg-[var(--vt-c-indigo)] text-white">
-                {{ profile.name.slice(0, 2).toUpperCase() }}
+                {{ (profile.name || 'U').slice(0, 2).toUpperCase() }}
               </AvatarFallback>
             </Avatar>
             <!-- Online dot -->
@@ -57,12 +57,12 @@
 
           <!-- Name + badges -->
           <div class="pb-1 min-w-0">
-            <h1 class="text-xl sm:text-2xl font-bold text-[var(--color-heading)] leading-tight truncate">
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-tight truncate drop-shadow-md">
               {{ profile.name }}
             </h1>
             <div class="flex flex-wrap items-center gap-1.5 mt-1">
               <Badge variant="outline" class="text-xs">
-                @{{ profile.name }}
+                @{{ profile.userName || profile.name }}
               </Badge>
               <Badge v-if="profile.isVerified"
                      class="text-xs bg-blue-500/20 text-blue-400 border-blue-500/30">
@@ -118,7 +118,7 @@
                     <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
                       <div>
                         <dt class="text-xs font-medium text-[var(--color-text)] opacity-50 uppercase tracking-wider mb-1">Username</dt>
-                        <dd class="text-sm text-[var(--color-text)]">@{{ profile.name }}</dd>
+                        <dd class="text-sm text-[var(--color-text)]">@{{ profile.userName || profile.name }}</dd>
                       </div>
                       <div>
                         <dt class="text-xs font-medium text-[var(--color-text)] opacity-50 uppercase tracking-wider mb-1">Member Since</dt>

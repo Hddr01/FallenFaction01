@@ -56,7 +56,7 @@
 
         <!-- Name + badges -->
         <div class="pb-1 min-w-0">
-          <h1 class="text-xl sm:text-2xl font-bold text-[var(--color-heading)] leading-tight truncate">
+          <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-tight truncate drop-shadow-md">
             {{ authStore.userFullName }}
           </h1>
           <div class="flex flex-wrap items-center gap-1.5 mt-1">
@@ -711,6 +711,22 @@
           <DialogDescription>Update your personal information.</DialogDescription>
         </DialogHeader>
         <div class="space-y-4 py-2">
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-[var(--color-text)] opacity-70">Display Name</label>
+            <Input v-model="editForm.profileName" placeholder="Your display name (non-unique)" />
+            <p class="text-[10px] text-[var(--color-text)] opacity-40">Shown in comments, profiles and search. Can be anything.</p>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-[var(--color-text)] opacity-70">Username <span class="opacity-60">(@handle)</span></label>
+            <div class="flex items-center">
+              <span class="px-2.5 py-2 rounded-l-md border border-r-0 border-[var(--color-border)] bg-[var(--color-background-soft)] text-sm text-[var(--color-text)] opacity-50">@</span>
+              <Input v-model="editForm.userName"
+                     placeholder="unique_handle"
+                     class="rounded-l-none"
+                     maxlength="30" />
+            </div>
+            <p class="text-[10px] text-[var(--color-text)] opacity-40">3–30 chars, letters/numbers/underscore/hyphen. Must be unique.</p>
+          </div>
           <div class="grid grid-cols-2 gap-3">
             <div class="space-y-1.5">
               <label class="text-xs font-medium text-[var(--color-text)] opacity-70">First Name</label>
@@ -964,6 +980,8 @@
 
   // ─── edit profile form ────────────────────────────────────────
   const editForm = reactive({
+    profileName: '',
+    userName: '',
     firstName: '',
     lastName: '',
     bio: '',
@@ -977,6 +995,8 @@
   watch(editProfileOpen, (open) => {
     if (!open) return
     const u = authStore.user
+    editForm.profileName = u?.profileName ?? ''
+    editForm.userName = u?.userName ?? ''
     editForm.firstName = u?.firstName ?? ''
     editForm.lastName = u?.lastName ?? ''
     editForm.bio = u?.bio ?? ''
@@ -990,9 +1010,21 @@
   async function saveProfile() {
     editForm.error = ''
     editForm.success = ''
+    // Validate username is not empty
+    const trimmedHandle = (editForm.userName || '').trim()
+    if (!trimmedHandle) {
+      editForm.error = 'Username (@handle) cannot be empty.'
+      return
+    }
+    if (!/^[a-zA-Z0-9_\-]{3,30}$/.test(trimmedHandle)) {
+      editForm.error = 'Username must be 3–30 characters: letters, numbers, underscores or hyphens only.'
+      return
+    }
     editForm.saving = true
     try {
       const res = await apiClient.put('/UserProfile/UpdateProfile', {
+        profileName: editForm.profileName || null,
+        userName: trimmedHandle,
         firstName: editForm.firstName || null,
         lastName: editForm.lastName || null,
         bio: editForm.bio || null,

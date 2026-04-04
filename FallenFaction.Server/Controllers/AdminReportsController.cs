@@ -67,6 +67,7 @@ namespace FallenFaction.Server.Controllers
                     query = query.Where(r =>
                         (r.Description != null && r.Description.ToLower().Contains(search)) ||
                         (r.ReporterUser != null && r.ReporterUser.UserName != null && r.ReporterUser.UserName.ToLower().Contains(search)) ||
+                        (r.ReporterUser != null && r.ReporterUser.ProfileName != null && r.ReporterUser.ProfileName.ToLower().Contains(search)) ||
                         (r.AdminNote != null && r.AdminNote.ToLower().Contains(search)));
                 }
 
@@ -80,7 +81,7 @@ namespace FallenFaction.Server.Controllers
                     {
                         Id = r.Id,
                         ReporterUserId = r.ReporterUserId,
-                        ReporterUserName = r.ReporterUser != null ? r.ReporterUser.UserName : null,
+                        ReporterUserName = r.ReporterUser != null ? (r.ReporterUser.ProfileName ?? r.ReporterUser.UserName) : null,
                         ReporterAvatar = r.ReporterUser != null ? r.ReporterUser.ProfilePicturePath : null,
                         TargetType = r.TargetType,
                         TargetCommentId = r.TargetCommentId,
@@ -95,11 +96,11 @@ namespace FallenFaction.Server.Controllers
                                     ? r.TargetChapter.Name
                                     : null,
                         TargetUserName = r.TargetType == ReportTargetType.User && r.TargetUser != null
-                            ? r.TargetUser.UserName : null,
+                            ? (r.TargetUser.ProfileName ?? r.TargetUser.UserName) : null,
                         Reason = r.Reason,
                         Description = r.Description,
                         Status = r.Status,
-                        ReviewedByUserName = r.ReviewedByUser != null ? r.ReviewedByUser.UserName : null,
+                        ReviewedByUserName = r.ReviewedByUser != null ? (r.ReviewedByUser.ProfileName ?? r.ReviewedByUser.UserName) : null,
                         AdminNote = r.AdminNote,
                         CreatedAt = r.CreatedAt,
                         ReviewedAt = r.ReviewedAt
@@ -165,7 +166,7 @@ namespace FallenFaction.Server.Controllers
             {
                 Id = r.Id,
                 ReporterUserId = r.ReporterUserId,
-                ReporterUserName = r.ReporterUser?.UserName,
+                ReporterUserName = r.ReporterUser != null ? (r.ReporterUser.ProfileName ?? r.ReporterUser.UserName) : null,
                 ReporterAvatar = r.ReporterUser?.ProfilePicturePath,
                 TargetType = r.TargetType,
                 TargetCommentId = r.TargetCommentId,
@@ -179,11 +180,11 @@ namespace FallenFaction.Server.Controllers
                         : r.TargetType == ReportTargetType.Chapter && r.TargetChapter != null
                             ? r.TargetChapter.Name
                             : null,
-                TargetUserName = r.TargetUser?.UserName,
+                TargetUserName = r.TargetUser != null ? (r.TargetUser.ProfileName ?? r.TargetUser.UserName) : null,
                 Reason = r.Reason,
                 Description = r.Description,
                 Status = r.Status,
-                ReviewedByUserName = r.ReviewedByUser?.UserName,
+                ReviewedByUserName = r.ReviewedByUser != null ? (r.ReviewedByUser.ProfileName ?? r.ReviewedByUser.UserName) : null,
                 AdminNote = r.AdminNote,
                 CreatedAt = r.CreatedAt,
                 ReviewedAt = r.ReviewedAt

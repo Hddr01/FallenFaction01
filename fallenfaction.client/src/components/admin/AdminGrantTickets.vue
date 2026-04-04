@@ -27,18 +27,19 @@
                   @click="selectUser(u)"
                   class="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[var(--color-background)] transition text-left">
                   <div class="w-7 h-7 rounded-full bg-[var(--color-accent)]/20 flex items-center justify-center text-xs font-bold text-[var(--color-accent)] shrink-0">
-                    {{ u.userName?.charAt(0).toUpperCase() }}
+                    {{ (u.displayName || u.userName)?.charAt(0).toUpperCase() }}
                   </div>
                   <div>
-                    <div class="text-sm font-medium text-[var(--color-heading)]">{{ u.userName }}</div>
-                    <div class="text-xs text-[var(--color-text)] opacity-50">{{ u.email }}</div>
+                    <div class="text-sm font-medium text-[var(--color-heading)]">{{ u.displayName || u.userName }}</div>
+                    <div class="text-xs text-[var(--color-text)] opacity-50">@{{ u.userName }} · {{ u.email }}</div>
                   </div>
                 </button>
               </div>
             </div>
             <!-- Selected user chip -->
             <div v-if="selectedUser" class="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 text-sm">
-              <span class="font-medium text-[var(--color-accent)]">{{ selectedUser.userName }}</span>
+              <span class="font-medium text-[var(--color-accent)]">{{ selectedUser.displayName || selectedUser.userName }}</span>
+              <span class="text-xs text-[var(--color-text)] opacity-40">@{{ selectedUser.userName }}</span>
               <span class="text-[var(--color-text)] opacity-50">{{ selectedUser.email }}</span>
               <button @click="clearUser" class="ml-1 text-[var(--color-text)] opacity-40 hover:opacity-80">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

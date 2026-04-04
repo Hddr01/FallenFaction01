@@ -9,7 +9,11 @@ namespace FallenFaction.Server.Data.Models
         Novel = 1,
         LightNovel = 2,
         WebNovel = 3,
-        ShortStory = 4
+        ShortStory = 4,
+        Wuxia = 5,
+        Xianxia = 6,
+        Xuanhuan = 7,
+        ClassicFiction = 8
     }
 
     public enum TitleCategory

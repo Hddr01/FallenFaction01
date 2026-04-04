@@ -15,7 +15,7 @@
         <!-- Show collapsed indicator if collapsed -->
         <div v-if="isCollapsed" class="collapsed-indicator" @click="toggleCollapse">
           <span class="collapsed-info">
-            [+] {{ comment.userName }} ({{ getTotalRepliesCount() }} {{ getTotalRepliesCount() === 1 ? 'reply' : 'replies' }})
+            [+] {{ comment.userName || `@${comment.userHandle}` }} ({{ getTotalRepliesCount() }} {{ getTotalRepliesCount() === 1 ? 'reply' : 'replies' }})
           </span>
         </div>
 
@@ -26,11 +26,11 @@
             <div class="user-info">
               <a :href="`/user/${comment.userId}`" class="avatar-link" @click.prevent="$router.push(`/user/${comment.userId}`)">
                 <img :src="comment.userAvatarUrl || '/img/default-avatar.png'"
-                     :alt="comment.userName"
+                     :alt="`@${comment.userHandle}`"
                      class="avatar" />
               </a>
               <a :href="`/user/${comment.userId}`" class="username" @click.prevent="$router.push(`/user/${comment.userId}`)">
-                {{ comment.userName }}
+                {{ comment.userName || `@${comment.userHandle}` }}
               </a>
               <time class="timestamp" :datetime="comment.postedDate">
                 {{ formatTimeAgo(comment.postedDate) }}

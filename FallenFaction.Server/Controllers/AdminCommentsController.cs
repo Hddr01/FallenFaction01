@@ -211,7 +211,7 @@ namespace FallenFaction.Server.Controllers
                         Content = c.Content, // ✅ Show original content for admins
                         PostedDate = c.PostedDate,
                         UserId = c.UserId,
-                        UserName = c.User != null ? c.User.UserName : "Unknown User",
+                        UserName = c.User != null ? (c.User.ProfileName ?? c.User.UserName) : "Unknown User",
                         LikesCount = c.LikesCount,
                         DislikesCount = c.DislikesCount,
                         ParentCommentId = c.ParentCommentId,
@@ -226,7 +226,7 @@ namespace FallenFaction.Server.Controllers
                         IsDeleted = c.IsDeleted,
                         DeletedAt = c.DeletedAt,
                         DeletedByUserId = c.DeletedByUserId,
-                        DeletedByUserName = c.DeletedByUser != null ? c.DeletedByUser.UserName : null,
+                        DeletedByUserName = c.DeletedByUser != null ? (c.DeletedByUser.ProfileName ?? c.DeletedByUser.UserName) : null,
                         DeletionReason = c.DeletionReason
                     })
                     .ToListAsync();
@@ -283,7 +283,7 @@ namespace FallenFaction.Server.Controllers
                     Content = comment.Content,
                     PostedDate = comment.PostedDate,
                     UserId = comment.UserId,
-                    UserName = comment.User?.UserName ?? "Unknown User",
+                    UserName = comment.User != null ? (comment.User.ProfileName ?? comment.User.UserName) : "Unknown User",
                     LikesCount = comment.LikesCount,
                     DislikesCount = comment.DislikesCount,
                     ParentCommentId = comment.ParentCommentId,
@@ -300,7 +300,7 @@ namespace FallenFaction.Server.Controllers
                         Content = r.Content,
                         PostedDate = r.PostedDate,
                         UserId = r.UserId,
-                        UserName = r.User?.UserName ?? "Unknown User",
+                        UserName = r.User != null ? (r.User.ProfileName ?? r.User.UserName) : "Unknown User",
                         LikesCount = r.LikesCount,
                         DislikesCount = r.DislikesCount,
                         ParentCommentId = r.ParentCommentId

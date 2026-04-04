@@ -10,6 +10,7 @@ namespace FallenFaction.Server.DTOs.Chapter
         public int ChapterNumber { get; set; }
         public int TitleId { get; set; }
         public string TitleName { get; set; } = string.Empty;
+        public string TitleEnglishName { get; set; } = string.Empty;
         public int? TeamId { get; set; }
         public NameIdDTO? Team { get; set; }
         public DateTime CreatedDate { get; set; }
@@ -67,6 +68,7 @@ namespace FallenFaction.Server.DTOs.Chapter
                 ChapterNumber = chapter.ChapterNumber,
                 TitleId = chapter.TitleId,
                 TitleName = chapter.Title?.OriginalTitle ?? chapter.Title?.EnglishTitle ?? string.Empty,
+                TitleEnglishName = chapter.Title?.EnglishTitle ?? chapter.Title?.OriginalTitle ?? string.Empty,
                 TeamId = chapter.TeamId,
                 Team = chapter.Team != null ? new NameIdDTO
                 {

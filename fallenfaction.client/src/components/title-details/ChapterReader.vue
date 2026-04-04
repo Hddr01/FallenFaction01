@@ -11,7 +11,7 @@
             <span class="back-text">Back to Chapters</span>
           </button>
           <div class="chapter-info">
-            <h1 class="title-name" @click="goToTitleDetails">{{ chapterData?.titleName || 'Loading...' }}</h1>
+            <h1 class="title-name" @click="goToTitleDetails">{{ chapterData?.titleEnglishName || chapterData?.titleName || 'Loading...' }}</h1>
             <div class="chapter-nav">
               <button class="chapter-nav-btn" @click="gotoPrevChapter" :disabled="!chapterData?.previousChapterId">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6" /></svg>
@@ -298,8 +298,9 @@
 </template>
 
 <script setup>
-  import { ref, computed, onMounted, onUnmounted } from 'vue'
+  import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
+  import { useTheme } from '@/composables/useTheme'
   import { titleDetailsService } from '../../services/titleDetailsService'
   import { chapterService } from '../../services/chapterService'
   import { getWallet, getUnlockCost, unlockChapter } from '@/services/aiTranslationService'
@@ -346,6 +347,8 @@
   const showChapterList = ref(false)
   const currentHint = ref('')
   const tapZonesEnabled = ref(true)
+
+  const { isDark, toggleTheme } = useTheme()
 
   // Reading preferences
   const currentTheme = ref('dark')
@@ -617,7 +620,16 @@
     if (e.target === e.currentTarget) { showSettings.value = false; showChapterList.value = false }
   }
 
-  const setTheme = (t) => { currentTheme.value = t; savePref('theme', t) }
+  const setTheme = (t) => {
+    currentTheme.value = t
+    savePref('theme', t)
+    // Sync dark/light choice back to the app-wide theme toggle
+    if (t === 'dark' && !isDark.value) toggleTheme()
+    else if (t === 'light' && isDark.value) toggleTheme()
+    // sepia is reader-only — does not change the app theme
+  }
+
+  let unwatchAppTheme = null
   const setFont = (f) => { fontFamily.value = f; savePref('fontFamily', f) }
 
   const savePref = (key, value) => localStorage.setItem(`novelReader_${key}`, JSON.stringify(value))
@@ -629,9 +641,16 @@
   }
 
   const loadPreferences = () => {
-    const savedTheme = loadPref('theme', 'dark')
-    // migrate old 'sepia' value saved before the rename
-    currentTheme.value = savedTheme === 'sepia' ? 'theme-sepia' : savedTheme
+    const savedTheme = loadPref('theme', null)
+    if (savedTheme === 'sepia' || savedTheme === 'theme-sepia') {
+      // Sepia is reader-only — respect it regardless of app theme
+      currentTheme.value = 'theme-sepia'
+    } else {
+      // For dark/light always derive from the live app theme, not the stale
+      // saved value. This handles the case where the app theme changed while
+      // this component was unmounted (the watch can't catch that).
+      currentTheme.value = isDark.value ? 'dark' : 'light'
+    }
     fontSize.value = loadPref('fontSize', 18)
     lineHeight.value = loadPref('lineHeight', 1.8)
     contentWidth.value = loadPref('contentWidth', 75)
@@ -660,6 +679,15 @@
     disableZoom()
     checkAuthStatus()
     loadPreferences()
+    // Set up app-theme watcher AFTER loadPreferences so it can't overwrite sepia
+    // or the freshly derived dark/light value during initialization.
+    // When the app theme changes externally, follow it unless the reader is in sepia.
+    unwatchAppTheme = watch(isDark, (newVal) => {
+      if (currentTheme.value !== 'theme-sepia') {
+        currentTheme.value = newVal ? 'dark' : 'light'
+        savePref('theme', currentTheme.value)
+      }
+    })
     await loadChapter()
     document.addEventListener('keydown', handleKeydown)
   })
@@ -668,6 +696,7 @@
     restoreZoom()
     document.removeEventListener('keydown', handleKeydown)
     clearTimeout(hintTimer)
+    unwatchAppTheme?.()
   })
 </script>
 

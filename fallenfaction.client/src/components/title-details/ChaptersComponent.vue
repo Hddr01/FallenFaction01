@@ -50,10 +50,8 @@
                        :key="chapter.id"
                        :href="chapter.isAILocked ? undefined : getChapterUrl(chapter)"
                        :class="['chapter-row', chapter.isAILocked ? 'opacity-60 cursor-default' : '']">
-              <div class="chapter-col-number ">
-                <Badge variant="secondary" class="text-[var(--color-text)]">
-                  Vol. {{ chapter.volumeNumber }}
-                </Badge>
+              <div class="chapter-col-number text-[var(--color-text)]">
+                Ch.{{ chapter.chapterNumber }}
               </div>
               <div class="chapter-col-name font-medium text-[var(--color-text)] flex items-center gap-2">
                 <!-- Lock icon for AI-locked chapters -->
@@ -154,7 +152,6 @@
   import { Button } from '@/components/ui/button'
   import { Input } from '@/components/ui/input'
   import { Card, CardContent } from '@/components/ui/card'
-  import { Badge } from '@/components/ui/badge'
   import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
   import {
     Select,
