@@ -124,10 +124,14 @@
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent class="select-dropdown-bg">
-                  <SelectItem :value="1">Novel</SelectItem>
-                  <SelectItem :value="2">Light Novel</SelectItem>
-                  <SelectItem :value="3">Web Novel</SelectItem>
-                  <SelectItem :value="4">Short Story</SelectItem>
+                  <SelectItem value="1">Novel</SelectItem>
+                  <SelectItem value="2">Light Novel</SelectItem>
+                  <SelectItem value="3">Web Novel</SelectItem>
+                  <SelectItem value="4">Short Story</SelectItem>
+                  <SelectItem value="5">Wuxia</SelectItem>
+                  <SelectItem value="6">Xianxia</SelectItem>
+                  <SelectItem value="7">Xuanhuan</SelectItem>
+                  <SelectItem value="8">Classic Fiction</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -44,12 +44,25 @@ namespace FallenFaction.Server.Controllers
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return Unauthorized();
 
+            user.ProfileName = req.ProfileName?.Trim();
             user.FirstName = req.FirstName?.Trim();
             user.LastName = req.LastName?.Trim();
             user.Bio = req.Bio?.Trim();
 
             if (req.DateOfBirth.HasValue)
                 user.DateOfBirth = req.DateOfBirth;
+
+            // Handle UserName change separately via Identity's SetUserNameAsync
+            if (!string.IsNullOrWhiteSpace(req.UserName))
+            {
+                var newHandle = req.UserName.Trim();
+                if (!string.Equals(user.UserName, newHandle, StringComparison.OrdinalIgnoreCase))
+                {
+                    var setResult = await _userManager.SetUserNameAsync(user, newHandle);
+                    if (!setResult.Succeeded)
+                        return BadRequest(new { message = string.Join(", ", setResult.Errors.Select(e => e.Description)) });
+                }
+            }
 
             var result = await _userManager.UpdateAsync(user);
             if (!result.Succeeded)
@@ -156,6 +169,7 @@ namespace FallenFaction.Server.Controllers
         {
             Id = u.Id,
             UserName = u.UserName ?? "",
+            ProfileName = u.ProfileName,
             Email = u.Email ?? "",
             FirstName = u.FirstName,
             LastName = u.LastName,
@@ -175,6 +189,10 @@ namespace FallenFaction.Server.Controllers
 
     public class UpdateProfileRequest
     {
+        [StringLength(50)] public string? ProfileName { get; set; }
+        [StringLength(30, MinimumLength = 3), RegularExpression(@"^[a-zA-Z0-9_\-]+$",
+            ErrorMessage = "Username may only contain letters, numbers, underscores and hyphens.")]
+        public string? UserName { get; set; }
         [StringLength(50)] public string? FirstName { get; set; }
         [StringLength(50)] public string? LastName { get; set; }
         [StringLength(500)] public string? Bio { get; set; }
@@ -192,6 +210,7 @@ namespace FallenFaction.Server.Controllers
     {
         public string Id { get; set; } = "";
         public string UserName { get; set; } = "";
+        public string? ProfileName { get; set; }
         public string Email { get; set; } = "";
         public string? FirstName { get; set; }
         public string? LastName { get; set; }

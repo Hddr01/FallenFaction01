@@ -45,9 +45,13 @@
                     <span class="text-[var(--color-text)] opacity-75">ID:</span>
                     <span class="text-[var(--color-text)]">{{ selectedUser.id }}</span>
                   </div>
+                  <div class="flex justify-between" v-if="selectedUser.displayName && selectedUser.displayName !== selectedUser.userName">
+                    <span class="text-[var(--color-text)] opacity-75">Display Name:</span>
+                    <span class="text-[var(--color-text)]">{{ selectedUser.displayName }}</span>
+                  </div>
                   <div class="flex justify-between">
                     <span class="text-[var(--color-text)] opacity-75">Username:</span>
-                    <span class="text-[var(--color-text)]">{{ selectedUser.userName }}</span>
+                    <span class="text-[var(--color-text)]">@{{ selectedUser.userName }}</span>
                   </div>
                   <div class="flex justify-between">
                     <span class="text-[var(--color-text)] opacity-75">Email:</span>
@@ -193,7 +197,8 @@
                       {{ user.id.substring(0, 8) }}...
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-text)] max-w-xs truncate">
-                      {{ user.userName }}
+                      <div>{{ user.displayName || user.userName }}</div>
+                      <div class="text-xs opacity-50">@{{ user.userName }}</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-text)] max-w-xs truncate">
                       {{ user.email }}

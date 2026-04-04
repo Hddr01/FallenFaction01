@@ -496,7 +496,7 @@
                   <div class="grid grid-cols-7 gap-6 w-full">
                     <!-- Left side: Titles (3 columns) -->
                     <div class="col-span-3">
-                      <h1 class="text-4xl font-bold text-[var(--color-text)] mb-2 text-gray-300">
+                      <h1 class="text-4xl font-bold text-[var(--color-text)] mb-2 text-gray-800 dark:text-gray-300">
                         {{ titleData.englishTitle }}
                       </h1>
                       <h2 v-if="titleData.originalTitle !== titleData.englishTitle"
@@ -1340,7 +1340,11 @@
       1: 'Novel',
       2: 'Light Novel',
       3: 'Web Novel',
-      4: 'Short Story'
+      4: 'Short Story',
+      5: 'Wuxia',
+      6: 'Xianxia',
+      7: 'Xuanhuan',
+      8: 'Classic Fiction'
     }
     return types[type] || 'Novel'
   }

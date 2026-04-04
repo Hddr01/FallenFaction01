@@ -122,6 +122,10 @@
                       <option value="2">Light Novel</option>
                       <option value="3">Web Novel</option>
                       <option value="4">Short Story</option>
+                      <option value="5">Wuxia</option>
+                      <option value="6">Xianxia</option>
+                      <option value="7">Xuanhuan</option>
+                      <option value="8">Classic Fiction</option>
                     </select>
                   </div>
 

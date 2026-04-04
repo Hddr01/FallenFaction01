@@ -349,6 +349,7 @@ namespace FallenFaction.Server.Controllers
                 }
 
                 var existingTitle = await _context.Titles
+                    .AsSplitQuery()
                     .Include(t => t.Categories)
                     .Include(t => t.Tags)
                     .Include(t => t.Formats)
@@ -732,6 +733,7 @@ namespace FallenFaction.Server.Controllers
                 {
                     // Apply all changes directly — mirror what ApproveAllChanges does
                     var editTitle = await _context.Titles
+                        .AsSplitQuery()
                         .Include(t => t.Authors).Include(t => t.Artists)
                         .Include(t => t.Publishers).Include(t => t.Teams)
                         .Include(t => t.Categories).Include(t => t.Tags).Include(t => t.Formats)
@@ -739,38 +741,124 @@ namespace FallenFaction.Server.Controllers
 
                     if (editTitle != null)
                     {
-                        foreach (var cl in changeLogs)
+                        using var transaction = await _context.Database.BeginTransactionAsync();
+                        try
                         {
-                            cl.Status = ChangeLogStatus.AutoApproved;
-                            cl.ReviewedByUserId = null;
-                            cl.ReviewedAt = DateTime.UtcNow;
-                            cl.AdminComment = "Auto-approved by system (trusted user)";
-                        }
-                        // The AdminTitleController ApproveAllChanges pattern applies field changes:
-                        // we replicate the same switch for simple scalar fields here
-                        foreach (var cl in changeLogs)
-                        {
-                            switch (cl.ChangeType)
+                            foreach (var cl in changeLogs)
                             {
-                                case "Original Title": editTitle.OriginalTitle = cl.NewValue; break;
-                                case "English Title": editTitle.EnglishTitle = cl.NewValue; break;
-                                case "Description": editTitle.Description = cl.NewValue; break;
-                                case "Alternative Names": editTitle.AlternativeNames = cl.NewValue; break;
-                                case "Release Date": editTitle.ReleaseDate = cl.NewValue; break;
-                                case "Status": editTitle.StatusTitle = cl.NewValue; break;
-                                case "Translation Status": editTitle.StatusTranslation = cl.NewValue; break;
-                                case "Age Restriction":
-                                    if (int.TryParse(cl.NewValue, out var ar)) editTitle.AgeRestriction = ar; break;
-                                case "Cover Image": editTitle.CoverImagePath = cl.NewValue; break;
-                                case "Background Image": editTitle.BackgroundImagePath = cl.NewValue; break;
-                            }
-                        }
-                        _context.Titles.Update(editTitle);
-                        _context.TitleChangeLogs.AddRange(changeLogs);
-                        await _context.SaveChangesAsync();
+                                cl.Status = ChangeLogStatus.AutoApproved;
+                                cl.ReviewedByUserId = null;
+                                cl.ReviewedAt = DateTime.UtcNow;
+                                cl.AdminComment = "Auto-approved by system (trusted user)";
 
-                        _logger.LogInformation("Title edit auto-approved for trusted user {User}: {TitleId}", user.Id, id);
-                        return Ok(new { message = "Changes auto-approved by system (trusted user)!", changeCount = changeLogs.Count, autoApproved = true, titleId = id });
+                                switch (cl.ChangeType)
+                                {
+                                    case "Original Title": { editTitle.OriginalTitle = cl.NewValue; break; }
+                                    case "English Title": { editTitle.EnglishTitle = cl.NewValue; break; }
+                                    case "Description": { editTitle.Description = cl.NewValue; break; }
+                                    case "Alternative Names": { editTitle.AlternativeNames = cl.NewValue; break; }
+                                    case "Release Date": { editTitle.ReleaseDate = cl.NewValue; break; }
+                                    case "Status": { editTitle.StatusTitle = cl.NewValue; break; }
+                                    case "Translation Status": { editTitle.StatusTranslation = cl.NewValue; break; }
+                                    case "Type":
+                                    {
+                                        if (Enum.TryParse<MangaType>(cl.NewValue, out var newType)) editTitle.Type = newType;
+                                        break;
+                                    }
+                                    case "Age Restriction":
+                                    {
+                                        if (int.TryParse(cl.NewValue, out var ar)) editTitle.AgeRestriction = ar;
+                                        break;
+                                    }
+                                    case "Cover Image": { editTitle.CoverImagePath = cl.NewValue; break; }
+                                    case "Background Image": { editTitle.BackgroundImagePath = cl.NewValue; break; }
+                                    case "External Links": { editTitle.ExternalLinksSerialized = cl.NewValue; break; }
+                                    case "Authors":
+                                    {
+                                        var ids = cl.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToList();
+                                        var entities = await _context.Set<Author>().Where(a => ids.Contains(a.Id)).ToListAsync();
+                                        editTitle.Authors.Clear();
+                                        foreach (var e in entities) editTitle.Authors.Add(e);
+                                        break;
+                                    }
+                                    case "Artists":
+                                    {
+                                        var ids = cl.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToList();
+                                        var entities = await _context.Set<Artist>().Where(a => ids.Contains(a.Id)).ToListAsync();
+                                        editTitle.Artists.Clear();
+                                        foreach (var e in entities) editTitle.Artists.Add(e);
+                                        break;
+                                    }
+                                    case "Publishers":
+                                    {
+                                        var ids = cl.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToList();
+                                        var entities = await _context.Set<Publisher>().Where(p => ids.Contains(p.Id)).ToListAsync();
+                                        editTitle.Publishers.Clear();
+                                        foreach (var e in entities) editTitle.Publishers.Add(e);
+                                        break;
+                                    }
+                                    case "Teams":
+                                    {
+                                        var ids = cl.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToList();
+                                        var entities = await _context.Set<Team>().Where(t => ids.Contains(t.Id)).ToListAsync();
+                                        editTitle.Teams.Clear();
+                                        foreach (var e in entities) editTitle.Teams.Add(e);
+                                        break;
+                                    }
+                                    case "Categories":
+                                    {
+                                        var ids = cl.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToList();
+                                        var entities = await _context.Set<Category>().Where(c => ids.Contains(c.Id)).ToListAsync();
+                                        editTitle.Categories.Clear();
+                                        foreach (var e in entities) editTitle.Categories.Add(e);
+                                        break;
+                                    }
+                                    case "Tags":
+                                    {
+                                        var ids = cl.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToList();
+                                        var entities = await _context.Set<Tag>().Where(t => ids.Contains(t.Id)).ToListAsync();
+                                        editTitle.Tags.Clear();
+                                        foreach (var e in entities) editTitle.Tags.Add(e);
+                                        break;
+                                    }
+                                    case "Formats":
+                                    {
+                                        var ids = cl.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToList();
+                                        var entities = await _context.Set<Format>().Where(f => ids.Contains(f.Id)).ToListAsync();
+                                        editTitle.Formats.Clear();
+                                        foreach (var e in entities) editTitle.Formats.Add(e);
+                                        break;
+                                    }
+                                }
+
+                                _context.ApprovedTitleChanges.Add(new ApprovedTitleChange
+                                {
+                                    TitleId = id,
+                                    UpdatedByUserId = cl.UpdatedByUserId,
+                                    ReviewedByUserId = user.Id,
+                                    CreatedAt = cl.CreatedAt,
+                                    ApprovedAt = DateTime.UtcNow,
+                                    ChangeType = cl.ChangeType,
+                                    OldValue = cl.OldValue,
+                                    NewValue = cl.NewValue,
+                                    AdminComment = "Auto-approved by system (trusted user)",
+                                    IsAutoApproved = true
+                                });
+                            }
+
+                            _context.Titles.Update(editTitle);
+                            _context.TitleChangeLogs.AddRange(changeLogs);
+                            await _context.SaveChangesAsync();
+                            await transaction.CommitAsync();
+
+                            _logger.LogInformation("Title edit auto-approved for trusted user {User}: {TitleId}", user.Id, id);
+                            return Ok(new { message = "Changes auto-approved by system (trusted user)!", changeCount = changeLogs.Count, autoApproved = true, titleId = id });
+                        }
+                        catch
+                        {
+                            await transaction.RollbackAsync();
+                            throw;
+                        }
                     }
                 }
 
@@ -903,6 +991,7 @@ namespace FallenFaction.Server.Controllers
 
                 var pendingTitles = await _context.Set<PendingTitle>()
                     .Where(t => t.CreatedByUserId == user.Id)
+                    .AsSplitQuery()
                     .Include(t => t.Authors)
                     .Include(t => t.Artists)
                     .Include(t => t.Categories)
@@ -946,6 +1035,7 @@ namespace FallenFaction.Server.Controllers
 
                 var rejectedTitles = await _context.Set<RejectedTitle>()
                     .Where(t => t.CreatedByUserId == user.Id)
+                    .AsSplitQuery()
                     .Include(t => t.Authors)
                     .Include(t => t.Artists)
                     .Include(t => t.Categories)

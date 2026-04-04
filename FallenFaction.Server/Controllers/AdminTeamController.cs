@@ -62,7 +62,7 @@ namespace FallenFaction.Server.Controllers
                         name = t.Name,
                         description = t.Description,
                         creatorId = t.CreatorId,
-                        creatorName = _context.Users.Where(u => u.Id == t.CreatorId).Select(u => u.UserName).FirstOrDefault(),
+                        creatorName = _context.Users.Where(u => u.Id == t.CreatorId).Select(u => u.ProfileName ?? u.UserName).FirstOrDefault(),
                         memberCount = t.Members.Count,
                         titleCount = t.Titles.Count,
                         createdDate = DateTime.UtcNow, // Add CreatedDate to Team model if needed
@@ -70,6 +70,7 @@ namespace FallenFaction.Server.Controllers
                         {
                             userId = utr.AppUserId,
                             userName = utr.AppUser.UserName,
+                            displayName = utr.AppUser.ProfileName ?? utr.AppUser.UserName,
                             email = utr.AppUser.Email,
                             role = utr.Role,
                             isOnline = utr.AppUser.IsOnline
@@ -125,13 +126,14 @@ namespace FallenFaction.Server.Controllers
                     name = team.Name,
                     description = team.Description,
                     creatorId = team.CreatorId,
-                    creatorName = creator?.UserName,
+                    creatorName = creator?.ProfileName ?? creator?.UserName,
                     memberCount = team.Members.Count,
                     titleCount = team.Titles.Count,
                     members = team.UserTeamRoles.Select(utr => new
                     {
                         userId = utr.AppUserId,
                         userName = utr.AppUser.UserName,
+                        displayName = utr.AppUser.ProfileName ?? utr.AppUser.UserName,
                         email = utr.AppUser.Email,
                         profilePicturePath = utr.AppUser.ProfilePicturePath,
                         role = utr.Role,

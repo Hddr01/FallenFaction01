@@ -2164,7 +2164,7 @@ namespace FallenFaction.Server.Controllers
                     t.CoverImagePath,
                     t.Type,
                     t.TitleCategory,
-                    Categories = t.Categories.Select(c => c.Name).Take(3).ToList()
+                    Categories = t.Categories.OrderBy(c => c.Name).Select(c => c.Name).Take(3).ToList()
                 })
                 .ToListAsync();
 

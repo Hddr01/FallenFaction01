@@ -59,7 +59,7 @@ namespace FallenFaction.Server.Controllers
         [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<TeamTopDto>>> GetTopTeams([FromQuery] int count = 10)
         {
-            // FIXED: pure projection — no Include needed.
+            // FIXED: pure projection ï¿½ no Include needed.
             // The old code loaded ALL chapters for ALL titles into memory to do a .Count()
             // in C#. With 4000+ chapters in the DB this caused 30s timeouts.
             var teams = await _context.Teams
@@ -113,6 +113,7 @@ namespace FallenFaction.Server.Controllers
                 {
                     UserId = utr.AppUserId,
                     Username = utr.AppUser.UserName,
+                    DisplayName = utr.AppUser.ProfileName ?? utr.AppUser.UserName,
                     Role = utr.Role,
                     JoinedDate = utr.AppUser.RegistrationDate // Using registration date as fallback
                 }).ToList(),

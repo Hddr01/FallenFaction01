@@ -193,7 +193,8 @@ namespace FallenFaction.Server.Controllers
                 Id = comment.Id,
                 Content = comment.Content,
                 UserId = comment.UserId,
-                UserName = comment.IsDeleted ? null : comment.User?.UserName ?? "Unknown",
+                UserName = comment.IsDeleted ? null : (comment.User?.ProfileName ?? comment.User?.UserName ?? "Unknown"),
+                UserHandle = comment.IsDeleted ? null : comment.User?.UserName ?? "",
                 UserAvatarUrl = comment.IsDeleted ? null : comment.User?.ProfilePicturePath, // Using ProfilePicturePath
                 PostedDate = comment.PostedDate,
                 LikesCount = comment.Reactions.Count(r => r.IsLike),
@@ -341,7 +342,8 @@ namespace FallenFaction.Server.Controllers
                     Id = createdComment.Id,
                     Content = createdComment.Content,
                     UserId = createdComment.UserId,
-                    UserName = createdComment.User?.UserName ?? "Unknown",
+                    UserName = createdComment.User?.ProfileName ?? createdComment.User?.UserName ?? "Unknown",
+                    UserHandle = createdComment.User?.UserName ?? "",
                     UserAvatarUrl = createdComment.User?.ProfilePicturePath,
                     PostedDate = createdComment.PostedDate,
                     LikesCount = 0,
@@ -656,7 +658,7 @@ namespace FallenFaction.Server.Controllers
                     parentChain.Insert(0, new CommentBreadcrumbDto
                     {
                         Id = parentComment.Id,
-                        UserName = parentComment.User?.UserName ?? "Unknown",
+                        UserName = parentComment.User?.ProfileName ?? parentComment.User?.UserName ?? "Unknown",
                         Content = parentComment.Content.Length > 100
                             ? parentComment.Content.Substring(0, 100) + "..."
                             : parentComment.Content,

@@ -70,7 +70,8 @@ namespace FallenFaction.Server.Controllers
                     .Select(u => new UserTopDto
                     {
                         Id = u.Id,
-                        Name = u.UserName ?? "Unknown User",
+                        Name = u.ProfileName ?? u.UserName ?? "Unknown User",
+                        UserName = u.UserName ?? "",
                         Avatar = u.ProfilePicturePath ?? "/img/logo.png",
                         Level = GetUserLevel(u.Id),
                         Score = GetUserScore(u.Id)
@@ -118,7 +119,8 @@ namespace FallenFaction.Server.Controllers
                 var userDto = new UserTopDto
                 {
                     Id = user.Id,
-                    Name = user.UserName ?? "Unknown User",
+                    Name = user.ProfileName ?? user.UserName ?? "Unknown User",
+                    UserName = user.UserName ?? "",
                     Avatar = user.ProfilePicturePath ?? "/img/logo.png",
                     Level = GetUserLevel(user.Id),
                     Score = GetUserScore(user.Id)
@@ -149,7 +151,8 @@ namespace FallenFaction.Server.Controllers
                 var dto = new PublicUserProfileDto
                 {
                     Id = user.Id,
-                    Name = user.UserName ?? "Unknown",
+                    Name = user.ProfileName ?? user.UserName ?? "Unknown",
+                    UserName = user.UserName ?? "",
                     Avatar = user.ProfilePicturePath ?? "/img/default-avatar.png",
                     Banner = user.BannerImagePath,
                     Bio = user.Bio,
@@ -183,16 +186,21 @@ namespace FallenFaction.Server.Controllers
 
                 var q = query.Trim().ToLower();
 
+                // Strip leading @ so searching "@admin" matches "admin"
+                var qClean = q.TrimStart('@');
+
                 var users = await _userManager.Users
                     .Where(u => !string.IsNullOrEmpty(u.UserName) &&
-                                u.UserName.ToLower().Contains(q))
+                                (u.UserName.ToLower().Contains(qClean) ||
+                                 (u.ProfileName != null && u.ProfileName.ToLower().Contains(qClean))))
                     .Take(10)
                     .ToListAsync();
 
                 var results = users.Select(u => new UserTopDto
                 {
                     Id = u.Id,
-                    Name = u.UserName ?? "Unknown User",
+                    Name = u.ProfileName ?? u.UserName ?? "Unknown User",
+                    UserName = u.UserName ?? "",
                     Avatar = u.ProfilePicturePath ?? "/img/logo.png",
                     Level = GetUserLevel(u.Id),
                     Score = GetUserScore(u.Id),

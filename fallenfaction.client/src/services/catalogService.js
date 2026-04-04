@@ -47,7 +47,11 @@ export const MangaType = {
   Novel: 1,
   LightNovel: 2,
   WebNovel: 3,
-  ShortStory: 4
+  ShortStory: 4,
+  Wuxia: 5,
+  Xianxia: 6,
+  Xuanhuan: 7,
+  ClassicFiction: 8
 };
 
 export const catalogService = {
@@ -266,7 +270,11 @@ export const catalogService = {
       1: 'Novel',
       2: 'Light Novel',
       3: 'Web Novel',
-      4: 'Short Story'
+      4: 'Short Story',
+      5: 'Wuxia',
+      6: 'Xianxia',
+      7: 'Xuanhuan',
+      8: 'Classic Fiction'
     };
     return types[type] || 'Unknown';
   },

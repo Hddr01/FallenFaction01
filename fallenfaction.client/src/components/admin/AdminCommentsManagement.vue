@@ -230,7 +230,7 @@
                     </div>
                     <div>
                       <p class="font-medium text-[var(--color-text)]">{{ comment.userName }}</p>
-                      <p class="text-xs text-[var(--color-text)] opacity-60">{{ comment.userId.substring(0, 8) }}...</p>
+                      <p class="text-xs text-[var(--color-text)] opacity-60">@{{ comment.userHandle || comment.userName }} · {{ comment.userId.substring(0, 8) }}...</p>
                     </div>
                   </div>
                 </td>
@@ -431,7 +431,8 @@
               <div>
                 <h4 class="font-medium text-[var(--color-text)] mb-2">User Information</h4>
                 <div class="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg p-4">
-                  <p><span class="font-medium">Username:</span> {{ selectedComment.userName }}</p>
+                  <p><span class="font-medium">Display Name:</span> {{ selectedComment.userName }}</p>
+                  <p v-if="selectedComment.userHandle"><span class="font-medium">@Handle:</span> {{ selectedComment.userHandle }}</p>
                   <p><span class="font-medium">User ID:</span> {{ selectedComment.userId }}</p>
                   <p><span class="font-medium">Posted:</span> {{ formatDate(selectedComment.postedDate) }}</p>
                 </div>

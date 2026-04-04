@@ -373,6 +373,7 @@ namespace FallenFaction.Server.Controllers.Api
                 }
 
                 var title = await _context.Titles
+                    .AsSplitQuery()
                     .Include(t => t.Categories)
                     .Include(t => t.Tags)
                     .Include(t => t.Formats)
@@ -561,8 +562,8 @@ namespace FallenFaction.Server.Controllers.Api
                 // Load users separately as fallback
                 var users = await _context.Users
                     .Where(u => allUserIds.Contains(u.Id))
-                    .Select(u => new { u.Id, u.UserName })
-                    .ToDictionaryAsync(u => u.Id, u => u.UserName);
+                    .Select(u => new { u.Id, u.UserName, u.ProfileName })
+                    .ToDictionaryAsync(u => u.Id, u => u.ProfileName ?? u.UserName);
 
                 _logger.LogInformation("Loaded {Count} users for change logs", users.Count);
 
@@ -582,7 +583,7 @@ namespace FallenFaction.Server.Controllers.Api
                     UpdatedByUser = new
                     {
                         Id = tc.UpdatedByUserId ?? "unknown",
-                        UserName = tc.UpdatedByUser?.UserName ??
+                        UserName = (tc.UpdatedByUser != null ? tc.UpdatedByUser.ProfileName ?? tc.UpdatedByUser.UserName : null) ??
                                   (users.TryGetValue(tc.UpdatedByUserId ?? "", out var updatedUserName) ? updatedUserName : null) ??
                                   "Unknown User"
                     },
@@ -590,7 +591,7 @@ namespace FallenFaction.Server.Controllers.Api
                         ? new
                         {
                             Id = tc.ReviewedByUserId,
-                            UserName = tc.ReviewedByUser?.UserName ??
+                            UserName = (tc.ReviewedByUser != null ? tc.ReviewedByUser.ProfileName ?? tc.ReviewedByUser.UserName : null) ??
                                       (users.TryGetValue(tc.ReviewedByUserId, out var reviewedUserName) ? reviewedUserName : null) ??
                                       "Unknown Reviewer"
                         }
@@ -1030,6 +1031,7 @@ namespace FallenFaction.Server.Controllers.Api
             try
             {
                 var pendingTitles = await _context.PendingTitles
+                    .AsSplitQuery()
                     .Include(t => t.Categories)
                     .Include(t => t.Tags)
                     .Include(t => t.Formats)
@@ -1096,7 +1098,7 @@ namespace FallenFaction.Server.Controllers.Api
                         TitleName = g.First().Title.OriginalTitle,
                         TitleEnglishName = g.First().Title.EnglishTitle,
                         ChangeCount = g.Count(),
-                        SubmittedBy = g.First().UpdatedByUser.UserName,
+                        SubmittedBy = g.First().UpdatedByUser.ProfileName ?? g.First().UpdatedByUser.UserName,
                         SubmittedAt = g.First().CreatedAt,
                         Changes = g.Select(tc => new
                         {
@@ -1138,7 +1140,7 @@ namespace FallenFaction.Server.Controllers.Api
                         tc.OldValue,
                         tc.NewValue,
                         tc.CreatedAt,
-                        UpdatedBy = tc.UpdatedByUser.UserName
+                        UpdatedBy = tc.UpdatedByUser.ProfileName ?? tc.UpdatedByUser.UserName
                     })
                     .ToListAsync();
 

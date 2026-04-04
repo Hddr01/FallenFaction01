@@ -126,8 +126,8 @@
               <img v-for="member in team.members.slice(0, 4)"
                    :key="member.id"
                    :src="getProfileImage(member.profilePicturePath)"
-                   :alt="member.userName"
-                   :title="member.userName"
+                   :alt="member.displayName || member.userName"
+                   :title="member.displayName || member.userName"
                    class="inline-block h-8 w-8 rounded-full ring-2 ring-[var(--color-background)] object-cover" />
               <div v-if="team.members.length > 4"
                    class="inline-flex h-8 w-8 items-center justify-center rounded-full ring-2 ring-[var(--color-background)] bg-[var(--color-background-mute)] text-xs font-medium text-[var(--color-text)]">

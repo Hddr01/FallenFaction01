@@ -18,6 +18,7 @@ namespace FallenFaction.Server.DTOs.Auth
         public bool IsVerified { get; set; }
         public bool IsBannedFromComments { get; set; }
         public List<string> Roles { get; set; } = new List<string>();
+        public string? ProfileName { get; set; }
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
         public string? BannerImagePath { get; set; }
