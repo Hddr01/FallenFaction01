@@ -706,16 +706,17 @@
       myTeams: [], checkInfo: null, submitting: false, error: '', success: '', autoRejected: false }
 
     try {
-      // Load title check and user's manageable teams in parallel
-      const [checkRes, teamsRes] = await Promise.all([
-        axios.get(`/api/title-join-requests/check/${props.titleId}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
-        }),
-        teamService.getMyTeams().catch(() => ({ data: [] }))
-      ])
+      // Load title check — reuse teams already fetched on mount
+      const checkRes = await axios.get(`/api/title-join-requests/check/${props.titleId}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+      })
       joinModal.value.checkInfo = checkRes.data
       // Filter to teams where user is admin/manager (non-system)
-      joinModal.value.myTeams = (teamsRes.data || []).filter(t => 
+      const teams = userTeams.value.length
+        ? userTeams.value
+        : (await teamService.getMyTeams().catch(() => ({ data: [] }))).data || []
+      if (!userTeams.value.length) userTeams.value = teams
+      joinModal.value.myTeams = teams.filter(t =>
         !t.isSystemTeam && (t.role === 0 || t.role === 'Admin')
       )
     } catch {

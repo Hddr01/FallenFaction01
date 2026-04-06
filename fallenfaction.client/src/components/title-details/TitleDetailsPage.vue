@@ -774,7 +774,6 @@
   })
 
   const readingProgress = ref(null)
-  const bookmarkStats = ref(null)
 
   const loadReadingProgress = async () => {
     if (!titleData.value?.id || !isAuthenticated.value) return
@@ -811,21 +810,6 @@
       }
     } catch (err) {
       console.error('Error loading user rating:', err)
-    }
-  }
-
-  const loadBookmarkStats = async () => {
-    if (!titleData.value?.id) return
-
-    try {
-      const result = await titleDetailsService.getBookmarkStats(titleData.value.id)
-
-      if (result.success && result.data) {
-        bookmarkStats.value = result.data
-        console.log('Bookmark stats loaded:', result.data)
-      }
-    } catch (err) {
-      console.error('Error loading bookmark stats:', err)
     }
   }
 
@@ -992,9 +976,6 @@
         await loadUserRating()
       }
 
-      // Load bookmark stats
-      await loadBookmarkStats()
-
     } catch (err) {
       error.value = 'An unexpected error occurred'
       console.error('Error loading title data:', err)
@@ -1153,7 +1134,6 @@
         }
 
         saveBookmarkToCache(userBookmark.value, status)
-        await loadBookmarkStats()
 
         const statusMap = {
           'reading': 'Reading',
