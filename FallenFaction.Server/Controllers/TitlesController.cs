@@ -1090,16 +1090,19 @@ namespace FallenFaction.Server.Controllers
         // Helper method to add adjacent chapter information
         private async Task EnrichWithAdjacentChapters(ChapterDTO chapterDto)
         {
-            var title = await _context.Titles
-                .Include(t => t.Chapters)
-                .FirstOrDefaultAsync(t => t.Id == chapterDto.TitleId);
-
-            if (title == null) return;
-
-            var orderedChapters = title.Chapters
+            // Project only nav fields — avoids loading Content column for every chapter
+            var orderedChapters = await _context.Chapters
+                .Where(c => c.TitleId == chapterDto.TitleId)
                 .OrderBy(c => c.VolumeNumber)
                 .ThenBy(c => c.ChapterNumber)
-                .ToList();
+                .Select(c => new {
+                    c.Id,
+                    c.Name,
+                    c.ChapterNumber,
+                    c.VolumeNumber,
+                    c.TeamId
+                })
+                .ToListAsync();
 
             int currentIndex = orderedChapters.FindIndex(c => c.Id == chapterDto.Id);
             if (currentIndex == -1) return;

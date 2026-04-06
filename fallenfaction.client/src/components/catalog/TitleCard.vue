@@ -213,7 +213,7 @@
 </template>
 
 <script setup>
-  import { ref, computed, inject, onMounted } from 'vue';
+  import { ref, computed, inject } from 'vue';
   import { useRouter } from 'vue-router';
   import {
     Star, Bookmark, BookOpen, Eye, Calendar, Clock, Sparkles, Loader2
@@ -253,16 +253,8 @@
     } catch { return false; }
   });
 
-  onMounted(async () => {
-    if (!isAuthenticated.value || !apiClient) return;
-    try {
-      const res = await apiClient.get(`/Bookmarks/GetFolders?titleId=${props.title.id}`);
-      const data = res.data;
-      cachedFolders.value = data.folders ?? [];
-      currentBookmarkId.value = data.currentBookmark?.id ?? null;
-      isBookmarked.value = data.currentBookmark !== null;
-    } catch { /* not bookmarked or not authed — ignore */ }
-  });
+  // Bookmark status is loaded lazily on first interaction — not on mount.
+  // Loading GetFolders for every card on mount caused N+1 requests (1 per card × all visible cards).
 
   // Computed
   const coverUrl = computed(() => {

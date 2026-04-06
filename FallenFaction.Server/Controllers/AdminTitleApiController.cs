@@ -52,13 +52,7 @@ namespace FallenFaction.Server.Controllers.Api
             try
             {
                 var titles = await _context.Titles
-                    .Include(t => t.Categories)
-                    .Include(t => t.Tags)
-                    .Include(t => t.Formats)
-                    .Include(t => t.Authors)
-                    .Include(t => t.Artists)
-                    .Include(t => t.Publishers)
-                    .Include(t => t.Teams)
+                    .AsSplitQuery()
                     .Select(t => new
                     {
                         id = t.Id,
@@ -93,6 +87,35 @@ namespace FallenFaction.Server.Controllers.Api
             {
                 _logger.LogError(ex, "Error fetching approved titles");
                 return StatusCode(500, new { message = "Error fetching approved titles", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Get all titles that have at least one external monitor URL set by the scraper bot.
+        /// GET: api/AdminTitle/MonitoredTitles
+        /// </summary>
+        [HttpGet("MonitoredTitles")]
+        public async Task<ActionResult<IEnumerable<object>>> GetMonitoredTitles()
+        {
+            try
+            {
+                var titles = await _context.Titles
+                    .Where(t => !string.IsNullOrEmpty(t.ExternalLinksSerialized))
+                    .Select(t => new
+                    {
+                        id = t.Id,
+                        originalTitle = t.OriginalTitle,
+                        englishTitle = t.EnglishTitle,
+                        externalLinks = t.ExternalLinksSerialized
+                    })
+                    .ToListAsync();
+
+                return Ok(titles);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching monitored titles");
+                return StatusCode(500, new { message = "Error fetching monitored titles", error = ex.Message });
             }
         }
 
@@ -801,15 +824,14 @@ namespace FallenFaction.Server.Controllers.Api
                 existingTitle.AreCommentsEnabled = request.AreCommentsEnabled ?? true;
                 existingTitle.AreChapterCommentsEnabled = request.AreChapterCommentsEnabled ?? true;
 
-                // Handle external links
-                if (request.ExternalLinks?.Any() == true)
+                // Handle external links — only update when the field is explicitly sent
+                // with at least one non-empty URL.  null (field absent) and [] (empty array)
+                // both mean "don't touch it", so monitor URLs set by the scraper bot
+                // are never wiped on admin title edits.
+                if (request.ExternalLinks != null && request.ExternalLinks.Any(l => !string.IsNullOrWhiteSpace(l)))
                 {
                     var validLinks = request.ExternalLinks.Where(l => !string.IsNullOrWhiteSpace(l)).ToList();
                     existingTitle.ExternalLinksSerialized = string.Join(";", validLinks);
-                }
-                else
-                {
-                    existingTitle.ExternalLinksSerialized = string.Empty;
                 }
 
                 // Handle description modifications for unavailable titles
