@@ -15,7 +15,6 @@ namespace FallenFaction.Server.Controllers
         private readonly ApplicationDbContext _context;
         private readonly UserManager<AppUser> _userManager;
         private readonly ILogger<UsersController> _logger;
-        private readonly Random _random;
 
         public UsersController(
             ApplicationDbContext context,
@@ -25,7 +24,6 @@ namespace FallenFaction.Server.Controllers
             _context = context;
             _userManager = userManager;
             _logger = logger;
-            _random = new Random();
         }
 
         /// <summary>
@@ -65,7 +63,7 @@ namespace FallenFaction.Server.Controllers
                 }).ToList();
 
                 var topUsers = activeUsers
-                    .OrderBy(u => _random.Next()) // Random order
+                    .OrderBy(u => Random.Shared.Next()) // Random order
                     .Take(12)
                     .Select(u => new UserTopDto
                     {
@@ -84,7 +82,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching top users: {Error}", ex.Message);
-                return StatusCode(500, new { message = "Error fetching top users", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching top users" });
             }
         }
 
@@ -131,7 +129,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching user {UserId}: {Error}", id, ex.Message);
-                return StatusCode(500, new { message = "Error fetching user", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching user" });
             }
         }
 
@@ -183,6 +181,8 @@ namespace FallenFaction.Server.Controllers
             {
                 if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 2)
                     return Ok(new List<UserTopDto>());
+                if (query.Length > 100)
+                    return BadRequest(new { message = "Search query must not exceed 100 characters." });
 
                 var q = query.Trim().ToLower();
 
@@ -211,7 +211,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error searching users with query: {Query}", query);
-                return StatusCode(500, new { message = "Error searching users", error = ex.Message });
+                return StatusCode(500, new { message = "Error searching users" });
             }
         }
 
@@ -228,126 +228,6 @@ namespace FallenFaction.Server.Controllers
                 timestamp = DateTime.UtcNow,
                 service = "UsersController"
             });
-        }
-
-        /// <summary>
-        /// Create sample users for testing
-        /// POST: api/Users/CreateSampleUsers
-        /// </summary>
-        [HttpPost("CreateSampleUsers")]
-        public async Task<ActionResult> CreateSampleUsers()
-        {
-            try
-            {
-                var userCount = await _userManager.Users.CountAsync();
-                if (userCount > 5)
-                {
-                    return Ok(new { message = $"Already have {userCount} users. No need to create more." });
-                }
-
-                var sampleUsers = new List<(string username, string email)>
-                {
-                    ("MangaFan123", "mangafan123@example.com"),
-                    ("OtakuMaster", "otakumaster@example.com"),
-                    ("AnimeGirl", "animegirl@example.com"),
-                    ("SenpaiKun", "senpaikon@example.com"),
-                    ("WeebLord", "weeblord@example.com"),
-                    ("NarutoFan", "narutofan@example.com"),
-                    ("OnePieceKing", "onepieceking@example.com"),
-                    ("AttackOnFan", "attackonfan@example.com"),
-                    ("DemonSlayer", "demonslayer@example.com"),
-                    ("HeroAcademy", "heroacademy@example.com"),
-                    ("DragonBallZ", "dragonballz@example.com"),
-                    ("TokyoGhoul", "tokyoghoul@example.com")
-                };
-
-                var createdUsers = new List<string>();
-
-                foreach (var (username, email) in sampleUsers)
-                {
-                    var existingUser = await _userManager.FindByNameAsync(username);
-                    if (existingUser == null)
-                    {
-                        var user = new AppUser
-                        {
-                            UserName = username,
-                            Email = email,
-                            EmailConfirmed = true,
-                            ProfilePicturePath = "/img/logo.png"
-                        };
-
-                        // Set additional properties if they exist
-                        var isActiveProperty = typeof(AppUser).GetProperty("IsActive");
-                        if (isActiveProperty != null)
-                        {
-                            isActiveProperty.SetValue(user, true);
-                        }
-
-                        var isVerifiedProperty = typeof(AppUser).GetProperty("IsVerified");
-                        if (isVerifiedProperty != null)
-                        {
-                            isVerifiedProperty.SetValue(user, true);
-                        }
-
-                        var registrationDateProperty = typeof(AppUser).GetProperty("RegistrationDate");
-                        if (registrationDateProperty != null)
-                        {
-                            registrationDateProperty.SetValue(user, DateTime.UtcNow.AddDays(-_random.Next(1, 365)));
-                        }
-
-                        var result = await _userManager.CreateAsync(user, "TempPassword123!");
-                        if (result.Succeeded)
-                        {
-                            createdUsers.Add(username);
-                        }
-                        else
-                        {
-                            _logger.LogWarning("Failed to create user {Username}: {Errors}", username, string.Join(", ", result.Errors.Select(e => e.Description)));
-                        }
-                    }
-                }
-
-                return Ok(new
-                {
-                    message = $"Created {createdUsers.Count} sample users",
-                    users = createdUsers
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error creating sample users: {Error}", ex.Message);
-                return StatusCode(500, new { error = "Error creating sample users", details = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Get debug info about users
-        /// GET: api/Users/Debug
-        /// </summary>
-        [HttpGet("Debug")]
-        public async Task<ActionResult> GetDebugInfo()
-        {
-            try
-            {
-                var totalUsers = await _userManager.Users.CountAsync();
-
-                var sampleUsers = await _userManager.Users
-                    .Take(5)
-                    .Select(u => new { u.Id, u.UserName, u.Email })
-                    .ToListAsync();
-
-                return Ok(new
-                {
-                    TotalUsers = totalUsers,
-                    SampleUsers = sampleUsers,
-                    Timestamp = DateTime.UtcNow
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting user debug info: {Error}", ex.Message);
-                return StatusCode(500, new { error = ex.Message });
-            }
         }
 
         // Helper methods for mock data - replace with actual logic

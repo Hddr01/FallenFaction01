@@ -11,5 +11,7 @@ namespace FallenFaction.Server.DTOs.Auth
 
         public bool RequiresTermsAcceptance { get; set; }
         public string? TermsVersion { get; set; }
+
+        public bool RequiresEmailConfirmation { get; set; }
     }
 }

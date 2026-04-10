@@ -12,6 +12,7 @@ namespace FallenFaction.Server.DTOs.Report
         public int? TargetCommentId { get; set; }
         public int? TargetTitleId { get; set; }
         public int? TargetChapterId { get; set; }
+        [StringLength(36)]
         public string? TargetUserId { get; set; }
 
         [Required]

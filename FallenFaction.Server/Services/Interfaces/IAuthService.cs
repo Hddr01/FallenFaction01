@@ -12,6 +12,10 @@ namespace FallenFaction.Server.Services.Interfaces
         Task<bool> UserExistsAsync(string email);
         Task<AuthResponseDto> RefreshTokenAsync(string refreshToken);
 
+        // Email confirmation
+        Task<AuthResponseDto> ConfirmEmailAsync(string userId, string token);
+        Task<AuthResponseDto> ResendConfirmationEmailAsync(string email);
+
         // Online status management
         Task<bool> UpdateOnlineStatusAsync(string userId, bool isOnline);
         Task<bool> UpdateLastActiveAsync(string userId);

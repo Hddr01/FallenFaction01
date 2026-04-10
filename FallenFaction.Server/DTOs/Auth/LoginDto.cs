@@ -6,9 +6,11 @@ namespace FallenFaction.Server.DTOs.Auth
     {
         [Required]
         [EmailAddress]
+        [StringLength(256)]
         public required string Email { get; set; }
 
         [Required]
+        [StringLength(100)]
         public required string Password { get; set; }
 
         public bool RememberMe { get; set; } = false;

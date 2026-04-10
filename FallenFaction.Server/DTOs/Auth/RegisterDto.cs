@@ -6,6 +6,7 @@ namespace FallenFaction.Server.DTOs.Auth
     {
         [Required]
         [EmailAddress]
+        [StringLength(256)]
         public required string Email { get; set; }
 
         [Required]
@@ -14,7 +15,7 @@ namespace FallenFaction.Server.DTOs.Auth
         public required string UserName { get; set; }
 
         [Required]
-        [StringLength(100, ErrorMessage = "The {0} must be at least {2} characters long.", MinimumLength = 6)]
+        [StringLength(100, ErrorMessage = "The {0} must be at least {2} characters long.", MinimumLength = 8)]
         public required string Password { get; set; }
 
         [Required]

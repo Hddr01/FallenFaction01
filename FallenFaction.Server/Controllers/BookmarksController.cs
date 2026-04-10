@@ -90,7 +90,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching bookmark folders for user {UserId}", user?.Id);
-                return StatusCode(500, new { message = "Error fetching bookmark folders", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching bookmark folders" });
             }
         }
 
@@ -158,7 +158,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error adding bookmark for user {UserId}", user?.Id);
-                return StatusCode(500, new { message = "Error adding bookmark", error = ex.Message });
+                return StatusCode(500, new { message = "Error adding bookmark" });
             }
         }
 
@@ -196,7 +196,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error removing bookmark for user {UserId}", user?.Id);
-                return StatusCode(500, new { message = "Error removing bookmark", error = ex.Message });
+                return StatusCode(500, new { message = "Error removing bookmark" });
             }
         }
 
@@ -281,7 +281,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching bookmark stats for title {TitleId}", titleId);
-                return StatusCode(500, new { message = "Error fetching bookmark stats", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching bookmark stats" });
             }
         }
 
@@ -342,7 +342,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating folder for user {UserId}", user?.Id);
-                return StatusCode(500, new { message = "Error creating folder", error = ex.Message });
+                return StatusCode(500, new { message = "Error creating folder" });
             }
         }
 
@@ -441,7 +441,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching bookmarks by folder for user {UserId}", user?.Id);
-                return StatusCode(500, new { message = "Error fetching bookmarks", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching bookmarks" });
             }
         }
 
@@ -492,7 +492,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating folder for user {UserId}", user?.Id);
-                return StatusCode(500, new { message = "Error updating folder", error = ex.Message });
+                return StatusCode(500, new { message = "Error updating folder" });
             }
         }
 
@@ -557,7 +557,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting folder for user {UserId}", user?.Id);
-                return StatusCode(500, new { message = "Error deleting folder", error = ex.Message });
+                return StatusCode(500, new { message = "Error deleting folder" });
             }
         }
 
@@ -599,7 +599,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating reading progress for user {UserId}", user?.Id);
-                return StatusCode(500, new { message = "Error updating reading progress", error = ex.Message });
+                return StatusCode(500, new { message = "Error updating reading progress" });
             }
         }
 
@@ -715,7 +715,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating bookmark status for user {UserId}", user?.Id);
-                return StatusCode(500, new { message = "Error updating bookmark status", error = ex.Message });
+                return StatusCode(500, new { message = "Error updating bookmark status" });
             }
         }
 
@@ -780,7 +780,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error removing bookmark for user {UserId}", user?.Id);
-                return StatusCode(500, new { message = "Error removing bookmark", error = ex.Message });
+                return StatusCode(500, new { message = "Error removing bookmark" });
             }
         }
 
@@ -814,7 +814,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error checking bookmark for user {UserId}", user?.Id);
-                return StatusCode(500, new { message = "Error checking bookmark", error = ex.Message });
+                return StatusCode(500, new { message = "Error checking bookmark" });
             }
         }
 
@@ -876,7 +876,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting reading progress for user {UserId}", user?.Id);
-                return StatusCode(500, new { message = "Error getting reading progress", error = ex.Message });
+                return StatusCode(500, new { message = "Error getting reading progress" });
             }
         }
 
@@ -965,7 +965,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting user bookmark for user {UserId}", user?.Id);
-                return StatusCode(500, new { message = "Error getting user bookmark", error = ex.Message });
+                return StatusCode(500, new { message = "Error getting user bookmark" });
             }
         }
         /// <summary>

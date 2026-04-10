@@ -83,7 +83,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching teams for admin");
-                return StatusCode(500, new { message = "Error fetching teams", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching teams" });
             }
         }
 
@@ -147,7 +147,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching team details for ID: {Id}", id);
-                return StatusCode(500, new { message = "Error fetching team details", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching team details" });
             }
         }
 
@@ -178,7 +178,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating team {TeamId}", id);
-                return StatusCode(500, new { message = "Error updating team", error = ex.Message });
+                return StatusCode(500, new { message = "Error updating team" });
             }
         }
 
@@ -210,7 +210,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting team {TeamId}", id);
-                return StatusCode(500, new { message = "Error deleting team", error = ex.Message });
+                return StatusCode(500, new { message = "Error deleting team" });
             }
         }
 
@@ -252,7 +252,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error removing member {UserId} from team {TeamId}", userId, teamId);
-                return StatusCode(500, new { message = "Error removing member", error = ex.Message });
+                return StatusCode(500, new { message = "Error removing member" });
             }
         }
 
@@ -295,7 +295,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating role for user {UserId} in team {TeamId}", userId, teamId);
-                return StatusCode(500, new { message = "Error updating member role", error = ex.Message });
+                return StatusCode(500, new { message = "Error updating member role" });
             }
         }
 
@@ -327,7 +327,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching team statistics");
-                return StatusCode(500, new { message = "Error fetching statistics", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching statistics" });
             }
         }
 

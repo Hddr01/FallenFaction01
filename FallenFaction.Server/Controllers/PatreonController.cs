@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
@@ -34,19 +35,23 @@ namespace FallenFaction.Server.Controllers
         private readonly UserManager<AppUser> _userManager;
         private readonly IConfiguration _config;
         private readonly ILogger<PatreonController> _logger;
+        private readonly IMemoryCache _stateCache;
 
         private static readonly HttpClient _http = new();
+        private const string StateCachePrefix = "patreon_state_";
 
         public PatreonController(
             ApplicationDbContext context,
             UserManager<AppUser> userManager,
             IConfiguration config,
-            ILogger<PatreonController> logger)
+            ILogger<PatreonController> logger,
+            IMemoryCache stateCache)
         {
             _context = context;
             _userManager = userManager;
             _config = config;
             _logger = logger;
+            _stateCache = stateCache;
         }
 
         // ── GET /api/patreon/link ────────────────────────────────────────────
@@ -55,9 +60,14 @@ namespace FallenFaction.Server.Controllers
         [Authorize]
         public IActionResult GetLinkUrl()
         {
-            var clientId    = _config["Patreon:ClientId"];
+            var userId   = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var clientId = _config["Patreon:ClientId"];
             var redirectUri = Uri.EscapeDataString(_config["Patreon:RedirectUri"] ?? "");
-            var state       = User.FindFirstValue(ClaimTypes.NameIdentifier); // userId as state
+
+            // Generate an unguessable state token and store userId → state for 10 minutes.
+            // This prevents IDOR/CSRF: only the user who initiated the flow has a valid state.
+            var state = Guid.NewGuid().ToString("N");
+            _stateCache.Set(StateCachePrefix + state, userId, TimeSpan.FromMinutes(10));
 
             var url = $"https://www.patreon.com/oauth2/authorize" +
                       $"?response_type=code" +
@@ -70,17 +80,29 @@ namespace FallenFaction.Server.Controllers
         }
 
         // ── GET /api/patreon/callback ────────────────────────────────────────
-        /// <summary>OAuth callback — exchanges code for tokens, stores on user, grants tickets.</summary>
+        /// <summary>
+        /// OAuth callback — exchanges code for tokens, stores on user, grants tickets.
+        /// This endpoint is intentionally [AllowAnonymous]: Patreon redirects the browser here
+        /// without a JWT Bearer header. CSRF/IDOR protection is provided by the random state token
+        /// generated in GetLinkUrl and validated here.
+        /// </summary>
         [HttpGet("callback")]
+        [AllowAnonymous]
         public async Task<IActionResult> Callback([FromQuery] string code, [FromQuery] string state)
         {
-            // state = userId we embedded
-            var userId = state;
-            if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(code))
+            if (string.IsNullOrEmpty(state) || string.IsNullOrEmpty(code))
                 return BadRequest("Missing code or state.");
 
+            // Validate and consume the one-time state token (prevents CSRF and IDOR).
+            if (!_stateCache.TryGetValue(StateCachePrefix + state, out string? userId) || string.IsNullOrEmpty(userId))
+            {
+                _logger.LogWarning("Patreon callback: unknown or expired state token.");
+                return BadRequest("Invalid or expired state. Please try linking again.");
+            }
+            _stateCache.Remove(StateCachePrefix + state); // single-use
+
             var user = await _userManager.FindByIdAsync(userId);
-            if (user == null) return NotFound("User not found.");
+            if (user == null) return BadRequest("User not found.");
 
             // Exchange code for tokens
             var tokenResponse = await ExchangeCodeAsync(code);
@@ -107,7 +129,9 @@ namespace FallenFaction.Server.Controllers
             await _userManager.UpdateAsync(user);
 
             // Redirect back to the wallet page
-            var frontendBase = _config["FrontendBaseUrl"] ?? "http://localhost:5173";
+            var frontendBase = _config["FrontendBaseUrl"]
+                           ?? _config["ConnectionStrings:FrontendBaseUrl"]
+                           ?? "http://localhost:5173";
             return Redirect($"{frontendBase}/profile/wallet?patreon=linked");
         }
 
@@ -181,15 +205,21 @@ namespace FallenFaction.Server.Controllers
             try
             {
                 var doc = JsonDocument.Parse(body);
-                var data = doc.RootElement.GetProperty("data");
+                var root = doc.RootElement;
+
+                if (!root.TryGetProperty("data", out var data))
+                    return Ok(); // Malformed or test payload — ignore
 
                 // Patreon user id is under relationships.user.data.id
-                var patreonUserId = data
-                    .GetProperty("relationships")
-                    .GetProperty("user")
-                    .GetProperty("data")
-                    .GetProperty("id")
-                    .GetString();
+                string? patreonUserId = null;
+                if (data.TryGetProperty("relationships", out var relationships) &&
+                    relationships.TryGetProperty("user", out var userRel) &&
+                    userRel.TryGetProperty("data", out var userData) &&
+                    userData.ValueKind != JsonValueKind.Null &&
+                    userData.TryGetProperty("id", out var userIdEl))
+                {
+                    patreonUserId = userIdEl.GetString();
+                }
 
                 if (string.IsNullOrEmpty(patreonUserId))
                     return Ok(); // Ignore unknown
@@ -210,8 +240,10 @@ namespace FallenFaction.Server.Controllers
                     {
                         // Extract tier title from included array
                         var tierName = ExtractTierName(doc.RootElement);
-                        var amountCents = data.GetProperty("attributes")
-                            .GetProperty("currently_entitled_amount_cents").GetInt32();
+                        var amountCents = data.TryGetProperty("attributes", out var attrs) &&
+                                          attrs.TryGetProperty("currently_entitled_amount_cents", out var amountEl)
+                            ? amountEl.GetInt32()
+                            : 0;
 
                         user.PatreonTierName     = tierName;
                         user.PatreonMonthlyAmount = amountCents / 100m;
@@ -362,11 +394,17 @@ namespace FallenFaction.Server.Controllers
 
         private static bool VerifyWebhookSignature(string body, string signature, string secret)
         {
-            if (string.IsNullOrEmpty(secret)) return true; // Dev mode: skip verification
+            if (string.IsNullOrEmpty(secret))
+                throw new InvalidOperationException("Patreon webhook secret is not configured. Set the Patreon__WebhookSecret environment variable.");
             using var hmac = new System.Security.Cryptography.HMACMD5(Encoding.UTF8.GetBytes(secret));
             var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(body));
             var computed = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
-            return computed == signature.ToLowerInvariant();
+            var signatureLower = signature.ToLowerInvariant();
+            // Use constant-time comparison to prevent timing attacks.
+            var computedBytes = Encoding.UTF8.GetBytes(computed);
+            var signatureBytes = Encoding.UTF8.GetBytes(signatureLower);
+            return computedBytes.Length == signatureBytes.Length &&
+                   System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(computedBytes, signatureBytes);
         }
     }
 }

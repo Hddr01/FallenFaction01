@@ -17,7 +17,7 @@ const pinia = createPinia()
 // ── Sentry ────────────────────────────────────────────────────────────────────
 Sentry.init({
   app,
-  dsn: 'REDACTED_SENTRY_DSN',
+  dsn: import.meta.env.VITE_SENTRY_DSN || undefined,
   sendDefaultPii: true,
   integrations: [
     Sentry.browserTracingIntegration({ router }),

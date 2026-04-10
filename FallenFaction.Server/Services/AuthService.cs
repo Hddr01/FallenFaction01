@@ -1,5 +1,6 @@
 // Services/AuthService.cs - UPDATED with HTTPS profile picture migration
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using AutoMapper;
 using FallenFaction.Server.Constants;
@@ -7,6 +8,7 @@ using FallenFaction.Server.Data.Models;
 using FallenFaction.Server.DTOs.Auth;
 using FallenFaction.Server.Services.Interfaces;
 using FallenFaction.Server.Data;
+using System.Text;
 
 namespace FallenFaction.Server.Services
 {
@@ -19,6 +21,7 @@ namespace FallenFaction.Server.Services
         private readonly ILogger<AuthService> _logger;
         private readonly IConfiguration _configuration;
         private readonly ApplicationDbContext _context;
+        private readonly IEmailService _emailService;
 
         // Concurrent operation tracking
         private readonly Dictionary<string, SemaphoreSlim> _userUpdateSemaphores = new();
@@ -31,7 +34,8 @@ namespace FallenFaction.Server.Services
             IMapper mapper,
             ILogger<AuthService> logger,
             IConfiguration configuration,
-            ApplicationDbContext context)
+            ApplicationDbContext context,
+            IEmailService emailService)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -40,6 +44,7 @@ namespace FallenFaction.Server.Services
             _logger = logger;
             _configuration = configuration;
             _context = context;
+            _emailService = emailService;
         }
 
         private string GetStaticAssetBaseUrl()
@@ -171,23 +176,16 @@ namespace FallenFaction.Server.Services
                     _logger.LogError(groupEx, "Failed to create personal group for {UserId}", user.Id);
                 }
 
-                // Generate JWT token
-                var roles = await _userManager.GetRolesAsync(user);
-                var token = _tokenService.GenerateJwtToken(user, roles);
-
-                // Map user to DTO
-                var userDto = _mapper.Map<UserDto>(user);
-                userDto.Roles = roles.ToList();
+                // Send email confirmation
+                await SendConfirmationEmailAsync(user);
 
                 _logger.LogInformation("User {Email} registered successfully with username {UserName}", registerDto.Email, registerDto.UserName);
 
                 return new AuthResponseDto
                 {
                     Success = true,
-                    Message = "Registration successful.",
-                    Token = token,
-                    TokenExpiration = DateTime.UtcNow.AddHours(24),
-                    User = userDto
+                    Message = "Registration successful. Please check your email to confirm your account.",
+                    RequiresEmailConfirmation = true
                 };
             }
             catch (Exception ex)
@@ -241,6 +239,18 @@ namespace FallenFaction.Server.Services
                         Success = false,
                         Message = errorMessage,
                         Errors = new List<string> { "Authentication failed." }
+                    };
+                }
+
+                // Require email confirmation before login
+                if (!user.EmailConfirmed)
+                {
+                    return new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = "Please confirm your email address before logging in. Check your inbox for the confirmation link.",
+                        RequiresEmailConfirmation = true,
+                        Errors = new List<string> { "Email not confirmed." }
                     };
                 }
 
@@ -463,6 +473,83 @@ namespace FallenFaction.Server.Services
             {
                 _logger.LogError(ex, "Error occurred while checking if user exists for {Email}", email);
                 return false;
+            }
+        }
+
+        public async Task<AuthResponseDto> ConfirmEmailAsync(string userId, string token)
+        {
+            try
+            {
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null)
+                    return new AuthResponseDto { Success = false, Message = "Invalid confirmation link." };
+
+                if (user.EmailConfirmed)
+                    return new AuthResponseDto { Success = true, Message = "Email already confirmed. You can log in." };
+
+                var decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token));
+                var result = await _userManager.ConfirmEmailAsync(user, decodedToken);
+
+                if (!result.Succeeded)
+                {
+                    _logger.LogWarning("Email confirmation failed for {UserId}: {Errors}",
+                        userId, string.Join(", ", result.Errors.Select(e => e.Description)));
+                    return new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = "This confirmation link is invalid or has expired. Please request a new one.",
+                        Errors = result.Errors.Select(e => e.Description).ToList()
+                    };
+                }
+
+                _logger.LogInformation("Email confirmed for user {UserId}", userId);
+                return new AuthResponseDto { Success = true, Message = "Email confirmed! You can now log in." };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error confirming email for user {UserId}", userId);
+                return new AuthResponseDto { Success = false, Message = "An error occurred. Please try again." };
+            }
+        }
+
+        public async Task<AuthResponseDto> ResendConfirmationEmailAsync(string email)
+        {
+            try
+            {
+                var user = await _userManager.FindByEmailAsync(email);
+
+                // Always return success to prevent email enumeration
+                if (user == null || user.EmailConfirmed)
+                    return new AuthResponseDto { Success = true, Message = "If this email is registered and unconfirmed, a new link has been sent." };
+
+                await SendConfirmationEmailAsync(user);
+
+                return new AuthResponseDto { Success = true, Message = "Confirmation email resent. Please check your inbox." };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error resending confirmation email to {Email}", email);
+                return new AuthResponseDto { Success = false, Message = "An error occurred. Please try again." };
+            }
+        }
+
+        private async Task SendConfirmationEmailAsync(AppUser user)
+        {
+            try
+            {
+                var rawToken = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+                var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(rawToken));
+
+                var frontendBase = _configuration["FrontendBaseUrl"] ?? "https://fallenfaction.com";
+                var confirmLink = $"{frontendBase}/account/confirm-email?userId={Uri.EscapeDataString(user.Id)}&token={encodedToken}";
+
+                await _emailService.SendEmailConfirmationAsync(user.Email!, user.UserName!, confirmLink);
+            }
+            catch (Exception ex)
+            {
+                // Don't rethrow — the user was created successfully.
+                // They can request a new link from the login page.
+                _logger.LogError(ex, "Failed to send confirmation email to {Email}. User was created, manual resend required.", user.Email);
             }
         }
 

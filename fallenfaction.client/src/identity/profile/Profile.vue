@@ -779,7 +779,7 @@
           </div>
           <div class="space-y-1.5">
             <label class="text-xs font-medium text-[var(--color-text)] opacity-70">New Password</label>
-            <Input v-model="pwForm.next" type="password" placeholder="Min. 6 characters" autocomplete="new-password" />
+            <Input v-model="pwForm.next" type="password" placeholder="Min. 8 characters" autocomplete="new-password" />
           </div>
           <div class="space-y-1.5">
             <label class="text-xs font-medium text-[var(--color-text)] opacity-70">Confirm New Password</label>
@@ -1070,8 +1070,8 @@
       pwForm.error = 'New passwords do not match.'
       return
     }
-    if (pwForm.next.length < 6) {
-      pwForm.error = 'New password must be at least 6 characters.'
+    if (pwForm.next.length < 8) {
+      pwForm.error = 'New password must be at least 8 characters.'
       return
     }
     pwForm.saving = true
@@ -1437,7 +1437,8 @@
     // Chapter or Page comment — build full chapter reader URL
     if (c.chapterName && c.volumeNumber != null && c.teamId != null) {
       const chName = encodeURIComponent(c.chapterName)
-      return `/${slug}/chapter/${chName}/v${c.volumeNumber}/t${c.teamId}?viewMode=single&comment_id=${c.id}`
+      const cidParam = c.chapterId ? `&cid=${c.chapterId}` : ''
+      return `/${slug}/chapter/${chName}/v${c.volumeNumber}/t${c.teamId}?viewMode=single&comment_id=${c.id}${cidParam}`
     }
 
     // Fallback: open title comments tab with the thread

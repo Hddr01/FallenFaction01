@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python3 -c \"import sys; print\\(f'Python {sys.version}'\\)\")"
+      "Bash(python3 -c \"import sys; print\\(f'Python {sys.version}'\\)\")",
+      "WebFetch(domain:docs.patreon.com)",
+      "Bash(sqlite3 --version)",
+      "Bash(python3:*)",
+      "Bash(grep -n \"ex\\\\.Message\" *.cs)",
+      "Bash(dotnet add:*)",
+      "Bash(dotnet build:*)"
     ]
   }
 }

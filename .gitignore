@@ -362,3 +362,10 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /fallenfaction.client/src/components/ai/NavBar.PATCH.txt
+
+# ASP.NET Core secrets — real values must come from environment variables
+appsettings.Production.json
+appsettings.Secrets.json
+
+# Local build script contains Sentry DSN — never commit
+build.ps1

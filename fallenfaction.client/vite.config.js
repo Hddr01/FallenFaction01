@@ -45,7 +45,7 @@ const target = env.ASPNETCORE_HTTPS_PORT ? `https://localhost:${env.ASPNETCORE_H
 
 console.log(`Proxying API requests to: ${target}`);
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [
     plugin(),
     tailwindcss(),
@@ -81,6 +81,11 @@ export default defineConfig({
       },
     }),
   ],
+  esbuild: {
+    // Strip all console.* calls and debugger statements in production builds.
+    // Uses command === 'build' (reliable) instead of NODE_ENV (evaluated too early).
+    drop: command === 'build' ? ['console', 'debugger'] : [],
+  },
   build: {
     // Required for Sentry to generate source maps during `npm run build`
     sourcemap: true,
@@ -124,4 +129,4 @@ export default defineConfig({
       strict: false
     }
   }
-});
+}));

@@ -324,6 +324,8 @@ namespace FallenFaction.Server.Controllers
             var query = _context.Titles
                 .Where(t => t.TitleCategory == TitleCategory.AITranslation && t.IsAvailable);
 
+            if (q.Length > 100)
+                return BadRequest(new { message = "Search query must not exceed 100 characters." });
             if (!string.IsNullOrWhiteSpace(q))
                 query = query.Where(t =>
                     t.EnglishTitle.Contains(q) || t.OriginalTitle.Contains(q));

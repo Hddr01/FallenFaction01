@@ -294,9 +294,9 @@ namespace FallenFaction.Server.Controllers
             try
             {
                 if (string.IsNullOrWhiteSpace(query))
-                {
                     return BadRequest(new { message = "Search query is required" });
-                }
+                if (query.Length > 100)
+                    return BadRequest(new { message = "Search query must not exceed 100 characters." });
 
                 var publishers = await _context.Publishers
                     .Include(p => p.Titles)

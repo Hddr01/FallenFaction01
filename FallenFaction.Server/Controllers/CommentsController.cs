@@ -5,6 +5,7 @@ using FallenFaction.Server.DTOs.Comment;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace FallenFaction.Server.Controllers
@@ -46,7 +47,7 @@ namespace FallenFaction.Server.Controllers
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return BadRequest(new { message = "An error occurred." });
             }
         }
 
@@ -242,6 +243,7 @@ namespace FallenFaction.Server.Controllers
         /// </summary>
         [Authorize]
         [HttpPost("AddComment")]
+        [EnableRateLimiting("comment-create")]
         public async Task<ActionResult<CommentDto>> AddComment([FromBody] AddCommentRequestDto dto)
         {
             try

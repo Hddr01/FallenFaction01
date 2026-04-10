@@ -13,6 +13,10 @@ RUN mkdir -p /root/.aspnet/https && \
     touch /root/.aspnet/https/fallenfaction.client.pem && \
     touch /root/.aspnet/https/fallenfaction.client.key
 
+# VITE_* vars are baked into the bundle at build time — pass as build arg
+ARG VITE_SENTRY_DSN=""
+ENV VITE_SENTRY_DSN=$VITE_SENTRY_DSN
+
 RUN npm run build
 # Output goes to /app/dist
 

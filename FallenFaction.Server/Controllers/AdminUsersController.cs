@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc;
 using FallenFaction.Server.Data;
 using FallenFaction.Server.Data.Models;
 using System.Linq;
@@ -83,7 +84,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching users");
-                return StatusCode(500, new { message = "Error fetching users", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching users" });
             }
         }
 
@@ -140,7 +141,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching user details for ID: {Id}", id);
-                return StatusCode(500, new { message = "Error fetching user details", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching user details" });
             }
         }
 
@@ -186,7 +187,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error banning user {UserId} from {BanType}", request.UserId, request.BanType);
-                return StatusCode(500, new { message = "Error banning user", error = ex.Message });
+                return StatusCode(500, new { message = "Error banning user" });
             }
         }
 
@@ -232,7 +233,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error unbanning user {UserId} from {BanType}", request.UserId, request.BanType);
-                return StatusCode(500, new { message = "Error unbanning user", error = ex.Message });
+                return StatusCode(500, new { message = "Error unbanning user" });
             }
         }
 
@@ -285,7 +286,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error changing role for user {UserId} to {Role}", request.UserId, request.Role);
-                return StatusCode(500, new { message = "Error changing user role", error = ex.Message });
+                return StatusCode(500, new { message = "Error changing user role" });
             }
         }
 
@@ -325,7 +326,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting user {UserId}", id);
-                return StatusCode(500, new { message = "Error deleting user", error = ex.Message });
+                return StatusCode(500, new { message = "Error deleting user" });
             }
         }
 
@@ -344,20 +345,26 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching roles");
-                return StatusCode(500, new { message = "Error fetching roles", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching roles" });
             }
         }
 
         // Request DTOs
         public class BanUserRequest
         {
+            [Required, StringLength(36)]
             public string UserId { get; set; } = string.Empty;
+
+            [Required, StringLength(20)]
             public string BanType { get; set; } = string.Empty; // "site" or "comments"
         }
 
         public class ChangeRoleRequest
         {
+            [Required, StringLength(36)]
             public string UserId { get; set; } = string.Empty;
+
+            [Required, StringLength(20)]
             public string Role { get; set; } = string.Empty;
         }
     }

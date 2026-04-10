@@ -1,4 +1,5 @@
 // Controllers/TitlesController.cs
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using FallenFaction.Server.Data;
@@ -20,7 +21,6 @@ namespace FallenFaction.Server.Controllers
         private readonly ILogger<TitlesController> _logger;
         private readonly UserManager<AppUser> _userManager;
         private readonly IWebHostEnvironment _hostingEnvironment;
-        private readonly Random _random;
         private readonly ITrustService _trustService;
 
         public TitlesController(
@@ -34,7 +34,6 @@ namespace FallenFaction.Server.Controllers
             _logger = logger;
             _userManager = userManager;
             _hostingEnvironment = hostingEnvironment;
-            _random = new Random();
             _trustService = trustService;
         }
 
@@ -232,7 +231,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating chapter for title {TitleId}", titleId);
-                return StatusCode(500, new { message = "Error creating chapter", error = ex.Message });
+                return StatusCode(500, new { message = "Error creating chapter" });
             }
         }
         // HELPER METHODS: Add these to TitlesController.cs
@@ -990,7 +989,7 @@ namespace FallenFaction.Server.Controllers
         /// GET: api/Titles/{titleName}/chapter/{chapterName}/v{volume}/t{teamId}
         /// </summary>
         [HttpGet("{titleName}/chapter/{chapterName}/v{volume:int}/t{teamId:int}")]
-        public async Task<ActionResult<ChapterDTO>> GetChapterByRoute(string titleName, string chapterName, int volume, int teamId, [FromQuery] int? page = null)
+        public async Task<ActionResult<ChapterDTO>> GetChapterByRoute(string titleName, string chapterName, int volume, int teamId, [FromQuery] int? page = null, [FromQuery] int? cid = null)
         {
             try
             {
@@ -1001,23 +1000,37 @@ namespace FallenFaction.Server.Controllers
 
                 Chapter? chapter = null;
 
+                // Fast path: cid (chapter ID) is provided — used when two chapters share
+                // the same name and would otherwise produce an identical URL.
+                // TitleId must match the slug to prevent cross-title chapter access.
+                if (cid.HasValue && slugId.HasValue)
+                {
+                    chapter = await _context.Chapters
+                        .Include(c => c.Title)
+                        .Include(c => c.Team)
+                        .FirstOrDefaultAsync(c => c.Id == cid.Value && c.TitleId == slugId.Value);
+                }
+
                 // Try to parse chapterName as a number (used when chapter has no name)
                 float? chapterNumFallback = null;
                 if (float.TryParse(chapterName, System.Globalization.NumberStyles.Float,
                         System.Globalization.CultureInfo.InvariantCulture, out var parsedNum))
                     chapterNumFallback = parsedNum;
 
-                if (slugId.HasValue)
+                if (chapter == null && slugId.HasValue)
                 {
-                    // Slug lookup — fast, by ID; match by Name first
+                    // Slug lookup — match by Name; ORDER BY ChapterNumber so that when
+                    // multiple chapters share the same name the earliest one wins deterministically.
                     chapter = await _context.Chapters
                         .Include(c => c.Title)
                         .Include(c => c.Team)
-                        .FirstOrDefaultAsync(c =>
+                        .Where(c =>
                             c.TitleId == slugId.Value &&
                             c.Name == chapterName &&
                             c.VolumeNumber == volume &&
-                            c.TeamId == teamId);
+                            c.TeamId == teamId)
+                        .OrderBy(c => c.ChapterNumber)
+                        .FirstOrDefaultAsync();
 
                     // Fallback: chapter has empty name — match by ChapterNumber instead
                     if (chapter == null && chapterNumFallback.HasValue)
@@ -1036,15 +1049,17 @@ namespace FallenFaction.Server.Controllers
 
                 if (chapter == null)
                 {
-                    // Fallback: legacy plain-name lookup
+                    // Fallback: legacy plain-name lookup; ORDER BY ChapterNumber for same reason.
                     chapter = await _context.Chapters
                         .Include(c => c.Title)
                         .Include(c => c.Team)
-                        .FirstOrDefaultAsync(c =>
+                        .Where(c =>
                             c.Title.OriginalTitle == decodedTitleName &&
                             c.Name == chapterName &&
                             c.VolumeNumber == volume &&
-                            c.TeamId == teamId);
+                            c.TeamId == teamId)
+                        .OrderBy(c => c.ChapterNumber)
+                        .FirstOrDefaultAsync();
                 }
 
                 // Last resort: numeric fallback for plain-name titles with unnamed chapters
@@ -1176,15 +1191,25 @@ namespace FallenFaction.Server.Controllers
 
         public class CreateChapterRequest
         {
+            [Required, StringLength(255)]
             public string Name { get; set; } = string.Empty;
+
+            [Range(0, 9999)]
             public int VolumeNumber { get; set; }
+
+            [Range(0, 99999)]
             public int ChapterNumber { get; set; }
+
+            [Range(1, int.MaxValue)]
             public int TeamId { get; set; }
+
+            [Required, StringLength(100000, MinimumLength = 1, ErrorMessage = "Chapter content must be between 1 and 100,000 characters.")]
             public string Content { get; set; } = string.Empty;
         }
 
         public class RejectChapterRequest
         {
+            [StringLength(1000)]
             public string? Reason { get; set; }
         }
 
@@ -1192,79 +1217,6 @@ namespace FallenFaction.Server.Controllers
 
         // ... [Rest of existing methods remain the same] ...
 
-        /// <summary>
-        /// Get debug info about database state
-        /// GET: api/Titles/Debug
-        /// </summary>
-        [HttpGet("Debug")]
-        public async Task<ActionResult> GetDebugInfo()
-        {
-            try
-            {
-                var titleCount = await _context.Titles.CountAsync();
-                var availableTitleCount = await _context.Titles.CountAsync(t => t.IsAvailable);
-                var userCount = await _context.Users.CountAsync();
-                var teamCount = await _context.Teams.CountAsync();
-                var chapterCount = await _context.Chapters.CountAsync();
-                var pendingChapterCount = await _context.PendingChapters.CountAsync();
-                var chapterViewCount = await _context.ChapterViews.CountAsync();
-                var ratingCount = await _context.Ratings.CountAsync();
-                var bookmarkCount = await _context.Bookmarks.CountAsync();
-                var bookmarkFolderCount = await _context.BookmarkFolders.CountAsync();
-
-                var sampleTitles = await _context.Titles
-                    .Include(t => t.Chapters)
-                    .Include(t => t.Ratings)
-                    .Include(t => t.Bookmarks)
-                    .Take(3)
-                    .Select(t => new {
-                        t.Id,
-                        t.OriginalTitle,
-                        t.EnglishTitle,
-                        t.IsAvailable,
-                        t.ReleaseDate,
-                        ChapterCount = t.Chapters.Count(),
-                        LatestChapter = t.Chapters.Any() ? t.Chapters.Max(c => c.ChapterNumber) : 0,
-                        LastUpdate = t.Chapters.Any() ? t.Chapters.Max(c => c.ReleaseDate) : (DateTime?)null,
-                        AverageRating = t.Ratings.Any() ? t.Ratings.Average(r => (double)r.Value) : 0.0,
-                        BookmarkCount = t.Bookmarks.Count(),
-                        ViewCount = t.Chapters.SelectMany(c => c.Views).Count()
-                    })
-                    .ToListAsync();
-
-                return Ok(new
-                {
-                    TotalTitles = titleCount,
-                    AvailableTitles = availableTitleCount,
-                    TotalUsers = userCount,
-                    TotalTeams = teamCount,
-                    TotalChapters = chapterCount,
-                    PendingChapters = pendingChapterCount,
-                    TotalChapterViews = chapterViewCount,
-                    TotalRatings = ratingCount,
-                    TotalBookmarks = bookmarkCount,
-                    TotalBookmarkFolders = bookmarkFolderCount,
-                    SampleTitles = sampleTitles,
-                    DatabaseConnected = true,
-                    ModelInfo = new
-                    {
-                        RatingScale = "1-10 (integer)",
-                        BookmarkSystem = "Folder-based with LastReadChapter tracking",
-                        ChapterViewTracking = "Per-user view tracking with IP and UserAgent",
-                        CommentSystem = "Nested comments with reactions"
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting debug info");
-                return Ok(new
-                {
-                    Error = ex.Message,
-                    DatabaseConnected = false
-                });
-            }
-        }
         // Add these methods to your TitlesController.cs
 
         /// <summary>
@@ -1459,7 +1411,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching featured titles: {Error}", ex.Message);
-                return StatusCode(500, new { message = "Error fetching featured titles", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching featured titles" });
             }
         }
 
@@ -1537,7 +1489,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching popular titles: {Error}", ex.Message);
-                return StatusCode(500, new { message = "Error fetching popular titles", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching popular titles" });
             }
         }
 
@@ -1607,7 +1559,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching recent updates: {Error}", ex.Message);
-                return StatusCode(500, new { message = "Error fetching recent updates", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching recent updates" });
             }
         }
 
@@ -1718,7 +1670,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching title details for {EncodedTitle}: {Error}", encodedTitle, ex.Message);
-                return StatusCode(500, new { message = "Error fetching title details", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching title details" });
             }
         }
 
@@ -1756,7 +1708,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching title by slug: {Slug}", slug);
-                return StatusCode(500, new { message = "Error fetching title", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching title" });
             }
         }
 
@@ -1776,6 +1728,8 @@ namespace FallenFaction.Server.Controllers
             {
                 if (string.IsNullOrWhiteSpace(originalTitle) && string.IsNullOrWhiteSpace(englishTitle))
                     return Ok(new { matches = new List<object>() });
+                if (originalTitle?.Length > 255 || englishTitle?.Length > 255 || alternativeNames?.Length > 1000)
+                    return BadRequest(new { message = "Title parameters exceed maximum allowed length." });
 
                 // Gather all candidate name tokens from the pending title
                 var inputNames = new List<string>();
@@ -1854,7 +1808,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error checking title similarity");
-                return StatusCode(500, new { message = "Error checking similarity", error = ex.Message });
+                return StatusCode(500, new { message = "Error checking similarity" });
             }
         }
 
@@ -1944,7 +1898,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching user bookmarks");
-                return StatusCode(500, new { message = "Error fetching bookmarks", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching bookmarks" });
             }
         }
 
@@ -2012,7 +1966,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching trending titles: {Error}", ex.Message);
-                return StatusCode(500, new { message = "Error fetching trending titles", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching trending titles" });
             }
         }
 
@@ -2148,6 +2102,8 @@ namespace FallenFaction.Server.Controllers
         {
             if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 2)
                 return Ok(new List<object>());
+            if (query.Length > 100)
+                return BadRequest(new { message = "Search query must not exceed 100 characters." });
 
             var q = query.Trim().ToLower();
             var results = await _context.Titles
@@ -2184,6 +2140,8 @@ namespace FallenFaction.Server.Controllers
         {
             if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 2)
                 return Ok(new List<object>());
+            if (query.Length > 100)
+                return BadRequest(new { message = "Search query must not exceed 100 characters." });
 
             var q = query.Trim().ToLower();
             var tags = await _context.Tags
@@ -2227,6 +2185,7 @@ namespace FallenFaction.Server.Controllers
                 if (page < 1) page = 1;
                 if (pageSize < 1) pageSize = 24;
                 if (pageSize > 100) pageSize = 100;
+                if (search?.Length > 100) return BadRequest(new { message = "Search query must not exceed 100 characters." });
 
                 // Base query for filtering, sorting, and counting — no Includes needed here
                 // because only title IDs are materialized from this query (.Select(t => t.Id)).
@@ -2492,7 +2451,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching catalog: {Error}", ex.Message);
-                return StatusCode(500, new { message = "Error fetching catalog", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching catalog" });
             }
         }
 
@@ -2592,7 +2551,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching filter options: {Error}", ex.Message);
-                return StatusCode(500, new { message = "Error fetching filter options", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching filter options" });
             }
         }
 

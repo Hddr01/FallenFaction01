@@ -77,8 +77,21 @@
           </div>
         </div>
 
+        <!-- Email confirmation required banner -->
+        <div v-if="needsEmailConfirmation" class="rounded-md bg-amber-50 border border-amber-200 p-4">
+          <p class="text-sm font-medium text-amber-800 mb-2">
+            Please confirm your email address before logging in.
+          </p>
+          <p class="text-xs text-amber-700 mb-3">Check your inbox for the confirmation link.</p>
+          <button @click="handleResendConfirmation"
+                  :disabled="resendCooldown > 0 || resendLoading"
+                  class="text-xs font-medium text-amber-900 underline disabled:opacity-50">
+            {{ resendLoading ? 'Sending…' : resendCooldown > 0 ? `Resend link (${resendCooldown}s)` : 'Resend confirmation email' }}
+          </button>
+        </div>
+
         <!-- Error message -->
-        <div v-if="authStore.error" class="rounded-md bg-red-50 p-4">
+        <div v-if="authStore.error && !needsEmailConfirmation" class="rounded-md bg-red-50 p-4">
           <div class="flex">
             <div class="flex-shrink-0">
               <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
@@ -157,6 +170,7 @@
 import { reactive, ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../../stores/authStore';
+import authApi from '../../services/authApi';
 
 const router = useRouter();
 const route = useRoute();
@@ -186,16 +200,46 @@ const validateForm = () => {
   return Object.keys(errors.value).length === 0;
 };
 
+const needsEmailConfirmation = ref(false);
+const resendCooldown = ref(0);
+const resendLoading = ref(false);
+let cooldownTimer = null;
+
+const startCooldown = () => {
+  resendCooldown.value = 60;
+  cooldownTimer = setInterval(() => {
+    resendCooldown.value--;
+    if (resendCooldown.value <= 0) clearInterval(cooldownTimer);
+  }, 1000);
+};
+
+const handleResendConfirmation = async () => {
+  if (resendCooldown.value > 0) return;
+  resendLoading.value = true;
+  try {
+    await authApi.resendConfirmation(form.email);
+    startCooldown();
+  } finally {
+    resendLoading.value = false;
+  }
+};
+
 const handleLogin = async () => {
+  needsEmailConfirmation.value = false;
   if (!validateForm()) return;
-  
+
   authStore.clearError();
-  
+
   const result = await authStore.login({
     email: form.email,
     password: form.password,
     rememberMe: form.rememberMe
   });
+
+  if (result.requiresEmailConfirmation) {
+    needsEmailConfirmation.value = true;
+    return;
+  }
 
   if (result.requiresTermsAcceptance) {
     const redirectTo = typeof route.query.redirect === 'string' ? route.query.redirect : '/';
