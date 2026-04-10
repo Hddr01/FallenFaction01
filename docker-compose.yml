@@ -31,12 +31,22 @@ services:
         TrustServerCertificate=True;
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:7217
-      HTTP_PORTS=
+      HTTP_PORTS: ""                # silences "Overriding HTTP_PORTS" warning in Sentry
       JwtSettings__Secret: ${JWT_SECRET}
       JwtSettings__Issuer: "FallenFaction"
       JwtSettings__Audience: "FallenFactionUsers"
       JwtSettings__ExpirationInHours: "24"
       StaticAssets__BaseUrl: ""
+      Sentry__Dsn: ${SENTRY_DSN}
+      Patreon__ClientId: ${PATREON_CLIENT_ID}
+      Patreon__ClientSecret: ${PATREON_CLIENT_SECRET}
+      Patreon__WebhookSecret: ${PATREON_WEBHOOK_SECRET}
+      Patreon__RedirectUri: ${PATREON_REDIRECT_URI}
+      FrontendBaseUrl: "https://fallenfaction.com"
+      Resend__ApiKey: ${RESEND_API_KEY}
+      Resend__FromEmail: "noreply@fallenfaction.com"
+      Resend__AdminEmail: "contact@fallenfaction.com"
+      Resend__DmcaEmail: "dmca@fallenfaction.com"
       # Uncomment when you add OAuth:
       # Authentication__Google__ClientId: ${GOOGLE_CLIENT_ID}
       # Authentication__Google__ClientSecret: ${GOOGLE_CLIENT_SECRET}
@@ -44,20 +54,22 @@ services:
       # Authentication__Facebook__AppSecret: ${FACEBOOK_APP_SECRET}
     volumes:
       - uploads_data:/app/wwwroot/uploads
-      dataprotection-keys:
-    # No ports exposed publicly — nginx proxies to backend internally
+      - dataprotection_keys:/app/dataprotection-keys  # persists ASP.NET Data Protection keys across restarts
+    ports:
+      - "127.0.0.1:7217:7217"
 
   # ── Vue.js frontend (nginx) ──────────────────────────────────────────────────
-frontend:
-  image: ${REGISTRY}/frontend:${IMAGE_TAG:-latest}
-  restart: always
-  depends_on:
-    - backend
-  expose:
-    - "80"
-  volumes:
-    - uploads_data:/app/uploads:ro
+  frontend:
+    image: ${REGISTRY}/frontend:${IMAGE_TAG:-latest}
+    restart: always
+    depends_on:
+      - backend
+    expose:
+      - "80"
+    volumes:
+      - uploads_data:/app/uploads:ro
 
 volumes:
   sqlserver_data:                   # persistent DB storage — survives container restarts
   uploads_data:                     # covers, avatars, chapter images
+  dataprotection_keys:              # ASP.NET Data Protection key ring

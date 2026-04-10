@@ -353,7 +353,7 @@
         ? encodeURIComponent(chapter.name.trim())
         : encodeURIComponent(String(chapter.chapterNumber))
       const teamId = chapter.teamId ?? 0
-      router.push(`/${titleSlug}/chapter/${chapterSeg}/v${chapter.volumeNumber}/t${teamId}`)
+      router.push(`/${titleSlug}/chapter/${chapterSeg}/v${chapter.volumeNumber}/t${teamId}?cid=${chapter.id}`)
     }
   }
 

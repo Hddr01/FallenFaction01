@@ -4,6 +4,7 @@ using FallenFaction.Server.Data.SeedData;
 using FallenFaction.Server.Mappings;
 using FallenFaction.Server.Services;
 using FallenFaction.Server.Services.Interfaces;
+using Resend;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -11,19 +12,32 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.ActionConstraints;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Globalization;
 using System.Text;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Limit request body size at the transport layer to prevent oversized payloads.
+// Set to 10 MB to accommodate banner image uploads (UserProfileController allows up to 10 MB).
+// Chapter content (~100k chars) is at most ~300 KB UTF-8, well within this limit.
+// Per-endpoint size enforcement (avatars: 5 MB, banners: 10 MB, images: 5 MB) is
+// applied inside each action for a user-friendly error response.
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 10 * 1024 * 1024; // 10 MB global
+});
 
 // ── Sentry ────────────────────────────────────────────────────────────────────
 builder.WebHost.UseSentry(o =>
 {
-    o.Dsn = "https://3e16ba7f675f7e2275f6be74470da89d@o4511149751795712.ingest.de.sentry.io/4511149790789712";
+    o.Dsn = builder.Configuration["Sentry:Dsn"];
     o.TracesSampleRate = 1.0;
-    o.EnableLogs = true;
-    o.SendDefaultPii = true;
+    o.EnableLogs = false;
+    o.SendDefaultPii = false;
     o.Debug = false;
 });
 
@@ -61,6 +75,7 @@ builder.Services.AddDataProtection()
 #endregion
 
 #region Services
+builder.Services.AddResponseCaching();
 builder.Services.AddScoped<ICommentService, CommentService>();
 builder.Services.AddScoped<ITrustService, TrustService>();
 
@@ -68,6 +83,18 @@ builder.Services.AddAutoMapper(typeof(AuthMappingProfile));
 
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+
+// ── Resend email ───────────────────────────────────────────────────────────
+builder.Services.Configure<ResendClientOptions>(options =>
+{
+    var apiKey = builder.Configuration["Resend:ApiKey"];
+    if (string.IsNullOrWhiteSpace(apiKey))
+        Console.WriteLine("[WARNING] Resend:ApiKey is not configured — emails will fail at send time. Set the Resend__ApiKey environment variable.");
+    options.ApiToken = apiKey ?? string.Empty;
+});
+builder.Services.AddHttpClient<ResendClient>();
+builder.Services.AddTransient<IResend, ResendClient>();
+builder.Services.AddScoped<IEmailService, ResendEmailService>();
 
 builder.Services.AddHostedService<OnlineStatusCleanupService>();
 builder.Services.AddHostedService<SilverTicketExpiryService>();
@@ -133,8 +160,9 @@ builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
 
 #region JWT
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-var secret = jwtSettings["Secret"]
-    ?? throw new InvalidOperationException("JWT Secret missing");
+var secret = jwtSettings["Secret"];
+if (string.IsNullOrWhiteSpace(secret))
+    throw new InvalidOperationException("JWT Secret is missing or empty. Set the JwtSettings__Secret environment variable.");
 
 var key = Encoding.UTF8.GetBytes(secret);
 
@@ -164,7 +192,100 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
+#region Rate Limiting
+// Reads X-Forwarded-For directly so the real client IP is used even before
+// UseForwardedHeaders middleware has run (rate limiting evaluates at routing time).
+static string GetClientIp(HttpContext context)
+{
+    if (context.Request.Headers.TryGetValue("X-Forwarded-For", out var forwardedFor))
+    {
+        var ips = forwardedFor.ToString().Split(',', StringSplitOptions.RemoveEmptyEntries);
+        if (ips.Length > 0 && !string.IsNullOrWhiteSpace(ips[0]))
+            return ips[0].Trim();
+    }
+    return context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+}
+
+builder.Services.AddRateLimiter(options =>
+{
+    // Global limiter: applied to every request — general abuse protection
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+    {
+        var ip = GetClientIp(context);
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 100,
+            Window = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0
+        });
+    });
+
+    // Login policy: strict per-IP limit for authentication endpoints
+    options.AddPolicy("login", context =>
+    {
+        var ip = GetClientIp(context);
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 5,
+            Window = TimeSpan.FromMinutes(15),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0
+        });
+    });
+
+    // Ticket unlock policy: prevent rapid unlock spam (10 per minute per IP)
+    options.AddPolicy("ticket-unlock", context =>
+    {
+        var ip = GetClientIp(context);
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0
+        });
+    });
+
+    // Comment creation policy: prevent comment spam (20 per minute per IP)
+    options.AddPolicy("comment-create", context =>
+    {
+        var ip = GetClientIp(context);
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 20,
+            Window = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0
+        });
+    });
+
+    options.OnRejected = async (context, token) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.ContentType = "application/json";
+
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter =
+                ((int)retryAfter.TotalSeconds).ToString(CultureInfo.InvariantCulture);
+        }
+
+        await context.HttpContext.Response.WriteAsync(
+            "{\"success\":false,\"message\":\"Too many requests. Please try again later.\"}",
+            cancellationToken: token);
+    };
+});
+#endregion
+
 builder.Services.AddSwaggerGen();
+builder.Services.AddMemoryCache();
+
+builder.Services.AddHsts(options =>
+{
+    options.MaxAge = TimeSpan.FromDays(365);
+    options.IncludeSubDomains = true;
+});
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
@@ -199,6 +320,17 @@ using (var scope = app.Services.CreateScope())
 
     await PermissionSeeder.SeedPermissions(db);
     await AITeamSeeder.SeedAsync(db, userManager);
+
+    // Grandfather all pre-existing users as email-confirmed so they aren't locked out
+    // when RequireConfirmedEmail becomes enforced in LoginAsync.
+    var unconfirmed = userManager.Users.Where(u => !u.EmailConfirmed).ToList();
+    foreach (var u in unconfirmed)
+    {
+        u.EmailConfirmed = true;
+        await userManager.UpdateAsync(u);
+    }
+    if (unconfirmed.Count > 0)
+        Console.WriteLine($"[Startup] Grandfathered {unconfirmed.Count} existing user(s) as email-confirmed.");
 
     string[] roles = { "Admin", "Moderator", "User" };
 
@@ -242,7 +374,28 @@ if (app.Environment.IsDevelopment())
 
 app.UseHsts();
 app.UseRouting();
+app.UseResponseCaching();
 app.UseSentryTracing();  // ← traces every request
+
+// Security headers
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
+    context.Response.Headers.Append("X-Frame-Options", "DENY");
+    context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
+    context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+    context.Response.Headers.Append("Content-Security-Policy",
+        "default-src 'self'; " +
+        "script-src 'self' 'unsafe-inline'; " +
+        "style-src 'self' 'unsafe-inline'; " +
+        "img-src 'self' data: https:; " +
+        "font-src 'self' data:; " +
+        "connect-src 'self' https:; " +
+        "frame-ancestors 'none'; " +
+        "base-uri 'self'; " +
+        "form-action 'self'");
+    await next();
+});
 
 // CORS must be between UseRouting() and UseAuthentication() for endpoint routing
 if (app.Environment.IsDevelopment())
@@ -250,10 +403,43 @@ if (app.Environment.IsDevelopment())
 else
     app.UseCors("AllowVueApp");
 
+// Rate limiter runs after CORS so preflight (OPTIONS) requests are not counted
+app.UseRateLimiter();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapGet("/llms.txt", () => Results.Text("""
+# Fallen Faction
+
+## About
+Fallen Faction (https://fallenfaction.com) is a free web platform for reading
+translated and original web novels, light novels, and short stories. It hosts
+titles across genres including fantasy, cultivation (Wuxia, Xianxia, Xuanhuan),
+romance, and classic fiction.
+
+## What makes it different
+- Clean, distraction-free reading experience
+- Supports translated, original, fan-fiction, and AI-translated titles
+- Chapter-by-chapter reading with volume organization
+- Community features: ratings, comments, bookmarks, and reading progress tracking
+- Team-based translation groups managing their own titles
+
+## Content types
+- Web Novels, Light Novels, Short Stories
+- Wuxia, Xianxia, Xuanhuan (Chinese cultivation genres)
+- Classic Fiction, Fan Fiction
+- AI-assisted translations (ticket-gated)
+
+## URL
+https://fallenfaction.com
+
+## Sitemap
+https://fallenfaction.com/sitemap.xml
+""", "text/plain"));
+
 app.MapFallbackToFile("index.html");
 
 #endregion

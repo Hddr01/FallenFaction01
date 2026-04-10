@@ -284,7 +284,7 @@
       : encodeURIComponent(!Number.isNaN(num) ? String(num) : '0')
     // teamId is a flat field on ChapterDTO; fall back to nested team.id then 0.
     const teamId = chapter.teamId ?? chapter.team?.id ?? 0
-    return `/${props.titleSlug}/chapter/${seg}/v${chapter.volumeNumber}/t${teamId}`
+    return `/${props.titleSlug}/chapter/${seg}/v${chapter.volumeNumber}/t${teamId}?cid=${chapter.id}`
   }
 
   const formatDate = (dateString) => {

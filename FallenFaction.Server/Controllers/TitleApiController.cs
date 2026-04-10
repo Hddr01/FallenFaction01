@@ -198,6 +198,18 @@ namespace FallenFaction.Server.Controllers
                     return BadRequest(new { error = "One or more selected teams do not exist" });
                 }
 
+                // Validate external links — filter nulls/whitespace first, then check limits
+                if (request.ExternalLinks != null)
+                {
+                    request.ExternalLinks = request.ExternalLinks
+                        .Where(l => !string.IsNullOrWhiteSpace(l))
+                        .ToList();
+                    if (request.ExternalLinks.Count > 20)
+                        return BadRequest(new { error = "A maximum of 20 external links is allowed." });
+                    if (request.ExternalLinks.Any(l => l.Length > 500))
+                        return BadRequest(new { error = "Each external link must not exceed 500 characters." });
+                }
+
                 // Create the pending title
                 var pendingTitle = new PendingTitle
                 {
@@ -329,7 +341,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating pending title");
-                return StatusCode(500, new { error = "Failed to create title: " + ex.Message });
+                return StatusCode(500, new { error = "Failed to create title." });
             }
         }
 
@@ -881,7 +893,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error submitting title edit for {TitleId}", id);
-                return StatusCode(500, new { error = "Failed to submit changes: " + ex.Message });
+                return StatusCode(500, new { error = "Failed to submit changes." });
             }
         }
 
@@ -896,6 +908,8 @@ namespace FallenFaction.Server.Controllers
         {
             if (string.IsNullOrWhiteSpace(q))
                 return Ok(new List<object>());
+            if (q.Length > 100)
+                return BadRequest(new { message = "Search query must not exceed 100 characters." });
 
             var results = await _context.Titles
                 .Where(t => t.IsAvailable &&
@@ -1136,6 +1150,12 @@ namespace FallenFaction.Server.Controllers
             if (image == null || image.Length == 0)
                 return null;
 
+            if (image.Length > 5 * 1024 * 1024)
+            {
+                _logger.LogWarning("Image upload rejected: file size {Size} bytes exceeds 5 MB limit", image.Length);
+                return null;
+            }
+
             try
             {
                 var uploads = Path.Combine(_hostingEnvironment.WebRootPath, "uploads", folder);
@@ -1262,7 +1282,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error approving pending title {id}");
-                return StatusCode(500, new { error = "Failed to approve title: " + ex.Message });
+                return StatusCode(500, new { error = "Failed to approve title." });
             }
         }
 
@@ -1340,7 +1360,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error rejecting pending title {id}");
-                return StatusCode(500, new { error = "Failed to reject title: " + ex.Message });
+                return StatusCode(500, new { error = "Failed to reject title." });
             }
         }
     }
@@ -1348,22 +1368,42 @@ namespace FallenFaction.Server.Controllers
     // Request model remains the same
     public class CreateTitleRequest
     {
-        [Required]
+        [Required, StringLength(255)]
         public string EnglishTitle { get; set; } = string.Empty;
 
+        [StringLength(255)]
         public string? OriginalTitle { get; set; }
+
+        [StringLength(1000)]
         public string? AlternativeNames { get; set; }
+
+        [Range(1, 8)]
         public int? Type { get; set; }
 
         // Content classification
+        [Range(1, 4)]
         public int? TitleCategory { get; set; }    // 1=Translation, 2=Original, 3=Fanfic
         public int? SourceTitleId { get; set; }        // Fanfic: in-system source title (optional)
+
+        [StringLength(500)]
         public string? SourceTitleName { get; set; }   // Fanfic: free-text source name (fallback)
+
+        [StringLength(50)]
         public string? ReleaseDate { get; set; }
+
+        [StringLength(10000)]
         public string? Description { get; set; }
+
+        [StringLength(50)]
         public string? StatusTitle { get; set; }
+
+        [StringLength(50)]
         public string? StatusTranslation { get; set; }
+
+        [Range(0, 18)]
         public int? AgeRestriction { get; set; }
+
+        // External links (max 20 URLs, each max 500 chars)
         public List<string>? ExternalLinks { get; set; }
 
         // File uploads
@@ -1383,6 +1423,7 @@ namespace FallenFaction.Server.Controllers
     // Request model for rejecting titles
     public class RejectTitleRequest
     {
+        [StringLength(1000)]
         public string? Reason { get; set; }
     }
 }

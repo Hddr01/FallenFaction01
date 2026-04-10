@@ -29,11 +29,13 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    const requestUrl = error.config?.url || '';
+
     // Handle different error scenarios
     if (error.response?.status === 401) {
       // Only redirect to login if this isn't a logout request
-      const isLogoutRequest = error.config?.url?.includes('/auth/logout');
-      const isAcceptTermsRequest = error.config?.url?.includes('/auth/accept-terms');
+      const isLogoutRequest = requestUrl.includes('/auth/logout');
+      const isAcceptTermsRequest = requestUrl.includes('/auth/accept-terms');
 
       if (!isLogoutRequest && !isAcceptTermsRequest) {
         // Token expired or invalid for non-logout requests
@@ -44,6 +46,21 @@ api.interceptors.response.use(
         if (!window.location.pathname.includes('/account/login')) {
           window.location.href = '/account/login';
         }
+      }
+    }
+
+    if (error.response?.status === 429) {
+      // Silent background calls should never navigate away from the current page
+      const backgroundEndpoints = ['/auth/heartbeat', '/auth/online-status', '/auth/health'];
+      const isBackgroundRequest = backgroundEndpoints.some(ep => requestUrl.includes(ep));
+
+      if (!isBackgroundRequest && !window.location.pathname.startsWith('/error/')) {
+        const retryAfter = error.response.headers['retry-after'];
+        const message = retryAfter
+          ? `Too many requests. Please try again in ${retryAfter} seconds.`
+          : 'Too many requests. Please slow down and try again.';
+
+        window.location.href = `/error/429?message=${encodeURIComponent(message)}&retry=true`;
       }
     }
 
@@ -224,6 +241,33 @@ const authApi = {
         status: 'unhealthy',
         error: error.message
       };
+    }
+  },
+
+  async confirmEmail(userId, token) {
+    try {
+      const response = await api.get('/auth/confirm-email', { params: { userId, token } });
+      return response.data;
+    } catch (error) {
+      return error.response?.data ?? { success: false, message: 'Confirmation failed.' };
+    }
+  },
+
+  async resendConfirmation(email) {
+    try {
+      const response = await api.post('/auth/resend-confirmation', { email });
+      return response.data;
+    } catch (error) {
+      return error.response?.data ?? { success: false, message: 'Failed to resend confirmation.' };
+    }
+  },
+
+  async submitContact(formData) {
+    try {
+      const response = await api.post('/contact', formData);
+      return response.data;
+    } catch (error) {
+      return error.response?.data ?? { success: false, message: 'Failed to send message.' };
     }
   },
 

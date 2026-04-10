@@ -51,6 +51,9 @@ namespace FallenFaction.Server.Controllers
                     .Include(r => r.ReviewedByUser)
                     .AsQueryable();
 
+                if (searchQuery?.Length > 100)
+                    return BadRequest(new { message = "Search query must not exceed 100 characters." });
+
                 // Filters
                 if (status.HasValue)
                     query = query.Where(r => r.Status == status.Value);

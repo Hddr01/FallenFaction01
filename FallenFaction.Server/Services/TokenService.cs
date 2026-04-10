@@ -24,6 +24,9 @@ namespace FallenFaction.Server.Services
         {
             var jwtSettings = _configuration.GetSection("JwtSettings");
             var secret = jwtSettings["Secret"];
+            if (string.IsNullOrWhiteSpace(secret))
+                throw new InvalidOperationException("JWT Secret is missing or empty. Set the JwtSettings__Secret environment variable.");
+
             var issuer = jwtSettings["Issuer"];
             var audience = jwtSettings["Audience"];
             var expirationHours = int.Parse(jwtSettings["ExpirationInHours"]);

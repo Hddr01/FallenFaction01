@@ -5,6 +5,7 @@ import NotFoundPage from '../NotFoundPage.vue';
 import ErrorPage from '../ErrorPage.vue';
 import Login from '../identity/auth/Login.vue';
 import Register from '../identity/auth/Register.vue';
+import ConfirmEmail from '../identity/auth/ConfirmEmail.vue';
 import TermsAcceptPage from '../identity/auth/TermsAcceptPage.vue';
 import Profile from '../identity/profile/Profile.vue';
 import { useAuthStore } from '../stores/authStore';
@@ -94,6 +95,7 @@ const routes = [
   // ── Auth ───────────────────────────────────────────────────────────────────
   { path: '/account/login', name: 'Login', component: Login, meta: { requiresGuest: true, title: 'Login' } },
   { path: '/account/register', name: 'Register', component: Register, meta: { requiresGuest: true, title: 'Register' } },
+  { path: '/account/confirm-email', name: 'ConfirmEmail', component: ConfirmEmail, meta: { title: 'Confirm Email' } },
   { path: '/terms/accept', name: 'TermsAccept', component: TermsAcceptPage, meta: { title: 'Accept Terms' } },
 
   // ── Profile ───────────────────────────────────────────────────────────────

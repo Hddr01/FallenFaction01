@@ -448,12 +448,21 @@
     maxWidth: `${contentWidth.value}%`,
   }))
 
+  const escapeHtml = (text) => {
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }
+    return text.replace(/[&<>"']/g, c => map[c])
+  }
+
   const formattedContent = computed(() => {
     if (!chapterData.value?.content) return ''
     return chapterData.value.content
       .split(/\n\n+/)
       .filter(p => p.trim())
-      .map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+      .map(p => {
+        // Escape each line individually, then join with <br> to avoid double-escaping &amp; etc.
+        const lines = p.split('\n').map(line => escapeHtml(line))
+        return `<p>${lines.join('<br>')}</p>`
+      })
       .join('')
   })
 
@@ -467,11 +476,16 @@
 
       // titleSlug is "title-name-{id}"; pass it as the "titleName" param —
       // the backend now resolves both slug and plain-name formats.
+      // cid disambiguates when two chapters share the same name.
+      const cidParsed = parseInt(route.query.cid)
+      const cid = Number.isFinite(cidParsed) && cidParsed > 0 ? cidParsed : null
       const result = await titleDetailsService.getChapterByRoute(
         props.titleSlug,
         props.chapterName,
         props.volumeNumber,
-        props.teamId
+        props.teamId,
+        null,
+        cid
       )
 
       if (result.success && result.data) {
@@ -566,13 +580,15 @@
     return encodeURIComponent('0')
   }
 
-  const buildChapterUrl = (chapterName, volume, teamId, chapterNumber) => {
+  const buildChapterUrl = (chapterName, volume, teamId, chapterNumber, chapterId) => {
     // Always use the slug from props — it is the canonical "name-{id}" value
     // set by the router and is immune to an empty titleName in the chapter DTO.
     const seg = chapterPathSegment(chapterName, chapterNumber)
     const vol = (volume != null && !Number.isNaN(Number(volume))) ? Number(volume) : 1
     const team = (teamId != null && !Number.isNaN(Number(teamId))) ? Number(teamId) : 0
-    return `/${props.titleSlug}/chapter/${seg}/v${vol}/t${team}`
+    const base = `/${props.titleSlug}/chapter/${seg}/v${vol}/t${team}`
+    // Append cid so the backend can disambiguate chapters sharing the same name
+    return chapterId ? `${base}?cid=${chapterId}` : base
   }
 
   const gotoNextChapter = () => {
@@ -581,7 +597,8 @@
       chapterData.value.nextChapterName,
       chapterData.value.nextChapterVolume,
       chapterData.value.nextChapterTeamId,
-      chapterData.value.nextChapterNumber
+      chapterData.value.nextChapterNumber,
+      chapterData.value.nextChapterId
     ))
   }
 
@@ -591,7 +608,8 @@
       chapterData.value.previousChapterName,
       chapterData.value.previousChapterVolume,
       chapterData.value.previousChapterTeamId,
-      chapterData.value.previousChapterNumber
+      chapterData.value.previousChapterNumber,
+      chapterData.value.previousChapterId
     ))
   }
 
@@ -600,7 +618,8 @@
       chapter.name,
       chapter.volumeNumber,
       chapter.teamId,
-      chapter.chapterNumber
+      chapter.chapterNumber,
+      chapter.id
     ))
     toggleChapterList()
   }

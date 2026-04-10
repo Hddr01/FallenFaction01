@@ -50,16 +50,17 @@ export const chapterService = {
    * @param {number} page - Optional page number
    * @returns {Object} - Chapter details for reading
    */
-  async getChapterByRoute(titleName, chapterName, volumeNumber, teamId, page = null) {
+  async getChapterByRoute(titleName, chapterName, volumeNumber, teamId, page = null, cid = null) {
     try {
       const encodedTitleName = encodeURIComponent(titleName);
       const encodedChapterName = encodeURIComponent(chapterName);
 
       let url = `/Titles/${encodedTitleName}/chapter/${encodedChapterName}/v${volumeNumber}/t${teamId}`;
 
-      if (page) {
-        url += `?page=${page}`;
-      }
+      const params = []
+      if (page) params.push(`page=${page}`)
+      if (cid) params.push(`cid=${cid}`)
+      if (params.length) url += `?${params.join('&')}`
 
       const response = await api.get(url);
 

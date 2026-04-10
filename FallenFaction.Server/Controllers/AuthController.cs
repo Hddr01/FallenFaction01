@@ -1,6 +1,7 @@
 // Fixed AuthController.cs - Addresses both POST/PATCH issue and background task disposal
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using FallenFaction.Server.DTOs.Auth;
 using FallenFaction.Server.Services.Interfaces;
 using System.Security.Claims;
@@ -26,6 +27,7 @@ namespace FallenFaction.Server.Controllers
         }
 
         [HttpPost("register")]
+        [EnableRateLimiting("login")]
         public async Task<ActionResult<AuthResponseDto>> Register([FromBody] RegisterDto registerDto)
         {
             if (!ModelState.IsValid)
@@ -66,6 +68,7 @@ namespace FallenFaction.Server.Controllers
 
         [HttpPost("accept-terms")]
         [AllowAnonymous]
+        [EnableRateLimiting("login")]
         public async Task<ActionResult<AuthResponseDto>> AcceptTerms([FromBody] AcceptTermsDto dto)
         {
             if (!ModelState.IsValid)
@@ -105,6 +108,7 @@ namespace FallenFaction.Server.Controllers
         }
 
         [HttpPost("login")]
+        [EnableRateLimiting("login")]
         public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginDto loginDto)
         {
             if (!ModelState.IsValid)
@@ -327,6 +331,33 @@ namespace FallenFaction.Server.Controllers
             }
         }
 
+        // ── Email confirmation ────────────────────────────────────────────────
+
+        [HttpGet("confirm-email")]
+        [AllowAnonymous]
+        public async Task<ActionResult<AuthResponseDto>> ConfirmEmail(
+            [FromQuery] string userId,
+            [FromQuery] string token)
+        {
+            if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(token))
+                return BadRequest(new AuthResponseDto { Success = false, Message = "Invalid confirmation link." });
+
+            var result = await _authService.ConfirmEmailAsync(userId, token);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
+        [HttpPost("resend-confirmation")]
+        [AllowAnonymous]
+        [EnableRateLimiting("login")]
+        public async Task<ActionResult<AuthResponseDto>> ResendConfirmation([FromBody] ResendConfirmationDto dto)
+        {
+            if (!ModelState.IsValid || string.IsNullOrEmpty(dto?.Email))
+                return BadRequest(new AuthResponseDto { Success = false, Message = "Email is required." });
+
+            var result = await _authService.ResendConfirmationEmailAsync(dto.Email);
+            return Ok(result); // always 200 to prevent email enumeration
+        }
+
         // Add health check endpoint
         [HttpGet("health")]
         [AllowAnonymous]
@@ -340,42 +371,7 @@ namespace FallenFaction.Server.Controllers
             });
         }
 
-        // Test endpoint (remove in production)
-        [HttpPost("test-status/{userId}")]
-        [AllowAnonymous]
-        public async Task<ActionResult> TestUpdateStatus(string userId, [FromBody] bool isOnline)
-        {
-            try
-            {
-                _logger.LogInformation("TEST: Updating status for user {UserId} to {IsOnline}", userId, isOnline);
-
-                var result = await _authService.UpdateOnlineStatusAsync(userId, isOnline);
-
-                if (result)
-                {
-                    var user = await _authService.GetUserProfileAsync(userId);
-
-                    return Ok(new
-                    {
-                        success = true,
-                        message = "Status updated successfully",
-                        userId = userId,
-                        newStatus = isOnline,
-                        verifiedStatus = user?.IsOnline,
-                        lastActive = user?.LastActive
-                    });
-                }
-                else
-                {
-                    return BadRequest(new { success = false, message = "Failed to update status" });
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "TEST: Error updating status for user {UserId}", userId);
-                return StatusCode(500, new { success = false, message = ex.Message });
-            }
-        }
     }
 
+    public record ResendConfirmationDto([property: System.ComponentModel.DataAnnotations.EmailAddress][property: System.ComponentModel.DataAnnotations.StringLength(254)] string? Email);
 }

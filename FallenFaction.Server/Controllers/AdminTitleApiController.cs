@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc;
 using FallenFaction.Server.Data;
 using FallenFaction.Server.Data.Models;
 using System.Linq;
@@ -86,7 +87,7 @@ namespace FallenFaction.Server.Controllers.Api
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching approved titles");
-                return StatusCode(500, new { message = "Error fetching approved titles", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching approved titles" });
             }
         }
 
@@ -115,7 +116,7 @@ namespace FallenFaction.Server.Controllers.Api
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching monitored titles");
-                return StatusCode(500, new { message = "Error fetching monitored titles", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching monitored titles" });
             }
         }
 
@@ -172,7 +173,7 @@ namespace FallenFaction.Server.Controllers.Api
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching pending title details for ID: {Id}", id);
-                return StatusCode(500, new { message = "Error fetching pending title details", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching pending title details" });
             }
         }
 
@@ -232,7 +233,7 @@ namespace FallenFaction.Server.Controllers.Api
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error rejecting title with ID: {Id}", request.Id);
-                return StatusCode(500, new { message = "Error rejecting title", error = ex.Message });
+                return StatusCode(500, new { message = "Error rejecting title" });
             }
         }
 
@@ -277,7 +278,7 @@ namespace FallenFaction.Server.Controllers.Api
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error toggling title availability for ID: {Id}", request.Id);
-                return StatusCode(500, new { message = "Error updating title availability", error = ex.Message });
+                return StatusCode(500, new { message = "Error updating title availability" });
             }
         }
 
@@ -312,7 +313,7 @@ namespace FallenFaction.Server.Controllers.Api
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error toggling title comments for ID: {Id}", request.Id);
-                return StatusCode(500, new { message = "Error updating title comments", error = ex.Message });
+                return StatusCode(500, new { message = "Error updating title comments" });
             }
         }
 
@@ -347,7 +348,7 @@ namespace FallenFaction.Server.Controllers.Api
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error toggling chapter comments for ID: {Id}", request.Id);
-                return StatusCode(500, new { message = "Error updating chapter comments", error = ex.Message });
+                return StatusCode(500, new { message = "Error updating chapter comments" });
             }
         }
 
@@ -374,7 +375,7 @@ namespace FallenFaction.Server.Controllers.Api
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting title with ID: {Id}", request.Id);
-                return StatusCode(500, new { message = "Error deleting title", error = ex.Message });
+                return StatusCode(500, new { message = "Error deleting title" });
             }
         }
 
@@ -451,7 +452,7 @@ namespace FallenFaction.Server.Controllers.Api
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching title details for ID: {Id}", id);
-                return StatusCode(500, new { message = "Error fetching title details", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching title details" });
             }
         }
 
@@ -523,7 +524,7 @@ namespace FallenFaction.Server.Controllers.Api
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting title change stats for title {TitleId}", titleId);
-                return StatusCode(500, new { message = "Error retrieving change statistics", error = ex.Message });
+                return StatusCode(500, new { message = "Error retrieving change statistics" });
             }
         }
 
@@ -630,7 +631,7 @@ namespace FallenFaction.Server.Controllers.Api
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting title change log for title {TitleId}", titleId);
-                return StatusCode(500, new { message = "Error retrieving change log", error = ex.Message });
+                return StatusCode(500, new { message = "Error retrieving change log" });
             }
         }
 
@@ -831,6 +832,10 @@ namespace FallenFaction.Server.Controllers.Api
                 if (request.ExternalLinks != null && request.ExternalLinks.Any(l => !string.IsNullOrWhiteSpace(l)))
                 {
                     var validLinks = request.ExternalLinks.Where(l => !string.IsNullOrWhiteSpace(l)).ToList();
+                    if (validLinks.Count > 20)
+                        return BadRequest(new { error = "A maximum of 20 external links is allowed." });
+                    if (validLinks.Any(l => l.Length > 500))
+                        return BadRequest(new { error = "Each external link must not exceed 500 characters." });
                     existingTitle.ExternalLinksSerialized = string.Join(";", validLinks);
                 }
 
@@ -964,7 +969,7 @@ namespace FallenFaction.Server.Controllers.Api
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating title with ID: {Id}", request.Id);
-                return StatusCode(500, new { message = "Error updating title", error = ex.Message });
+                return StatusCode(500, new { message = "Error updating title" });
             }
         }
         /// <summary>
@@ -1094,7 +1099,7 @@ namespace FallenFaction.Server.Controllers.Api
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching pending titles");
-                return StatusCode(500, new { message = "Error fetching pending titles", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching pending titles" });
             }
         }
 
@@ -1137,7 +1142,7 @@ namespace FallenFaction.Server.Controllers.Api
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching pending changes");
-                return StatusCode(500, new { message = "Error fetching pending changes", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching pending changes" });
             }
         }
 
@@ -1183,7 +1188,7 @@ namespace FallenFaction.Server.Controllers.Api
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching pending changes for title {TitleId}", titleId);
-                return StatusCode(500, new { message = "Error fetching pending changes", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching pending changes" });
             }
         }
 
@@ -1404,7 +1409,7 @@ namespace FallenFaction.Server.Controllers.Api
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error approving changes for title {TitleId}", titleId);
-                return StatusCode(500, new { message = "Error approving changes", error = ex.Message });
+                return StatusCode(500, new { message = "Error approving changes" });
             }
         }
 
@@ -1478,7 +1483,7 @@ namespace FallenFaction.Server.Controllers.Api
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error rejecting changes for title {TitleId}", titleId);
-                return StatusCode(500, new { message = "Error rejecting changes", error = ex.Message });
+                return StatusCode(500, new { message = "Error rejecting changes" });
             }
         }
 
@@ -1497,17 +1502,40 @@ namespace FallenFaction.Server.Controllers.Api
         public class UpdateTitleRequest
         {
             public int Id { get; set; }
+
+            [StringLength(255)]
             public string? OriginalTitle { get; set; }
+
+            [StringLength(255)]
             public string? EnglishTitle { get; set; }
+
+            [StringLength(1000)]
             public string? AlternativeNames { get; set; }
+
+            [StringLength(50)]
             public string? ReleaseDate { get; set; }
+
+            [StringLength(10000)]
             public string? Description { get; set; }
+
+            [StringLength(50)]
             public string? StatusTitle { get; set; }
+
+            [StringLength(50)]
             public string? StatusTranslation { get; set; }
+
+            [Range(1, 8)]
             public int? Type { get; set; }
+
+            [Range(1, 4)]
             public int? TitleCategory { get; set; }
+
+            [StringLength(500)]
             public string? SourceTitleName { get; set; }
+
+            [Range(0, 18)]
             public int? AgeRestriction { get; set; }
+
             public bool? IsAvailable { get; set; }
             public bool? AreCommentsEnabled { get; set; }
             public bool? AreChapterCommentsEnabled { get; set; }
@@ -1525,7 +1553,7 @@ namespace FallenFaction.Server.Controllers.Api
             public List<int>? Tags { get; set; }
             public List<int>? Formats { get; set; }
 
-            // External links
+            // External links (max 20 URLs, each max 500 chars)
             public List<string>? ExternalLinks { get; set; }
         }
         // Add this method to your AdminTitleController.cs class
@@ -1629,7 +1657,7 @@ namespace FallenFaction.Server.Controllers.Api
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error searching titles with query: {SearchString}", searchString);
-                return StatusCode(500, new { message = "Error searching titles", error = ex.Message });
+                return StatusCode(500, new { message = "Error searching titles" });
             }
         }
 

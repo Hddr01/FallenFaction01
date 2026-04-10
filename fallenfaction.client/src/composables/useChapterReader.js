@@ -308,12 +308,15 @@ export function useChapterReader(props) {
 
       console.log('Loading chapter:', props)
 
+      const cidParsed = parseInt(route.query.cid)
+      const cid = Number.isFinite(cidParsed) && cidParsed > 0 ? cidParsed : null
       const result = await titleDetailsService.getChapterByRoute(
         props.titleName,
         props.chapterName,
         props.volumeNumber,
         props.teamId,
-        route.query.page
+        route.query.page,
+        cid
       )
 
       if (result.success && result.data) {
@@ -491,7 +494,8 @@ export function useChapterReader(props) {
     const query = {
       viewMode: settings.viewMode,
       page: chapterData.value.previousChapterPageCount || 1,
-      restoreScroll: isGoingBack(targetKey) ? 'true' : 'false'
+      restoreScroll: isGoingBack(targetKey) ? 'true' : 'false',
+      cid: chapterData.value.previousChapterId
     }
 
     router.push({ path: url, query })
@@ -510,7 +514,8 @@ export function useChapterReader(props) {
     const query = {
       viewMode: settings.viewMode,
       page: 1,
-      restoreScroll: 'false'
+      restoreScroll: 'false',
+      cid: chapterData.value.nextChapterId
     }
 
     router.push({ path: url, query })
@@ -528,7 +533,8 @@ export function useChapterReader(props) {
     const query = {
       viewMode: settings.viewMode,
       page: 1,
-      restoreScroll: 'false'
+      restoreScroll: 'false',
+      cid: chapter.id
     }
 
     router.push({ path: url, query })

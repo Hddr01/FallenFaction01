@@ -91,7 +91,20 @@
         <div class="prose-content mb-8">
           <p>Have a question, found a bug, or want to get in touch? Use the form below or email us directly.</p>
         </div>
-        <div class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-xl p-6">
+
+        <!-- Success -->
+        <div v-if="contactState === 'sent'"
+             class="bg-green-50 border border-green-200 rounded-xl p-6 text-center space-y-3">
+          <svg class="h-10 w-10 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+          <p class="font-semibold text-green-800">Message sent!</p>
+          <p class="text-sm text-green-700">We'll get back to you as soon as possible. Check your inbox for a confirmation email.</p>
+          <button @click="contactState = 'idle'" class="text-sm text-green-700 underline">Send another message</button>
+        </div>
+
+        <!-- Form -->
+        <div v-else class="bg-[var(--color-background-soft)] border border-[var(--color-border)] rounded-xl p-6">
           <div class="space-y-4">
             <div>
               <label class="block text-sm font-medium text-[var(--color-text)] mb-1">Subject</label>
@@ -100,7 +113,7 @@
                 <option value="">Select a topic...</option>
                 <option value="bug">Bug Report</option>
                 <option value="feature">Feature Request</option>
-                <option value="copyright">Copyright Issue</option>
+                <option value="copyright">Copyright / DMCA</option>
                 <option value="account">Account Issue</option>
                 <option value="other">Other</option>
               </select>
@@ -115,10 +128,12 @@
               <textarea v-model="contactForm.message" rows="5" placeholder="Describe your issue or question..."
                         class="w-full bg-[var(--color-background)] border border-[var(--color-border)] text-[var(--color-text)] rounded-lg px-4 py-2" />
             </div>
+            <div v-if="contactError" class="text-sm text-red-500">{{ contactError }}</div>
             <div class="flex justify-end">
-              <button @click="submitContact" :disabled="!contactForm.subject || !contactForm.email || !contactForm.message"
-                      class="px-6 py-2 bg-[var(--color-accent)] text-white rounded-lg hover:opacity-90 disabled:opacity-50">
-                Send Message
+              <button @click="submitContact"
+                      :disabled="!contactForm.subject || !contactForm.email || !contactForm.message || contactState === 'sending'"
+                      class="px-6 py-2 bg-[var(--vt-c-indigo)] text-white rounded-lg hover:opacity-90 disabled:opacity-50">
+                {{ contactState === 'sending' ? 'Sending…' : 'Send Message' }}
               </button>
             </div>
           </div>
@@ -150,6 +165,7 @@
 
 <script setup>
 import { ref, computed } from 'vue';
+import authApi from '../../services/authApi';
 
 const props = defineProps({
   page: { type: String, required: true }
@@ -157,6 +173,8 @@ const props = defineProps({
 
 const openFaq = ref(null);
 const contactForm = ref({ subject: '', email: '', message: '' });
+const contactState = ref('idle'); // 'idle' | 'sending' | 'sent' | 'error'
+const contactError = ref('');
 
 const pageTitle = computed(() => {
   const titles = {
@@ -181,10 +199,26 @@ const faqItems = [
   { q: 'Can I read without an account?', a: 'Yes, you can browse the catalog and read chapters without logging in. An account is needed for bookmarks, comments, ratings, and other interactive features.' },
 ];
 
-function submitContact() {
-  // TODO: Implement contact form submission endpoint
-  alert('Thank you for your message! We will get back to you soon.');
-  contactForm.value = { subject: '', email: '', message: '' };
+async function submitContact() {
+  contactState.value = 'sending';
+  contactError.value = '';
+  try {
+    const result = await authApi.submitContact({
+      subject: contactForm.value.subject,
+      email: contactForm.value.email,
+      message: contactForm.value.message,
+    });
+    if (result?.success === true) {
+      contactState.value = 'sent';
+      contactForm.value = { subject: '', email: '', message: '' };
+    } else {
+      contactState.value = 'error';
+      contactError.value = result?.message || 'Failed to send. Please email us directly.';
+    }
+  } catch {
+    contactState.value = 'error';
+    contactError.value = 'Failed to send. Please email us directly.';
+  }
 }
 </script>
 

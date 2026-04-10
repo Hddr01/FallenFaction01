@@ -33,22 +33,6 @@ namespace FallenFaction.Server.Controllers
             _commentService = commentService;
         }
 
-        /// <summary>
-        /// Test endpoint to verify controller is working
-        /// GET: api/AdminComments/test
-        /// </summary>
-        [HttpGet("test")]
-        [AllowAnonymous] // Remove auth for testing
-        public ActionResult<object> Test()
-        {
-            _logger.LogInformation("AdminComments test endpoint called");
-            return Ok(new
-            {
-                message = "AdminCommentsController is working!",
-                timestamp = DateTime.UtcNow,
-                user = User?.Identity?.Name ?? "Anonymous"
-            });
-        }
 
 
         [HttpGet("GetCommentStats")]
@@ -61,7 +45,7 @@ namespace FallenFaction.Server.Controllers
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return BadRequest(new { message = "An error occurred." });
             }
         }
 
@@ -113,7 +97,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting comment statistics");
-                return StatusCode(500, new { message = "Error retrieving statistics", error = ex.Message });
+                return StatusCode(500, new { message = "Error retrieving statistics" });
             }
         }
 
@@ -138,6 +122,7 @@ namespace FallenFaction.Server.Controllers
                 // Validate parameters
                 if (page < 1) page = 1;
                 if (pageSize < 1 || pageSize > 100) pageSize = 20;
+                if (search?.Length > 100) return BadRequest(new { message = "Search query must not exceed 100 characters." });
 
                 var query = _context.Comments
                     .Include(c => c.User)
@@ -251,7 +236,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting all comments for admin");
-                return StatusCode(500, new { message = "Error retrieving comments", error = ex.Message });
+                return StatusCode(500, new { message = "Error retrieving comments" });
             }
         }
 
@@ -314,7 +299,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting comment {CommentId}", id);
-                return StatusCode(500, new { message = "Error retrieving comment", error = ex.Message });
+                return StatusCode(500, new { message = "Error retrieving comment" });
             }
         }
 
@@ -364,7 +349,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error soft-deleting comment {CommentId}", id);
-                return StatusCode(500, new { message = "Error deleting comment", error = ex.Message });
+                return StatusCode(500, new { message = "Error deleting comment" });
             }
         }
 
@@ -412,7 +397,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error restoring comment {CommentId}", id);
-                return StatusCode(500, new { message = "Error restoring comment", error = ex.Message });
+                return StatusCode(500, new { message = "Error restoring comment" });
             }
         }
 
@@ -475,7 +460,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error permanently deleting comment {CommentId}", id);
-                return StatusCode(500, new { message = "Error permanently deleting comment", error = ex.Message });
+                return StatusCode(500, new { message = "Error permanently deleting comment" });
             }
         }
 
@@ -527,7 +512,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error bulk deleting comments");
-                return StatusCode(500, new { message = "Error bulk deleting comments", error = ex.Message });
+                return StatusCode(500, new { message = "Error bulk deleting comments" });
             }
         }
 
@@ -566,7 +551,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting deletion info for comment {CommentId}", id);
-                return StatusCode(500, new { message = "Error retrieving deletion info", error = ex.Message });
+                return StatusCode(500, new { message = "Error retrieving deletion info" });
             }
         }
 

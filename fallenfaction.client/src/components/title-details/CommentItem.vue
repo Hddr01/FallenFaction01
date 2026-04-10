@@ -68,7 +68,7 @@
             <div v-if="!comment.isDeleted"
                  class="comment-text"
                  :class="{ 'is-collapsed-text': isTextCollapsed }"
-                 v-html="comment.content" />
+                 >{{ comment.content }}</div>
             <div v-else class="deleted-content">
               [This comment has been deleted]
               <span v-if="comment.deletionReason" class="deletion-reason">

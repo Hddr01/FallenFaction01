@@ -87,7 +87,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting ratings for title {TitleId}", request.TitleId);
-                return StatusCode(500, new { message = "Error retrieving ratings", error = ex.Message });
+                return StatusCode(500, new { message = "Error retrieving ratings" });
             }
         }
 
@@ -155,7 +155,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error adding rating for title {TitleId}", request.TitleId);
-                return StatusCode(500, new { message = "Error adding rating", error = ex.Message });
+                return StatusCode(500, new { message = "Error adding rating" });
             }
         }
 
@@ -215,7 +215,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating rating {RatingId}", ratingId);
-                return StatusCode(500, new { message = "Error updating rating", error = ex.Message });
+                return StatusCode(500, new { message = "Error updating rating" });
             }
         }
 
@@ -264,7 +264,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting rating {RatingId}", ratingId);
-                return StatusCode(500, new { message = "Error deleting rating", error = ex.Message });
+                return StatusCode(500, new { message = "Error deleting rating" });
             }
         }
 
@@ -307,7 +307,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting user rating for title {TitleId}", request.TitleId);
-                return StatusCode(500, new { message = "Error retrieving user rating", error = ex.Message });
+                return StatusCode(500, new { message = "Error retrieving user rating" });
             }
         }
 
@@ -364,7 +364,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting rating statistics for title {TitleId}", request.TitleId);
-                return StatusCode(500, new { message = "Error retrieving rating statistics", error = ex.Message });
+                return StatusCode(500, new { message = "Error retrieving rating statistics" });
             }
         }
 
@@ -401,7 +401,7 @@ namespace FallenFaction.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting rating summary for title {TitleId}", titleId);
-                return StatusCode(500, new { message = "Error retrieving rating summary", error = ex.Message });
+                return StatusCode(500, new { message = "Error retrieving rating summary" });
             }
         }
 

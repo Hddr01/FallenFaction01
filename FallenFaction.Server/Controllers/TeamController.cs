@@ -688,9 +688,9 @@ namespace FallenFaction.Server.Controllers
             try
             {
                 if (string.IsNullOrWhiteSpace(query))
-                {
                     return BadRequest(new { message = "Search query is required" });
-                }
+                if (query.Length > 100)
+                    return BadRequest(new { message = "Search query must not exceed 100 characters." });
 
                 var teams = await _context.Teams
                     .Where(t => t.Name.Contains(query) || t.Description.Contains(query))

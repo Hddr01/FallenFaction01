@@ -1,6 +1,34 @@
 <template>
   <div class="min-h-screen flex items-center justify-center bg-[var(--color-background)] py-12 px-4 sm:px-6 lg:px-8">
     <div class="max-w-md w-full space-y-8">
+
+      <!-- Email confirmation sent state -->
+      <div v-if="emailConfirmationSent" class="text-center space-y-6">
+        <div class="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-indigo-100">
+          <svg class="h-8 w-8 text-[var(--vt-c-indigo)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <h2 class="text-2xl font-bold text-[var(--color-heading)]">Check your email</h2>
+        <p class="text-[var(--color-text)] opacity-80">
+          We sent a confirmation link to <strong>{{ registeredEmail }}</strong>.
+          Click the link in the email to activate your account.
+        </p>
+        <p class="text-sm text-[var(--color-text)] opacity-60">
+          Didn't receive it? Check your spam folder or
+          <button @click="handleResend" :disabled="resendCooldown > 0"
+                  class="text-[var(--vt-c-indigo)] hover:opacity-80 underline disabled:opacity-40">
+            resend{{ resendCooldown > 0 ? ` (${resendCooldown}s)` : '' }}
+          </button>.
+        </p>
+        <router-link to="/account/login"
+                     class="inline-block text-sm text-[var(--color-text)] opacity-60 hover:opacity-100 mt-2">
+          ← Back to login
+        </router-link>
+      </div>
+      <!-- Registration form -->
+      <div v-else>
       <div>
         <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-[var(--color-background-soft)]">
           <svg class="h-6 w-6 text-[var(--color-heading)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -180,17 +208,40 @@
           </button>
         </div>
       </form>
+      </div> <!-- end v-else registration form -->
     </div>
   </div>
 </template>
 
 <script setup>
-  import { reactive, ref } from 'vue';
+  import { reactive, ref, onUnmounted } from 'vue';
   import { useRouter } from 'vue-router';
   import { useAuthStore } from '../../stores/authStore';
+  import authApi from '../../services/authApi';
 
   const router = useRouter();
   const authStore = useAuthStore();
+
+  const emailConfirmationSent = ref(false);
+  const registeredEmail = ref('');
+  const resendCooldown = ref(0);
+  let cooldownTimer = null;
+
+  onUnmounted(() => { if (cooldownTimer) clearInterval(cooldownTimer); });
+
+  const startCooldown = () => {
+    resendCooldown.value = 60;
+    cooldownTimer = setInterval(() => {
+      resendCooldown.value--;
+      if (resendCooldown.value <= 0) clearInterval(cooldownTimer);
+    }, 1000);
+  };
+
+  const handleResend = async () => {
+    if (resendCooldown.value > 0) return;
+    await authApi.resendConfirmation(registeredEmail.value);
+    startCooldown();
+  };
 
   const form = reactive({
     userName: '',
@@ -248,7 +299,7 @@
     if (!form.password) {
       errors.value.password = 'Password is required';
     } else if (form.password.length < 8) {
-      errors.value.password = 'Password must be at least 6 characters';
+      errors.value.password = 'Password must be at least 8 characters';
     } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(form.password)) {
       errors.value.password = 'Password must contain uppercase, lowercase, and number';
     }
@@ -274,14 +325,18 @@
     const result = await authStore.register({
       userName: form.userName.trim(),
       email: form.email,
-      dateOfBirth: form.dateOfBirth || null, // Send null if empty
+      dateOfBirth: form.dateOfBirth || null,
       bio: form.bio || null,
       password: form.password,
       confirmPassword: form.confirmPassword,
       acceptedTerms: form.acceptedTerms
     });
 
-    if (result.success) {
+    if (result.success && result.requiresEmailConfirmation) {
+      registeredEmail.value = form.email;
+      emailConfirmationSent.value = true;
+      startCooldown();
+    } else if (result.success) {
       router.push('/');
     }
   };

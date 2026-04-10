@@ -1382,7 +1382,7 @@
     if (!firstChapter) return '#'
 
     const titleSlug = buildTitleSlug(titleData.value.originalTitle, titleData.value.id)
-    return `/${titleSlug}/chapter/${chapterSeg(firstChapter)}/v${firstChapter.volumeNumber}/t${chapterTeamId(firstChapter)}?viewMode=single`
+    return `/${titleSlug}/chapter/${chapterSeg(firstChapter)}/v${firstChapter.volumeNumber}/t${chapterTeamId(firstChapter)}?viewMode=single&cid=${firstChapter.id}`
   }
 
   const getContinueReadingUrl = () => {
@@ -1410,12 +1410,12 @@
 
       if (sortedChapters.length > 0) {
         const chapter = sortedChapters[0]
-        return `/${titleSlug}/chapter/${chapterSeg(chapter)}/v${chapter.volumeNumber}/t${chapterTeamId(chapter)}?viewMode=single`
+        return `/${titleSlug}/chapter/${chapterSeg(chapter)}/v${chapter.volumeNumber}/t${chapterTeamId(chapter)}?viewMode=single&cid=${chapter.id}`
       }
       return '#'
     }
 
-    return `/${titleSlug}/chapter/${chapterSeg(continueChapter)}/v${continueChapter.volumeNumber}/t${chapterTeamId(continueChapter)}?viewMode=single`
+    return `/${titleSlug}/chapter/${chapterSeg(continueChapter)}/v${continueChapter.volumeNumber}/t${chapterTeamId(continueChapter)}?viewMode=single&cid=${continueChapter.id}`
   }
 
   const getErrorTitle = () => {

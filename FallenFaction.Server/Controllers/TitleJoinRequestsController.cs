@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -435,8 +436,23 @@ namespace FallenFaction.Server.Controllers
         };
     }
 
-    public record SubmitJoinRequestDto(int TitleId, int RequestingTeamId, string? Message);
-    public record RejectJoinRequestDto(string Reason);
+    public class SubmitJoinRequestDto
+    {
+        [Range(1, int.MaxValue)]
+        public int TitleId { get; set; }
+
+        [Range(1, int.MaxValue)]
+        public int RequestingTeamId { get; set; }
+
+        [StringLength(500)]
+        public string? Message { get; set; }
+    }
+
+    public class RejectJoinRequestDto
+    {
+        [StringLength(1000)]
+        public string Reason { get; set; } = string.Empty;
+    }
 
     public class JoinRequestDto
     {

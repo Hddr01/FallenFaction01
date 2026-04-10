@@ -423,7 +423,8 @@ function buildCommentUrl(c) {
   if (c.targetType === 1) return `/${slug}?section=comments&comment_id=${c.id}`
   if (c.chapterName && c.volumeNumber != null && c.teamId != null) {
     const chName = encodeURIComponent(c.chapterName)
-    return `/${slug}/chapter/${chName}/v${c.volumeNumber}/t${c.teamId}?viewMode=single&comment_id=${c.id}`
+    const cidParam = c.chapterId ? `&cid=${c.chapterId}` : ''
+    return `/${slug}/chapter/${chName}/v${c.volumeNumber}/t${c.teamId}?viewMode=single&comment_id=${c.id}${cidParam}`
   }
   return `/${slug}?section=comments&comment_id=${c.id}`
 }

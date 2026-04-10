@@ -1,5 +1,7 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using FallenFaction.Server.Data;
@@ -111,6 +113,7 @@ namespace FallenFaction.Server.Controllers
         /// Silver tickets are spent first, then Gold.
         /// </summary>
         [HttpPost("unlock")]
+        [EnableRateLimiting("ticket-unlock")]
         public async Task<ActionResult<UnlockChapterResponseDto>> UnlockChapter(
             [FromBody] UnlockChapterDto dto)
         {
@@ -323,6 +326,8 @@ namespace FallenFaction.Server.Controllers
         {
             if (string.IsNullOrWhiteSpace(q) || q.Length < 2)
                 return Ok(Array.Empty<object>());
+            if (q.Length > 100)
+                return BadRequest(new { message = "Search query must not exceed 100 characters." });
 
             var lower = q.ToLower();
             var users = await _context.Users
@@ -358,8 +363,13 @@ namespace FallenFaction.Server.Controllers
     // Small DTO only used internally by the admin endpoint
     public class AdminAwardXpDto
     {
+        [Required, StringLength(36)]
         public string UserId { get; set; } = string.Empty;
+
+        [Range(1, 10000)]
         public int Amount { get; set; }
+
+        [StringLength(200)]
         public string Reason { get; set; } = string.Empty;
     }
 }

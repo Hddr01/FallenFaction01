@@ -718,9 +718,9 @@ class TitleDetailsService {
   }
 
 
-  async getChapterByRoute(titleName, chapterName, volume, teamId, page = null) {
+  async getChapterByRoute(titleName, chapterName, volume, teamId, page = null, cid = null) {
     try {
-      console.log('Fetching chapter by route:', { titleName, chapterName, volume, teamId, page });
+      console.log('Fetching chapter by route:', { titleName, chapterName, volume, teamId, page, cid });
 
       // Encode the title name for URL
       const encodedTitleName = encodeURIComponent(titleName);
@@ -728,9 +728,10 @@ class TitleDetailsService {
 
       let url = `/Titles/${encodedTitleName}/chapter/${encodedChapterName}/v${volume}/t${teamId}`;
 
-      if (page) {
-        url += `?page=${page}`;
-      }
+      const params = []
+      if (page) params.push(`page=${page}`)
+      if (cid) params.push(`cid=${cid}`)
+      if (params.length) url += `?${params.join('&')}`
 
       const response = await this.apiClient.get(url);
 

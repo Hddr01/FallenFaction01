@@ -91,6 +91,11 @@ export const useAuthStore = defineStore('auth', () => {
         };
       }
 
+      if (response.requiresEmailConfirmation) {
+        error.value = response.message || 'Please confirm your email before logging in.';
+        return { success: false, requiresEmailConfirmation: true, message: response.message };
+      }
+
       if (response.success && response.token && response.user) {
         sessionStorage.removeItem(PENDING_TERMS_KEY);
         token.value = response.token;
@@ -170,7 +175,11 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const response = await authApi.register(userData);
 
-      if (response.success) {
+      if (response.requiresEmailConfirmation) {
+        return { success: true, requiresEmailConfirmation: true };
+      }
+
+      if (response.success && response.token && response.user) {
         token.value = response.token;
         user.value = response.user;
 
