@@ -40,8 +40,9 @@ if (!fs.existsSync(certFilePath) || !fs.existsSync(keyFilePath)) {
   }
 }
 
-const target = env.ASPNETCORE_HTTPS_PORT ? `https://localhost:${env.ASPNETCORE_HTTPS_PORT}` :
-  env.ASPNETCORE_URLS ? env.ASPNETCORE_URLS.split(';')[0] : 'https://localhost:7217';
+const target = env.ASPNETCORE_URLS
+  ? env.ASPNETCORE_URLS.split(';').find(u => u.startsWith('http://')) ?? env.ASPNETCORE_URLS.split(';')[0]
+  : 'http://localhost:5064';
 
 console.log(`Proxying API requests to: ${target}`);
 
@@ -116,6 +117,7 @@ export default defineConfig(({ command }) => ({
         logLevel: 'debug'
       }
     },
+    host: true,
     port: 49217,
     https: {
       key: fs.readFileSync(keyFilePath),

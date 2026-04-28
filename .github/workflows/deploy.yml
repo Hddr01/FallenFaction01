@@ -1,0 +1,53 @@
+name: Deploy
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Build backend
+        run: |
+          docker build \
+            -t fallenfaction/backend:${{ github.sha }} \
+            -t fallenfaction/backend:latest \
+            -f Dockerfile.backend .
+
+      - name: Build frontend
+        run: |
+          docker build \
+            -t fallenfaction/frontend:${{ github.sha }} \
+            -t fallenfaction/frontend:latest \
+            -f Dockerfile.frontend \
+            --build-arg VITE_SENTRY_DSN="${{ secrets.VITE_SENTRY_DSN }}" .
+
+      - name: Transfer images to VPS
+        run: |
+          docker save fallenfaction/backend:latest | \
+            ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "docker load && docker tag fallenfaction/backend:latest localhost:5000/backend:latest"
+
+          docker save fallenfaction/frontend:latest | \
+            ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "docker load && docker tag fallenfaction/frontend:latest localhost:5000/frontend:latest"
+
+      - name: Deploy on VPS
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "cd /root && docker compose up -d"
