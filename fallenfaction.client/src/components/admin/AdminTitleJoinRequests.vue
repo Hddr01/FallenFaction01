@@ -148,14 +148,9 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
-import axios from 'axios';
+import apiClient from '@/services/apiClient.js';
 
-const api = axios.create({ baseURL: '/api', withCredentials: true });
-api.interceptors.request.use(cfg => {
-  const t = localStorage.getItem('authToken');
-  if (t) cfg.headers.Authorization = `Bearer ${t}`;
-  return cfg;
-});
+const api = apiClient;
 
 const requests  = ref([]);
 const loading   = ref(false);

@@ -94,7 +94,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import api from '@/services/aiTranslationService'
+import api from '@/services/apiClient.js'
 
 const status   = ref(null)
 const loading  = ref(false)

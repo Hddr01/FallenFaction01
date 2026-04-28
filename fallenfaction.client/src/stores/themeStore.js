@@ -17,7 +17,10 @@ export const useThemeStore = defineStore('theme', () => {
     }
   }
 
+  let initialized = false
   function init() {
+    if (initialized) return
+    initialized = true
     const saved = storage.theme.get()
     applyTheme(saved !== null ? saved : 'dark')
   }

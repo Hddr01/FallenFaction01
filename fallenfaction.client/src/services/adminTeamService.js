@@ -1,52 +1,11 @@
 import apiClient from './apiClient.js'
 // services/adminTeamService.js
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
-
-// Create axios instance with base configuration
-const adminTeamApi = axios.create({
-  baseURL: `${API_BASE_URL}/AdminTeam`,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: true,
-  timeout: 10000,
-});
-
-// Add request interceptor to include auth token
-adminTeamApi.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Add response interceptor for error handling
-adminTeamApi.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Handle unauthorized access
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('authUser');
-      if (!window.location.pathname.includes('/account/login')) {
-        window.location.href = '/account/login';
-      }
-    }
-    return Promise.reject(error);
-  }
-);
 
 export const adminTeamService = {
   // Get all teams (admin)
   async getAllTeams() {
     try {
-      const response = await adminTeamApi.get('/');
+      const response = await apiClient.get('/AdminTeam/');
       return {
         success: true,
         data: response.data
@@ -62,7 +21,7 @@ export const adminTeamService = {
   // Search teams
   async searchTeams(searchString) {
     try {
-      const response = await adminTeamApi.get('/SearchTeam', {
+      const response = await apiClient.get('/AdminTeam/SearchTeam', {
         params: { searchString }
       });
       return {
@@ -80,7 +39,7 @@ export const adminTeamService = {
   // Get team by ID (admin)
   async getTeamById(id) {
     try {
-      const response = await adminTeamApi.get(`/${id}`);
+      const response = await apiClient.get(`/AdminTeam/${id}`);
       return {
         success: true,
         data: response.data
@@ -96,7 +55,7 @@ export const adminTeamService = {
   // Update team (admin)
   async updateTeam(id, teamData) {
     try {
-      const response = await adminTeamApi.put(`/${id}`, teamData);
+      const response = await apiClient.put(`/AdminTeam/${id}`, teamData);
       return {
         success: true,
         message: response.data.message || 'Team updated successfully!'
@@ -113,7 +72,7 @@ export const adminTeamService = {
   // Delete team (admin)
   async deleteTeam(id) {
     try {
-      const response = await adminTeamApi.delete(`/${id}`);
+      const response = await apiClient.delete(`/AdminTeam/${id}`);
       return {
         success: true,
         message: response.data.message || 'Team deleted successfully!'
@@ -129,7 +88,7 @@ export const adminTeamService = {
   // Remove member from team (admin)
   async removeMember(teamId, userId) {
     try {
-      const response = await adminTeamApi.delete(`/${teamId}/members/${userId}`);
+      const response = await apiClient.delete(`/AdminTeam/${teamId}/members/${userId}`);
       return {
         success: true,
         message: response.data.message || 'Member removed successfully!'
@@ -145,7 +104,7 @@ export const adminTeamService = {
   // Update member role (admin)
   async updateMemberRole(teamId, userId, role) {
     try {
-      const response = await adminTeamApi.put(`/${teamId}/members/${userId}/role`, { role });
+      const response = await apiClient.put(`/AdminTeam/${teamId}/members/${userId}/role`, { role });
       return {
         success: true,
         message: response.data.message || 'Member role updated successfully!'
@@ -161,7 +120,7 @@ export const adminTeamService = {
   // Get team statistics (admin)
   async getTeamStatistics() {
     try {
-      const response = await adminTeamApi.get('/Statistics');
+      const response = await apiClient.get('/AdminTeam/Statistics');
       return {
         success: true,
         data: response.data

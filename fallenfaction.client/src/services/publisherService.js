@@ -1,52 +1,11 @@
 import apiClient from './apiClient.js'
 // services/publisherService.js
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
-
-// Create axios instance with base configuration
-const publisherApi = axios.create({
-  baseURL: `${API_BASE_URL}/publisher`,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: true,
-  timeout: 10000,
-});
-
-// Add request interceptor to include auth token
-publisherApi.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Add response interceptor for error handling
-publisherApi.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Handle unauthorized access
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('authUser');
-      if (!window.location.pathname.includes('/account/login')) {
-        window.location.href = '/account/login';
-      }
-    }
-    return Promise.reject(error);
-  }
-);
 
 export const publisherService = {
   // Get all publishers
   async getPublishers() {
     try {
-      const response = await publisherApi.get('/');
+      const response = await apiClient.get('/publisher/');
       return {
         success: true,
         data: response.data
@@ -63,7 +22,7 @@ export const publisherService = {
   // Get publisher by ID
   async getPublisherById(id) {
     try {
-      const response = await publisherApi.get(`/${id}`);
+      const response = await apiClient.get(`/publisher/${id}`);
       return {
         success: true,
         data: response.data
@@ -80,7 +39,7 @@ export const publisherService = {
   // Create new publisher (Admin only)
   async createPublisher(publisherData) {
     try {
-      const response = await publisherApi.post('/', publisherData);
+      const response = await apiClient.post('/publisher/', publisherData);
       return {
         success: true,
         data: response.data.data,
@@ -107,7 +66,7 @@ export const publisherService = {
   // Update publisher (Admin only)
   async updatePublisher(id, publisherData) {
     try {
-      const response = await publisherApi.put(`/${id}`, publisherData);
+      const response = await apiClient.put(`/publisher/${id}`, publisherData);
       return {
         success: true,
         message: response.data.message
@@ -133,7 +92,7 @@ export const publisherService = {
   // Delete publisher (Admin only)
   async deletePublisher(id) {
     try {
-      const response = await publisherApi.delete(`/${id}`);
+      const response = await apiClient.delete(`/publisher/${id}`);
       return {
         success: true,
         message: response.data.message
@@ -150,7 +109,7 @@ export const publisherService = {
   // Search publishers
   async searchPublishers(query) {
     try {
-      const response = await publisherApi.get(`/search?query=${encodeURIComponent(query)}`);
+      const response = await apiClient.get(`/publisher/search?query=${encodeURIComponent(query)}`);
       return {
         success: true,
         data: response.data

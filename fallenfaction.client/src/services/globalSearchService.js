@@ -1,29 +1,13 @@
 import apiClient from './apiClient.js'
 // services/globalSearchService.js
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',
-  headers: { 'Accept': 'application/json' },
-  withCredentials: true,
-  timeout: 15000,
-});
 
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-    if (token) config.headers.Authorization = `Bearer ${token}`;
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-// â”€â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── helpers ──────────────────────────────────────────────────────────────────
 const safe = (promise) =>
   promise.then((r) => r).catch(() => []);
 
-// â”€â”€â”€ individual searches â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── individual searches ──────────────────────────────────────────────────────
 
 async function searchTitles(query) {
-  // Hits the new GET /api/Titles/Search?query=... endpoint we added
   const res = await apiClient.get('/Titles/Search', { params: { query } });
   return Array.isArray(res.data) ? res.data.slice(0, 20) : [];
 }
@@ -54,17 +38,13 @@ async function searchTags(query) {
 }
 
 async function searchUsers(query) {
-  // Hits the new GET /api/Users/search?query=... endpoint we added
   const res = await apiClient.get('/Users/search', { params: { query } });
   return Array.isArray(res.data) ? res.data.slice(0, 10) : [];
 }
 
-// â”€â”€â”€ public API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── public API ───────────────────────────────────────────────────────────────
 
 export const globalSearchService = {
-  /**
-   * Search every category in parallel.
-   */
   async searchAll(query) {
     if (!query || query.trim().length < 2) return emptyResults();
 
@@ -82,10 +62,6 @@ export const globalSearchService = {
     return { titles, teams, authors, artists, publishers, tags, users };
   },
 
-  /**
-   * Search a single category by key.
-   * Key must be one of: titles | teams | authors | artists | publishers | tags | users
-   */
   async searchCategory(category, query) {
     if (!query || query.trim().length < 2) return emptyResults();
 
@@ -107,7 +83,6 @@ export const globalSearchService = {
     return r;
   },
 
-  // Individual exports for direct use if needed
   searchTitles,
   searchTeams,
   searchAuthors,
@@ -118,15 +93,7 @@ export const globalSearchService = {
 };
 
 function emptyResults() {
-  return {
-    titles: [],
-    teams: [],
-    authors: [],
-    artists: [],
-    publishers: [],
-    tags: [],
-    users: [],
-  };
+  return { titles: [], teams: [], authors: [], artists: [], publishers: [], tags: [], users: [] };
 }
 
 export default globalSearchService;
