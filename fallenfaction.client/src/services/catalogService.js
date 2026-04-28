@@ -1,48 +1,5 @@
+import apiClient from './apiClient.js'
 // services/catalogService.js - Updated to match backend DTOs
-import axios from 'axios';
-
-// Create axios instance with base configuration
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',
-  headers: {
-    'Accept': 'application/json',
-  },
-  withCredentials: true,
-  timeout: 15000,
-});
-
-// Request interceptor to add auth token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Response interceptor to handle errors
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('authUser');
-      sessionStorage.removeItem('authToken');
-      sessionStorage.removeItem('authUser');
-      if (!window.location.pathname.includes('/account/login')) {
-        window.location.href = '/account/login';
-      }
-    }
-    return Promise.reject(error);
-  }
-);
-
-// NovelType enum (matches backend)
 export const MangaType = {
   Novel: 1,
   LightNovel: 2,
@@ -109,7 +66,7 @@ export const catalogService = {
       if (params.yearFrom) queryParams.append('yearFrom', params.yearFrom);
       if (params.yearTo) queryParams.append('yearTo', params.yearTo);
 
-      const response = await api.get(`/Titles/Catalog?${queryParams.toString()}`);
+      const response = await apiClient.get(`/Titles/Catalog?${queryParams.toString()}`);
 
       return {
         success: true,
@@ -137,7 +94,7 @@ export const catalogService = {
    */
   async getFilterOptions() {
     try {
-      const response = await api.get('/Titles/Catalog/FilterOptions');
+      const response = await apiClient.get('/Titles/Catalog/FilterOptions');
       return {
         success: true,
         data: {
@@ -155,7 +112,7 @@ export const catalogService = {
 
       // Fallback to TitleApi form-data endpoint if new endpoint doesn't exist yet
       try {
-        const fallbackResponse = await api.get('/TitleApi/form-data');
+        const fallbackResponse = await apiClient.get('/TitleApi/form-data');
         return {
           success: true,
           data: fallbackResponse.data
@@ -184,7 +141,7 @@ export const catalogService = {
    */
   async getFeaturedTitles() {
     try {
-      const response = await api.get('/Titles/Featured');
+      const response = await apiClient.get('/Titles/Featured');
       return {
         success: true,
         data: response.data
@@ -205,7 +162,7 @@ export const catalogService = {
    */
   async getPopularTitles() {
     try {
-      const response = await api.get('/Titles/Popular');
+      const response = await apiClient.get('/Titles/Popular');
       return {
         success: true,
         data: response.data
@@ -226,7 +183,7 @@ export const catalogService = {
    */
   async getRecentUpdates() {
     try {
-      const response = await api.get('/Titles/RecentUpdates');
+      const response = await apiClient.get('/Titles/RecentUpdates');
       return {
         success: true,
         data: response.data
@@ -247,7 +204,7 @@ export const catalogService = {
    */
   async getTrendingTitles() {
     try {
-      const response = await api.get('/Titles/Trending');
+      const response = await apiClient.get('/Titles/Trending');
       return {
         success: true,
         data: response.data
@@ -310,10 +267,10 @@ export const catalogService = {
    */
   getImageUrl(path) {
     if (!path) return '/img/default-cover.png';
-    // Already absolute (external CDN etc.) — return as-is
+    // Already absolute (external CDN etc.) â€” return as-is
     if (path.startsWith('http')) return path;
-    // Relative path — return as-is so the browser resolves it against the
-    // current origin. Vite dev server and nginx both proxy /uploads → backend,
+    // Relative path â€” return as-is so the browser resolves it against the
+    // current origin. Vite dev server and nginx both proxy /uploads â†’ backend,
     // so this works from localhost AND from any LAN/Docker IP address.
     return path;
   },

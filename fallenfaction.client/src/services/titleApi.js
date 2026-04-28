@@ -1,57 +1,10 @@
+import apiClient from './apiClient.js'
 // services/titleApi.js - Axios-based API service (similar to authApi.js)
-import axios from 'axios';
-
-// Create axios instance with base configuration (same pattern as authApi.js)
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',
-  headers: {
-    'Accept': 'application/json',
-  },
-  withCredentials: true,
-  timeout: 10000, // 10 second timeout
-});
-
-// Request interceptor to add auth token (same as authApi.js)
-api.interceptors.request.use(
-  (config) => {
-    const token = sessionStorage.getItem('authToken') || localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Response interceptor to handle token expiration (same as authApi.js)
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    // Handle different error scenarios
-    if (error.response?.status === 401) {
-      // Token expired or invalid
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('authUser');
-      sessionStorage.removeItem('authToken');
-      sessionStorage.removeItem('authUser');
-
-      // Only redirect if we're not already on the login page
-      if (!window.location.pathname.includes('/account/login')) {
-        window.location.href = '/account/login';
-      }
-    }
-
-    return Promise.reject(error);
-  }
-);
-
 const titleApi = {
   // Get form data (authors, artists, etc.)
   async getFormData() {
     try {
-      const response = await api.get('/TitleApi/form-data');
+      const response = await apiClient.get('/TitleApi/form-data');
       return {
         success: true,
         data: response.data
@@ -132,7 +85,7 @@ const titleApi = {
       }
 
       // Make the request with FormData
-      const response = await api.post('/TitleApi/create', submitData, {
+      const response = await apiClient.post('/TitleApi/create', submitData, {
         headers: {
           'Content-Type': undefined
         }
@@ -218,7 +171,7 @@ const titleApi = {
         validLinks.forEach(link => formData.append('externalLinks', link));
       }
 
-      const response = await api.post(`/TitleApi/edit/${titleId}`, formData, {
+      const response = await apiClient.post(`/TitleApi/edit/${titleId}`, formData, {
         headers: {
           'Content-Type': undefined
         }
@@ -246,7 +199,7 @@ const titleApi = {
   // Test API connectivity
   async testConnection() {
     try {
-      const response = await api.get('/TitleApi/form-data');
+      const response = await apiClient.get('/TitleApi/form-data');
       return response.status === 200;
     } catch (error) {
       console.error('API connection test failed:', error);
@@ -257,7 +210,7 @@ const titleApi = {
   // Get pending titles (admin only)
   async getPendingTitles() {
     try {
-      const response = await api.get('/TitleApi/pending');
+      const response = await apiClient.get('/TitleApi/pending');
       return {
         success: true,
         data: response.data
@@ -274,7 +227,7 @@ const titleApi = {
   // Approve pending title (admin only)
   async approvePendingTitle(titleId) {
     try {
-      const response = await api.post(`/TitleApi/approve/${titleId}`);
+      const response = await apiClient.post(`/TitleApi/approve/${titleId}`);
       return {
         success: true,
         message: response.data.message || 'Title approved successfully!',
@@ -292,7 +245,7 @@ const titleApi = {
 // Search titles by name (used for Fanfic original title lookup)
 titleApi.searchTitles = async function (query) {
   try {
-    const response = await api.get('/TitleApi/search', { params: { q: query, limit: 10 } });
+    const response = await apiClient.get('/TitleApi/search', { params: { q: query, limit: 10 } });
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.message, data: [] };

@@ -1,45 +1,5 @@
+import apiClient from './apiClient.js'
 // services/chapterService.js - Enhanced chapter service for reading and management
-import axios from 'axios';
-
-// Create axios instance with base configuration
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',
-  headers: {
-    'Accept': 'application/json',
-  },
-  withCredentials: true,
-  timeout: 30000, // Longer timeout for file uploads
-});
-
-// Request interceptor to add auth token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Response interceptor to handle token expiration
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('authUser');
-      if (!window.location.pathname.includes('/account/login')) {
-        window.location.href = '/account/login';
-      }
-    }
-    return Promise.reject(error);
-  }
-);
-
 export const chapterService = {
   /**
    * Get chapter by route parameters (for reading)
@@ -62,7 +22,7 @@ export const chapterService = {
       if (cid) params.push(`cid=${cid}`)
       if (params.length) url += `?${params.join('&')}`
 
-      const response = await api.get(url);
+      const response = await apiClient.get(url);
 
       return {
         success: true,
@@ -86,7 +46,7 @@ export const chapterService = {
    */
   async getChapterFormData(titleId) {
     try {
-      const response = await api.get(`/Titles/${titleId}/chapters/create`);
+      const response = await apiClient.get(`/Titles/${titleId}/chapters/create`);
 
       return {
         success: true,
@@ -121,7 +81,7 @@ export const chapterService = {
         throw new Error('Chapter content cannot be empty');
       }
 
-      const response = await api.post(`/Titles/${titleId}/chapters`, {
+      const response = await apiClient.post(`/Titles/${titleId}/chapters`, {
         volumeNumber: chapterData.volumeNumber,
         chapterNumber: chapterData.chapterNumber,
         name: chapterData.name || '',
@@ -159,7 +119,7 @@ export const chapterService = {
    */
   async getChapters(titleId) {
     try {
-      const response = await api.get(`/Titles/${titleId}/chapters`);
+      const response = await apiClient.get(`/Titles/${titleId}/chapters`);
 
       return {
         success: true,
@@ -182,7 +142,7 @@ export const chapterService = {
    */
   async getChaptersList(titleId) {
     try {
-      const response = await api.get(`/Titles/${titleId}/chapters/list`);
+      const response = await apiClient.get(`/Titles/${titleId}/chapters/list`);
 
       return {
         success: true,
@@ -218,7 +178,7 @@ export const chapterService = {
         url += `?${params.toString()}`;
       }
 
-      const response = await api.get(url);
+      const response = await apiClient.get(url);
 
       return {
         success: true,
@@ -242,7 +202,7 @@ export const chapterService = {
    */
   async updateReadingProgress(titleId, chapterNumber) {
     try {
-      const response = await api.post('/Titles/updateProgress', {
+      const response = await apiClient.post('/Titles/updateProgress', {
         titleId: parseInt(titleId),
         chapterNumber: parseInt(chapterNumber)
       });
@@ -267,7 +227,7 @@ export const chapterService = {
    */
   async getUserPendingChapters() {
     try {
-      const response = await api.get('/Chapters/user/pending');
+      const response = await apiClient.get('/Chapters/user/pending');
 
       return {
         success: true,
@@ -289,7 +249,7 @@ export const chapterService = {
    */
   async getUserPublishedChapters() {
     try {
-      const response = await api.get('/Chapters/user/published');
+      const response = await apiClient.get('/Chapters/user/published');
 
       return {
         success: true,
@@ -312,7 +272,7 @@ export const chapterService = {
    */
   async checkChapterPermission(titleId) {
     try {
-      const response = await api.get(`/Titles/${titleId}/chapters/permission`);
+      const response = await apiClient.get(`/Titles/${titleId}/chapters/permission`);
 
       return {
         success: true,
@@ -344,7 +304,7 @@ export const chapterService = {
    */
   async getTitlesWithChapterPermission() {
     try {
-      const response = await api.get('/Titles/user/chapter-permission');
+      const response = await apiClient.get('/Titles/user/chapter-permission');
 
       return {
         success: true,
@@ -367,7 +327,7 @@ export const chapterService = {
    */
   async deletePendingChapter(chapterId) {
     try {
-      await api.delete(`/Chapters/pending/${chapterId}`);
+      await apiClient.delete(`/Chapters/pending/${chapterId}`);
 
       return {
         success: true,
@@ -391,7 +351,7 @@ export const chapterService = {
    */
   async getChapterNavigation(titleId, currentChapterNumber, volumeNumber) {
     try {
-      const response = await api.get(`/Titles/${titleId}/chapters/navigation`, {
+      const response = await apiClient.get(`/Titles/${titleId}/chapters/navigation`, {
         params: {
           chapterNumber: currentChapterNumber,
           volumeNumber: volumeNumber
@@ -424,7 +384,7 @@ export const chapterService = {
    */
   async reportChapter(chapterId, reason, details = '') {
     try {
-      const response = await api.post(`/Chapters/${chapterId}/report`, {
+      const response = await apiClient.post(`/Chapters/${chapterId}/report`, {
         reason: reason,
         details: details
       });
@@ -449,7 +409,7 @@ export const chapterService = {
    */
   async getChapterStats(chapterId) {
     try {
-      const response = await api.get(`/Chapters/${chapterId}/stats`);
+      const response = await apiClient.get(`/Chapters/${chapterId}/stats`);
 
       return {
         success: true,
@@ -484,7 +444,7 @@ export const chapterService = {
    */
   async trackChapterView(chapterId, pageCount = 0, timeSpent = 0) {
     try {
-      const response = await api.post(`/Chapters/${chapterId}/view`, {
+      const response = await apiClient.post(`/Chapters/${chapterId}/view`, {
         pageCount: pageCount,
         timeSpent: timeSpent,
         timestamp: new Date().toISOString()
@@ -510,7 +470,7 @@ export const chapterService = {
    */
   async getReadingHistory(limit = 20) {
     try {
-      const response = await api.get('/User/reading-history', {
+      const response = await apiClient.get('/User/reading-history', {
         params: { limit }
       });
 
@@ -534,7 +494,7 @@ export const chapterService = {
    */
   async getChaptersForManagement(titleId) {
     try {
-      const response = await api.get(`/Titles/${titleId}/chapters/manage`)
+      const response = await apiClient.get(`/Titles/${titleId}/chapters/manage`)
       return { success: true, data: response.data }
     } catch (error) {
       return {
@@ -552,7 +512,7 @@ export const chapterService = {
    */
   async getChapterForEdit(titleId, chapterId) {
     try {
-      const response = await api.get(`/Titles/${titleId}/chapters/${chapterId}/edit`)
+      const response = await apiClient.get(`/Titles/${titleId}/chapters/${chapterId}/edit`)
       return { success: true, data: response.data }
     } catch (error) {
       return {
@@ -571,7 +531,7 @@ export const chapterService = {
    */
   async updateChapter(titleId, chapterId, chapterData) {
     try {
-      const response = await api.put(`/Titles/${titleId}/chapters/${chapterId}`, {
+      const response = await apiClient.put(`/Titles/${titleId}/chapters/${chapterId}`, {
         name: chapterData.name,
         volumeNumber: chapterData.volumeNumber,
         chapterNumber: chapterData.chapterNumber,
@@ -600,7 +560,7 @@ export const chapterService = {
    */
   async deleteChapter(titleId, chapterId) {
     try {
-      const response = await api.delete(`/Titles/${titleId}/chapters/${chapterId}`)
+      const response = await apiClient.delete(`/Titles/${titleId}/chapters/${chapterId}`)
       return {
         success: true,
         message: response.data.message || 'Chapter deleted successfully.'
@@ -619,7 +579,7 @@ export const chapterService = {
    */
   async testConnection() {
     try {
-      await api.get('/Titles/Debug');
+      await apiClient.get('/Titles/Debug');
       console.log('Chapter service connection successful');
       return true;
     } catch (error) {

@@ -1,5 +1,6 @@
 // Enhanced Smart Loading Algorithm
 // File: src/services/EnhancedSmartLoadingAlgorithm.js
+import { storage } from '../utils/storage.js'
 
 // First, extract your original SmartLoadingAlgorithm class
 class SmartLoadingAlgorithm {
@@ -273,20 +274,13 @@ class EnhancedSmartLoadingAlgorithm extends SmartLoadingAlgorithm {
 
   // Machine learning component
   loadPerformanceHistory() {
-    try {
-      const stored = localStorage.getItem('smartLoading_history');
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
+    return storage.smartLoadingHistory.get() ?? []
   }
 
   savePerformanceHistory() {
     if (!this.config.LEARNING_ENABLED) return;
-    
     try {
-      const history = this.performanceHistory.slice(-50); // Keep last 50 entries
-      localStorage.setItem('smartLoading_history', JSON.stringify(history));
+      storage.smartLoadingHistory.set(this.performanceHistory.slice(-50))
     } catch {
       // Silently handle storage errors
     }

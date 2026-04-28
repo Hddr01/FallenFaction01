@@ -1,7 +1,5 @@
+import apiClient from './apiClient.js'
 // services/authorService.js
-import axios from 'axios';
-
-// Use Vite environment variables (not process.env)
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
 // Create axios instance with base configuration

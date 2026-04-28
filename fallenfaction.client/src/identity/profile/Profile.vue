@@ -858,9 +858,10 @@
 </template>
 
 <script setup>
-  import { ref, reactive, computed, inject, onMounted, watch } from 'vue'
+  import { ref, reactive, computed, onMounted, watch } from 'vue'
   import { useRouter } from 'vue-router'
   import { useAuthStore } from '../../stores/authStore'
+  import apiClient from '@/services/apiClient.js'
   import { buildTitleSlug } from '@/utils/titleSlug.js'
   import { Motion } from 'motion-v'
   import {
@@ -892,7 +893,6 @@
   // ─── setup ────────────────────────────────────────────────────
   const router = useRouter()
   const authStore = useAuthStore()
-  const apiClient = inject('apiClient')
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
 
   const getImageUrl = (path) => {

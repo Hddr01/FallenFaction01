@@ -301,6 +301,7 @@
   import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { useTheme } from '@/composables/useTheme'
+  import { storage } from '@/utils/storage.js'
   import { titleDetailsService } from '../../services/titleDetailsService'
   import { chapterService } from '../../services/chapterService'
   import { getWallet, getUnlockCost, unlockChapter } from '@/services/aiTranslationService'
@@ -651,12 +652,10 @@
   let unwatchAppTheme = null
   const setFont = (f) => { fontFamily.value = f; savePref('fontFamily', f) }
 
-  const savePref = (key, value) => localStorage.setItem(`novelReader_${key}`, JSON.stringify(value))
+  const savePref = (key, value) => storage.readerPrefs.set(key, value)
   const loadPref = (key, def) => {
-    try {
-      const v = localStorage.getItem(`novelReader_${key}`)
-      return v !== null ? JSON.parse(v) : def
-    } catch { return def }
+    const v = storage.readerPrefs.get(key)
+    return v !== null ? v : def
   }
 
   const loadPreferences = () => {

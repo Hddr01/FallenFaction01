@@ -213,7 +213,7 @@
 </template>
 
 <script setup>
-  import { ref, computed, inject } from 'vue';
+  import { ref, computed } from 'vue';
   import { useRouter } from 'vue-router';
   import {
     Star, Bookmark, BookOpen, Eye, Calendar, Clock, Sparkles, Loader2
@@ -225,6 +225,7 @@
   import { buildTitleSlug } from '@/utils/titleSlug.js';
 
   import catalogService from '@/services/catalogService';
+  import apiClient from '@/services/apiClient.js';
 
   const props = defineProps({
     title: {
@@ -238,7 +239,6 @@
     }
   });
 
-  const apiClient = inject('apiClient', null);
   const router = useRouter();
   const isBookmarked = ref(false);
   const bookmarkLoading = ref(false);
