@@ -9,10 +9,8 @@
             loop: true,
             dragFree: true,
             containScroll: false,
-            watchDrag: true,
             skipSnaps: true,
-            friction: 0.3,
-            dragThreshold: 15,
+            dragThreshold: 3,
           }"
               class="w-full">
       <CarouselContent class="-ml-4">
@@ -24,10 +22,10 @@
               <img :src="getImageUrl(manga.coverImagePath)"
                    :alt="manga.originalTitle"
                    class="manga-cover-img"
-                   @load="onImageLoad(manga.originalTitle, manga.coverImagePath)"
+                   decoding="async"
                    @error="onImageError($event, manga.originalTitle, manga.coverImagePath)" />
-              <div v-if="chapterBadgeText(manga)" class="chapter-badge">
-                {{ chapterBadgeText(manga) }}
+              <div v-if="chapterBadgeMap[manga.id]" class="chapter-badge">
+                {{ chapterBadgeMap[manga.id] }}
               </div>
             </div>
             <div class="carousel-manga-info">
@@ -193,7 +191,7 @@
 </template>
 
 <script>
-  import { ref, reactive, onMounted } from 'vue';
+  import { ref, reactive, computed, onMounted } from 'vue';
   import { homepageService } from './services/homepageService';
   import {
     Carousel,
@@ -285,25 +283,26 @@
         return `/${encodeURIComponent(titleName)}`;
       };
 
-      /** Carousel badge: use latestChapterNumber first (authoritative), then latestChapter string. */
-      const chapterBadgeText = (manga) => {
-        const n = manga?.latestChapterNumber;
-        if (n != null && n !== '' && !Number.isNaN(Number(n)) && Number(n) > 0) {
-          const num = Number(n);
-          return Number.isInteger(num) || Math.abs(num - Math.round(num)) < 1e-6
-            ? `Ch. ${Math.round(num)}`
-            : `Ch. ${num}`;
+      const chapterBadgeMap = computed(() => {
+        const map = {};
+        for (const manga of topTitles.value) {
+          const n = manga?.latestChapterNumber;
+          if (n != null && n !== '' && !Number.isNaN(Number(n)) && Number(n) > 0) {
+            const num = Number(n);
+            map[manga.id] = Number.isInteger(num) || Math.abs(num - Math.round(num)) < 1e-6
+              ? `Ch. ${Math.round(num)}`
+              : `Ch. ${num}`;
+          } else {
+            const s = manga?.latestChapter;
+            map[manga.id] = (s != null && String(s).trim() !== '' && String(s) !== 'No chapters')
+              ? String(s)
+              : '';
+          }
         }
-        const s = manga?.latestChapter;
-        if (s != null && String(s).trim() !== '' && String(s) !== 'No chapters') {
-          return String(s);
-        }
-        return '';
-      };
+        return map;
+      });
 
-      const onImageLoad = (title, path) => {
-        console.log(`Image loaded successfully: ${title}`);
-      };
+      const onImageLoad = () => {};
 
       const onImageError = (event, title, path) => {
         console.error(`Failed to load image for: ${title}`, path);
@@ -430,7 +429,7 @@
         formatTimeAgo,
         getImageUrl,
         getTitleUrl,
-        chapterBadgeText,
+        chapterBadgeMap,
         onImageLoad,
         onImageError,
         fetchFeaturedManga,
@@ -512,7 +511,6 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    will-change: transform;
   }
 
   @media (hover: hover) {

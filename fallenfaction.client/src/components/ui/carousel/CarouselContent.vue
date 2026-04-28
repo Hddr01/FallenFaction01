@@ -25,7 +25,7 @@ const { carouselRef, orientation } = useCarousel();
     props.class
   )
 "
-      style="will-change: transform;"
+      style="will-change: transform; backface-visibility: hidden;"
       v-bind="$attrs"
     >
       <slot />
