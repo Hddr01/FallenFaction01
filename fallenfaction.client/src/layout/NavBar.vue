@@ -257,7 +257,8 @@
     </div>
 
     <!-- Mobile Sidebar Overlay -->
-    <div v-if="showMobileSidebar" class="mobile-sidebar-overlay" @click="closeMobileSidebar">
+    <Transition name="sidebar-overlay">
+    <div v-show="showMobileSidebar" class="mobile-sidebar-overlay" @click="closeMobileSidebar">
       <div class="mobile-sidebar" @click.stop>
         <!-- Sidebar Header -->
         <div class="sidebar-header">
@@ -451,11 +452,14 @@
         </div>
       </div>
     </div>
+    </Transition>
   </div>
 </template>
 
 <script setup>
-  import { ref, onMounted, onUnmounted } from 'vue'
+  import { ref, watch, onUnmounted } from 'vue'
+  import { useScrollSignal } from '../composables/useScrollSignal.js'
+  import { useScrollLock } from '../composables/useScrollLock.js'
   import { useRouter } from 'vue-router'
   import { useAuthStore } from '../stores/authStore'
   import { teamService } from '../services/teamService'
@@ -502,12 +506,10 @@
   const toggleMobileSidebar = () => {
     showMobileSidebar.value = !showMobileSidebar.value
     if (showMobileSidebar.value && authStore.isAuthenticated) fetchUserTeams()
-    document.body.style.overflow = showMobileSidebar.value ? 'hidden' : ''
   }
 
   const closeMobileSidebar = () => {
     showMobileSidebar.value = false
-    document.body.style.overflow = ''
     showMobileMore.value       = false
     showMobileTeams.value      = false
     showMobileAddContent.value = false
@@ -532,13 +534,10 @@
     }
   }
 
-  const handleScroll = () => { if (showMobileSidebar.value) closeMobileSidebar() }
+  useScrollLock(showMobileSidebar)
 
-  onMounted(() => window.addEventListener('scroll', handleScroll))
-  onUnmounted(() => {
-    window.removeEventListener('scroll', handleScroll)
-    document.body.style.overflow = ''
-  })
+  const { scrollY } = useScrollSignal()
+  watch(scrollY, () => { if (showMobileSidebar.value) closeMobileSidebar() })
 </script>
 
 <style>
@@ -605,8 +604,9 @@
     position: fixed;
     top: 0; left: 0;
     z-index: 1000;
-    backdrop-filter: blur(20px) brightness(1.05);
-    -webkit-backdrop-filter: blur(20px) brightness(1.05);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    transform: translateZ(0);
     transition: background-color 0.25s ease, border-color 0.25s ease;
   }
 
@@ -741,13 +741,24 @@
     box-shadow: -4px 0 20px rgba(0,0,0,0.15);
     display: flex;
     flex-direction: column;
-    animation: slideInRight 0.28s ease-out;
-    transition: background-color 0.25s ease;
+    transition: transform 0.28s ease-out, background-color 0.25s ease;
   }
 
-  @keyframes slideInRight {
-    from { transform: translateX(100%); }
-    to   { transform: translateX(0);   }
+  .sidebar-overlay-enter-active,
+  .sidebar-overlay-leave-active {
+    transition: background-color 0.28s ease-out;
+  }
+  .sidebar-overlay-enter-from,
+  .sidebar-overlay-leave-to {
+    background-color: transparent !important;
+  }
+  .sidebar-overlay-enter-active .mobile-sidebar,
+  .sidebar-overlay-leave-active .mobile-sidebar {
+    transition: transform 0.28s ease-out;
+  }
+  .sidebar-overlay-enter-from .mobile-sidebar,
+  .sidebar-overlay-leave-to .mobile-sidebar {
+    transform: translateX(100%);
   }
 
   .sidebar-header {

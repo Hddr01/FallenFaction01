@@ -285,6 +285,7 @@
 
 <script setup>
   import { ref, computed, onMounted, watch } from 'vue';
+  import { useScrollSignal } from '@/composables/useScrollSignal.js';
   import { useRouter, useRoute } from 'vue-router';
   import { debounce } from 'lodash-es';
   import { Motion } from 'motion-v';
@@ -368,7 +369,8 @@
 
   // UI State
   const mobileFiltersOpen = ref(false);
-  const showScrollTop = ref(false);
+  const { scrollY } = useScrollSignal();
+  const showScrollTop = computed(() => scrollY.value > 500);
   const activeQuickFilter = ref(null);
 
   // Quick Filters
@@ -649,10 +651,6 @@
     resolveNameBasedURLParams(); // must run after filterOptions — resolves ?category=Name → ID
     await loadCatalog();
 
-    // Scroll listener for "scroll to top" button
-    window.addEventListener('scroll', () => {
-      showScrollTop.value = window.scrollY > 500;
-    });
   });
 
   // Watchers
