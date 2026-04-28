@@ -23,6 +23,7 @@
                    :alt="manga.originalTitle"
                    class="manga-cover-img"
                    decoding="async"
+                   loading="lazy"
                    @error="onImageError($event, manga.originalTitle, manga.coverImagePath)" />
               <div v-if="chapterBadgeMap[manga.id]" class="chapter-badge">
                 {{ chapterBadgeMap[manga.id] }}
@@ -85,6 +86,7 @@
                   <div class="user-avatar">
                     <img :src="getImageUrl(user.avatar)"
                          :alt="user.name"
+                         loading="lazy"
                          @load="onImageLoad(user.name, user.avatar)"
                          @error="onImageError($event, user.name, user.avatar)" />
                   </div>
@@ -115,6 +117,7 @@
                   <div class="team-avatar">
                     <img :src="getImageUrl(team.avatar)"
                          :alt="team.name"
+                         loading="lazy"
                          @load="onImageLoad(team.name, team.avatar)"
                          @error="onImageError($event, team.name, team.avatar)" />
                   </div>
@@ -171,6 +174,7 @@
             <div class="update-cover">
               <img :src="getImageUrl(update.coverImagePath)"
                    :alt="update.originalTitle"
+                   loading="lazy"
                    @load="onImageLoad(update.originalTitle, update.coverImagePath)"
                    @error="onImageError($event, update.originalTitle, update.coverImagePath)" />
             </div>
