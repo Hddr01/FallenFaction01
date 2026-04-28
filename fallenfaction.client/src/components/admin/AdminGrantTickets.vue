@@ -138,7 +138,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { adminGrantTickets } from '@/services/aiTranslationService'
-import api from '@/services/aiTranslationService'
+import api from '@/services/apiClient.js'
 
 const userSearch   = ref('')
 const userResults  = ref([])

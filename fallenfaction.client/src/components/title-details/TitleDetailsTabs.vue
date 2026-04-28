@@ -625,7 +625,7 @@
   import { titleDetailsService } from '@/services/titleDetailsService'
   import { teamService } from '@/services/teamService'
   import { useAuthStore } from '@/stores/authStore.js'
-  import axios from 'axios'
+  import apiClient from '@/services/apiClient.js'
 
   const props = defineProps({
     titleId: {
@@ -707,9 +707,7 @@
 
     try {
       // Load title check — reuse teams already fetched on mount
-      const checkRes = await axios.get(`/api/title-join-requests/check/${props.titleId}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
-      })
+      const checkRes = await apiClient.get(`/title-join-requests/check/${props.titleId}`)
       joinModal.value.checkInfo = checkRes.data
       // Filter to teams where user is admin/manager (non-system)
       const teams = userTeams.value.length
@@ -731,11 +729,11 @@
     joinModal.value.error = ''
     joinModal.value.autoRejected = false
     try {
-      await axios.post('/api/title-join-requests', {
+      await apiClient.post('/title-join-requests', {
         titleId: props.titleId,
         requestingTeamId: joinModal.value.teamId,
         message: joinModal.value.message || null
-      }, { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } })
+      })
       joinModal.value.success = 'Request submitted! The title team or an admin will review it.'
     } catch (e) {
       const data = e.response?.data

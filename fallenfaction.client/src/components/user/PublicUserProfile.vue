@@ -351,7 +351,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
-import axios from 'axios'
+import apiClient from '@/services/apiClient.js'
 import { Motion } from 'motion-v'
 import {
   UserIcon, BookmarkIcon, BookOpenIcon, BookOpen,
@@ -468,7 +468,7 @@ async function loadComments() {
   comments.error = null
   comments.page = 1
   try {
-    const res = await axios.get(`/api/Comments/GetUserComments/${route.params.id}`, {
+    const res = await apiClient.get(`/Comments/GetUserComments/${route.params.id}`, {
       params: { page: 1, pageSize: COMMENTS_PAGE_SIZE, sortBy: comments.sortBy }
     })
     comments.items = (res.data.comments ?? []).map(mapComment)
@@ -491,7 +491,7 @@ async function loadMoreComments() {
   comments.loadingMore = true
   comments.page++
   try {
-    const res = await axios.get(`/api/Comments/GetUserComments/${route.params.id}`, {
+    const res = await apiClient.get(`/Comments/GetUserComments/${route.params.id}`, {
       params: { page: comments.page, pageSize: COMMENTS_PAGE_SIZE, sortBy: comments.sortBy }
     })
     comments.items.push(...(res.data.comments ?? []).map(mapComment))
@@ -507,7 +507,7 @@ async function loadMoreComments() {
 onMounted(async () => {
   const id = route.params.id
   try {
-    const res = await axios.get(`/api/Users/${id}/profile`)
+    const res = await apiClient.get(`/Users/${id}/profile`)
     profile.value = res.data
     document.title = `${res.data.name} — FallenFaction`
     // Eagerly load comment count for stats card

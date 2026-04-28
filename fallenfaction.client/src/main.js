@@ -6,13 +6,18 @@ import App from './App.vue'
 import router from './router'
 import * as Sentry from '@sentry/vue'
 
-// ── Apply saved theme BEFORE mount to prevent a flash of wrong theme ─────────
-import { initTheme } from './composables/useTheme.js'
-initTheme()
-
 // Create app instance
 const app = createApp(App)
 const pinia = createPinia()
+
+// Pinia must be active before any store is used (including themeStore via initTheme)
+app.use(pinia)
+app.use(router)
+
+// ── Apply saved theme BEFORE mount to prevent a flash of wrong theme ─────────
+// initTheme calls useThemeStore(), which requires an active Pinia instance above
+import { initTheme } from './composables/useTheme.js'
+initTheme()
 
 // ── Sentry ────────────────────────────────────────────────────────────────────
 Sentry.init({
@@ -34,10 +39,6 @@ Sentry.init({
   // Only send events in production builds — no noise during local dev
   enabled: import.meta.env.PROD,
 })
-
-// Use plugins
-app.use(pinia)
-app.use(router)
 
 // Mount the app
 app.mount('#app')

@@ -18,6 +18,9 @@ apiClient.interceptors.request.use((config) => {
   return config
 })
 
+// Guard against multiple concurrent 401s each scheduling a redirect
+let redirectingToLogin = false
+
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -25,13 +28,15 @@ apiClient.interceptors.response.use(
 
     if (error.response?.status === 401) {
       const skip = url.includes('/auth/logout') || url.includes('/auth/accept-terms')
-      if (!skip) {
+      if (!skip && !redirectingToLogin) {
+        redirectingToLogin = true
         localStorage.removeItem('authToken')
         localStorage.removeItem('authUser')
         setTimeout(() => {
           if (!window.location.pathname.includes('/account/login')) {
             window.location.href = '/account/login'
           }
+          redirectingToLogin = false
         }, 100)
       }
     }

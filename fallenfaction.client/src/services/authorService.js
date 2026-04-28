@@ -1,52 +1,11 @@
 import apiClient from './apiClient.js'
 // services/authorService.js
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
-
-// Create axios instance with base configuration
-const authorApi = axios.create({
-  baseURL: `${API_BASE_URL}/author`,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: true,
-  timeout: 10000,
-});
-
-// Add request interceptor to include auth token
-authorApi.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Add response interceptor for error handling
-authorApi.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Handle unauthorized access
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('authUser');
-      if (!window.location.pathname.includes('/account/login')) {
-        window.location.href = '/account/login';
-      }
-    }
-    return Promise.reject(error);
-  }
-);
 
 export const authorService = {
   // Get all authors
   async getAuthors() {
     try {
-      const response = await authorApi.get('/');
+      const response = await apiClient.get('/author/');
       return {
         success: true,
         data: response.data
@@ -63,7 +22,7 @@ export const authorService = {
   // Get author by ID
   async getAuthorById(id) {
     try {
-      const response = await authorApi.get(`/${id}`);
+      const response = await apiClient.get(`/author/${id}`);
       return {
         success: true,
         data: response.data
@@ -80,7 +39,7 @@ export const authorService = {
   // Create new author (Admin only)
   async createAuthor(authorData) {
     try {
-      const response = await authorApi.post('/', authorData);
+      const response = await apiClient.post('/author/', authorData);
       return {
         success: true,
         data: response.data.data,
@@ -107,7 +66,7 @@ export const authorService = {
   // Update author (Admin only)
   async updateAuthor(id, authorData) {
     try {
-      const response = await authorApi.put(`/${id}`, authorData);
+      const response = await apiClient.put(`/author/${id}`, authorData);
       return {
         success: true,
         message: response.data.message
@@ -133,7 +92,7 @@ export const authorService = {
   // Delete author (Admin only)
   async deleteAuthor(id) {
     try {
-      const response = await authorApi.delete(`/${id}`);
+      const response = await apiClient.delete(`/author/${id}`);
       return {
         success: true,
         message: response.data.message
@@ -150,7 +109,7 @@ export const authorService = {
   // Search authors
   async searchAuthors(query) {
     try {
-      const response = await authorApi.get(`/search?query=${encodeURIComponent(query)}`);
+      const response = await apiClient.get(`/author/search?query=${encodeURIComponent(query)}`);
       return {
         success: true,
         data: response.data

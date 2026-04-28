@@ -1,52 +1,11 @@
 import apiClient from './apiClient.js'
 // services/userService.js
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
-
-// Create axios instance with base configuration
-const userApi = axios.create({
-  baseURL: `${API_BASE_URL}/AdminUsers`,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: true,
-  timeout: 10000,
-});
-
-// Add request interceptor to include auth token
-userApi.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Add response interceptor for error handling
-userApi.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Handle unauthorized access
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('authUser');
-      if (!window.location.pathname.includes('/account/login')) {
-        window.location.href = '/account/login';
-      }
-    }
-    return Promise.reject(error);
-  }
-);
 
 export const userService = {
   // Get all users
   async getUsers() {
     try {
-      const response = await userApi.get('/');
+      const response = await apiClient.get('/AdminUsers/');
       return {
         success: true,
         data: response.data
@@ -62,7 +21,7 @@ export const userService = {
   // Search users
   async searchUsers(searchString) {
     try {
-      const response = await userApi.get('/SearchUser', {
+      const response = await apiClient.get('/AdminUsers/SearchUser', {
         params: { searchString }
       });
       return {
@@ -80,7 +39,7 @@ export const userService = {
   // Get user by ID
   async getUserById(id) {
     try {
-      const response = await userApi.get(`/${id}`);
+      const response = await apiClient.get(`/AdminUsers/${id}`);
       return {
         success: true,
         data: response.data
@@ -96,7 +55,7 @@ export const userService = {
   // Ban user from site
   async banUserFromSite(userId) {
     try {
-      const response = await userApi.post('/BanUser', {
+      const response = await apiClient.post('/AdminUsers/BanUser', {
         userId: userId,
         banType: 'site'
       });
@@ -115,7 +74,7 @@ export const userService = {
   // Ban user from comments
   async banUserFromComments(userId) {
     try {
-      const response = await userApi.post('/BanUser', {
+      const response = await apiClient.post('/AdminUsers/BanUser', {
         userId: userId,
         banType: 'comments'
       });
@@ -134,7 +93,7 @@ export const userService = {
   // Unban user from site
   async unbanUserFromSite(userId) {
     try {
-      const response = await userApi.post('/UnbanUser', {
+      const response = await apiClient.post('/AdminUsers/UnbanUser', {
         userId: userId,
         banType: 'site'
       });
@@ -153,7 +112,7 @@ export const userService = {
   // Unban user from comments
   async unbanUserFromComments(userId) {
     try {
-      const response = await userApi.post('/UnbanUser', {
+      const response = await apiClient.post('/AdminUsers/UnbanUser', {
         userId: userId,
         banType: 'comments'
       });
@@ -172,7 +131,7 @@ export const userService = {
   // Change user role
   async changeUserRole(userId, role) {
     try {
-      const response = await userApi.post('/ChangeUserRole', {
+      const response = await apiClient.post('/AdminUsers/ChangeUserRole', {
         userId: userId,
         role: role
       });
@@ -191,7 +150,7 @@ export const userService = {
   // Delete user
   async deleteUser(userId) {
     try {
-      const response = await userApi.delete(`/${userId}`);
+      const response = await apiClient.delete(`/AdminUsers/${userId}`);
       return {
         success: true,
         message: response.data.message || 'User deleted successfully!'
@@ -207,7 +166,7 @@ export const userService = {
   // Get available roles
   async getRoles() {
     try {
-      const response = await userApi.get('/Roles');
+      const response = await apiClient.get('/AdminUsers/Roles');
       return {
         success: true,
         data: response.data

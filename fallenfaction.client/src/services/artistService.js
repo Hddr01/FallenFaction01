@@ -1,52 +1,11 @@
 import apiClient from './apiClient.js'
 // services/artistService.js
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
-
-// Create axios instance with base configuration
-const artistApi = axios.create({
-  baseURL: `${API_BASE_URL}/artist`,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: true,
-  timeout: 10000,
-});
-
-// Add request interceptor to include auth token
-artistApi.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Add response interceptor for error handling
-artistApi.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Handle unauthorized access
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('authUser');
-      if (!window.location.pathname.includes('/account/login')) {
-        window.location.href = '/account/login';
-      }
-    }
-    return Promise.reject(error);
-  }
-);
 
 export const artistService = {
   // Get all artists
   async getArtists() {
     try {
-      const response = await artistApi.get('/');
+      const response = await apiClient.get('/artist/');
       return {
         success: true,
         data: response.data
@@ -63,7 +22,7 @@ export const artistService = {
   // Get artist by ID
   async getArtistById(id) {
     try {
-      const response = await artistApi.get(`/${id}`);
+      const response = await apiClient.get(`/artist/${id}`);
       return {
         success: true,
         data: response.data
@@ -80,7 +39,7 @@ export const artistService = {
   // Create new artist (authenticated users)
   async createArtist(artistData) {
     try {
-      const response = await artistApi.post('/', artistData);
+      const response = await apiClient.post('/artist/', artistData);
       return {
         success: true,
         data: response.data.data,
@@ -107,7 +66,7 @@ export const artistService = {
   // Update artist (authenticated users)
   async updateArtist(id, artistData) {
     try {
-      const response = await artistApi.put(`/${id}`, artistData);
+      const response = await apiClient.put(`/artist/${id}`, artistData);
       return {
         success: true,
         message: response.data.message
@@ -133,7 +92,7 @@ export const artistService = {
   // Delete artist (authenticated users)
   async deleteArtist(id) {
     try {
-      const response = await artistApi.delete(`/${id}`);
+      const response = await apiClient.delete(`/artist/${id}`);
       return {
         success: true,
         message: response.data.message
@@ -150,7 +109,7 @@ export const artistService = {
   // Search artists
   async searchArtists(query) {
     try {
-      const response = await artistApi.get(`/search?query=${encodeURIComponent(query)}`);
+      const response = await apiClient.get(`/artist/search?query=${encodeURIComponent(query)}`);
       return {
         success: true,
         data: response.data
