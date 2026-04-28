@@ -1,64 +1,5 @@
+import apiClient from './apiClient.js'
 // services/titleChangeService.js
-import axios from 'axios';
-
-// Create axios instance with base configuration
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',
-  headers: {
-    'Accept': 'application/json',
-  },
-  withCredentials: true,
-  timeout: 10000,
-});
-
-// Request interceptor to add auth token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    if (import.meta.env.DEV) {
-      console.log(`Title Change API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
-    }
-
-    return config;
-  },
-  (error) => {
-    console.error('Title Change API Request Error:', error);
-    return Promise.reject(error);
-  }
-);
-
-// Response interceptor to handle token expiration
-api.interceptors.response.use(
-  (response) => {
-    if (import.meta.env.DEV) {
-      console.log(`Title Change API Response: ${response.status} ${response.config.url}`, response.data);
-    }
-    return response;
-  },
-  (error) => {
-    console.error('Title Change API Error:', error);
-    console.error('Error details:', {
-      status: error.response?.status,
-      message: error.response?.data?.message,
-      data: error.response?.data,
-      url: error.config?.url
-    });
-
-    if (error.response?.status === 401) {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('authUser');
-      if (!window.location.pathname.includes('/account/login')) {
-        window.location.href = '/account/login';
-      }
-    }
-    return Promise.reject(error);
-  }
-);
-
 export const titleChangeService = {
   /**
    * Get complete change log history for a title
@@ -67,7 +8,7 @@ export const titleChangeService = {
   async getTitleChangeLog(titleId) {
     try {
       console.log('Fetching title change log for ID:', titleId);
-      const response = await api.get(`/AdminTitle/TitleChangeLog/${titleId}`);
+      const response = await apiClient.get(`/AdminTitle/TitleChangeLog/${titleId}`);
       return {
         success: true,
         data: response.data
@@ -89,7 +30,7 @@ export const titleChangeService = {
   async getTitleChangeStats(titleId) {
     try {
       console.log('Fetching title change stats for ID:', titleId);
-      const response = await api.get(`/AdminTitle/TitleChangeStats/${titleId}`);
+      const response = await apiClient.get(`/AdminTitle/TitleChangeStats/${titleId}`);
       return {
         success: true,
         data: response.data
@@ -115,7 +56,7 @@ export const titleChangeService = {
   async getPendingChangesForTitle(titleId) {
     try {
       console.log('Fetching pending changes for title ID:', titleId);
-      const response = await api.get(`/AdminTitle/PendingChanges/${titleId}`);
+      const response = await apiClient.get(`/AdminTitle/PendingChanges/${titleId}`);
       return {
         success: true,
         data: response.data
@@ -240,7 +181,7 @@ export const titleChangeService = {
     try {
       console.log('Testing title change API connection...');
       // Test with a dummy title ID - the endpoint should return 404 but connection works
-      const response = await api.get('/AdminTitle/TitleChangeLog/1');
+      const response = await apiClient.get('/AdminTitle/TitleChangeLog/1');
       console.log('Title change API connection test successful');
       return { success: true };
     } catch (error) {

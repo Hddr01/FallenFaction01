@@ -1,6 +1,5 @@
+import apiClient from './apiClient.js'
 // services/globalSearchService.js
-import axios from 'axios';
-
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',
   headers: { 'Accept': 'application/json' },
@@ -17,50 +16,50 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ─── helpers ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const safe = (promise) =>
   promise.then((r) => r).catch(() => []);
 
-// ─── individual searches ─────────────────────────────────────────────────────
+// â”€â”€â”€ individual searches â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function searchTitles(query) {
   // Hits the new GET /api/Titles/Search?query=... endpoint we added
-  const res = await api.get('/Titles/Search', { params: { query } });
+  const res = await apiClient.get('/Titles/Search', { params: { query } });
   return Array.isArray(res.data) ? res.data.slice(0, 20) : [];
 }
 
 async function searchTeams(query) {
-  const res = await api.get('/Team/search', { params: { query } });
+  const res = await apiClient.get('/Team/search', { params: { query } });
   return Array.isArray(res.data) ? res.data.slice(0, 10) : [];
 }
 
 async function searchAuthors(query) {
-  const res = await api.get('/Author/search', { params: { query } });
+  const res = await apiClient.get('/Author/search', { params: { query } });
   return Array.isArray(res.data) ? res.data.slice(0, 10) : [];
 }
 
 async function searchArtists(query) {
-  const res = await api.get('/Artist/search', { params: { query } });
+  const res = await apiClient.get('/Artist/search', { params: { query } });
   return Array.isArray(res.data) ? res.data.slice(0, 10) : [];
 }
 
 async function searchPublishers(query) {
-  const res = await api.get('/Publisher/search', { params: { query } });
+  const res = await apiClient.get('/Publisher/search', { params: { query } });
   return Array.isArray(res.data) ? res.data.slice(0, 10) : [];
 }
 
 async function searchTags(query) {
-  const res = await api.get('/Titles/Tags/Search', { params: { query } });
+  const res = await apiClient.get('/Titles/Tags/Search', { params: { query } });
   return Array.isArray(res.data) ? res.data.slice(0, 10) : [];
 }
 
 async function searchUsers(query) {
   // Hits the new GET /api/Users/search?query=... endpoint we added
-  const res = await api.get('/Users/search', { params: { query } });
+  const res = await apiClient.get('/Users/search', { params: { query } });
   return Array.isArray(res.data) ? res.data.slice(0, 10) : [];
 }
 
-// ─── public API ──────────────────────────────────────────────────────────────
+// â”€â”€â”€ public API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const globalSearchService = {
   /**

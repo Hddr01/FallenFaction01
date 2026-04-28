@@ -1,69 +1,11 @@
+import apiClient from './apiClient.js'
 // services/teamRoleService.js
-import axios from 'axios';
-
-// Create axios instance with base configuration
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',
-  headers: {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json'
-  },
-  withCredentials: true,
-  timeout: 10000,
-});
-
-// Request interceptor to add auth token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    if (import.meta.env.DEV) {
-      console.log(`Role API Request: ${config.method?.toUpperCase()} ${config.url}`, config.data);
-    }
-
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Response interceptor to handle token expiration
-api.interceptors.response.use(
-  (response) => {
-    if (import.meta.env.DEV) {
-      console.log(`Role API Response: ${response.status} ${response.config.url}`, response.data);
-    }
-    return response;
-  },
-  (error) => {
-    console.error('Role API Error:', error);
-    console.error('Error details:', {
-      status: error.response?.status,
-      data: error.response?.data,
-      url: error.config?.url
-    });
-
-    if (error.response?.status === 401) {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('authUser');
-      if (!window.location.pathname.includes('/account/login')) {
-        window.location.href = '/account/login';
-      }
-    }
-    return Promise.reject(error);
-  }
-);
-
 export const teamRoleService = {
 
   // Get permissions overview for a team (roles, permissions, etc.)
   async getPermissionsOverview(teamId) {
     try {
-      const response = await api.get(`/TeamRoleApi/${teamId}/permissions-overview`);
+      const response = await apiClient.get(`/TeamRoleApi/${teamId}/permissions-overview`);
       return {
         success: true,
         data: response.data
@@ -84,7 +26,7 @@ export const teamRoleService = {
   // Get specific member's permissions
   async getMemberPermissions(teamId, userId) {
     try {
-      const response = await api.get(`/TeamRoleApi/${teamId}/member/${userId}/permissions`);
+      const response = await apiClient.get(`/TeamRoleApi/${teamId}/member/${userId}/permissions`);
       return {
         success: true,
         data: response.data
@@ -103,7 +45,7 @@ export const teamRoleService = {
   // Update member's custom permissions
   async updateMemberPermissions(teamId, userId, permissionNames) {
     try {
-      const response = await api.put(`/TeamRoleApi/${teamId}/member/${userId}/permissions`, {
+      const response = await apiClient.put(`/TeamRoleApi/${teamId}/member/${userId}/permissions`, {
         permissionNames: permissionNames
       });
       return {
@@ -121,7 +63,7 @@ export const teamRoleService = {
   // Apply a role template to a member
   async applyRoleTemplate(teamId, userId, templateName) {
     try {
-      const response = await api.post(`/TeamRoleApi/${teamId}/member/${userId}/apply-template`, {
+      const response = await apiClient.post(`/TeamRoleApi/${teamId}/member/${userId}/apply-template`, {
         templateName: templateName
       });
       return {
@@ -139,7 +81,7 @@ export const teamRoleService = {
   // Get available role templates
   async getRoleTemplates() {
     try {
-      const response = await api.get('/TeamRoleApi/role-templates');
+      const response = await apiClient.get('/TeamRoleApi/role-templates');
       return {
         success: true,
         data: response.data
@@ -156,7 +98,7 @@ export const teamRoleService = {
   // Create custom role (for future implementation)
   async createCustomRole(teamId, roleData) {
     try {
-      const response = await api.post(`/TeamRoleApi/${teamId}/custom-roles`, {
+      const response = await apiClient.post(`/TeamRoleApi/${teamId}/custom-roles`, {
         name: roleData.name,
         description: roleData.description,
         permissionNames: roleData.permissions

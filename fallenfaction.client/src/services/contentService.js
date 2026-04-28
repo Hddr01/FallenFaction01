@@ -1,50 +1,10 @@
+import apiClient from './apiClient.js'
 // services/contentService.js
-import axios from 'axios';
-
-// Create axios instance with base configuration
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',
-  headers: {
-    'Accept': 'application/json',
-  },
-  withCredentials: true,
-  timeout: 10000,
-});
-
-// Request interceptor to add auth token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Response interceptor to handle token expiration
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('authUser');
-      if (!window.location.pathname.includes('/account/login')) {
-        window.location.href = '/account/login';
-      }
-    }
-    return Promise.reject(error);
-  }
-);
-
 export const contentService = {
   // Get user's content overview
   async getUserContent() {
     try {
-      const response = await api.get('/Titles/UserContent');
+      const response = await apiClient.get('/Titles/UserContent');
       return {
         success: true,
         data: response.data
@@ -68,7 +28,7 @@ export const contentService = {
   // Get user's uploaded titles
   async getUserTitles() {
     try {
-      const response = await api.get('/Titles/UserTitles');
+      const response = await apiClient.get('/Titles/UserTitles');
       return {
         success: true,
         data: response.data
@@ -86,7 +46,7 @@ export const contentService = {
   // Get user's pending titles
   async getUserPendingTitles() {
     try {
-      const response = await api.get('/TitleApi/user-pending');
+      const response = await apiClient.get('/TitleApi/user-pending');
       return {
         success: true,
         data: response.data
@@ -104,7 +64,7 @@ export const contentService = {
   // Get user's rejected titles
   async getUserRejectedTitles() {
     try {
-      const response = await api.get('/TitleApi/user-rejected');
+      const response = await apiClient.get('/TitleApi/user-rejected');
       return {
         success: true,
         data: response.data
@@ -122,7 +82,7 @@ export const contentService = {
   // Get user's chapters
   async getUserChapters() {
     try {
-      const response = await api.get('/Titles/UserChapters');
+      const response = await apiClient.get('/Titles/UserChapters');
       return {
         success: true,
         data: response.data
@@ -144,7 +104,7 @@ export const contentService = {
   // Get user's teams
   async getUserTeams() {
     try {
-      const response = await api.get('/Team/my-teams');
+      const response = await apiClient.get('/Team/my-teams');
       return {
         success: true,
         data: response.data
@@ -163,8 +123,8 @@ export const contentService = {
   async getPendingContent() {
     try {
       const [titlesResponse, chaptersResponse] = await Promise.all([
-        api.get('/AdminTitle/PendingTitles'),
-        api.get('/Titles/chapters/pending')
+        apiClient.get('/AdminTitle/PendingTitles'),
+        apiClient.get('/Titles/chapters/pending')
       ]);
 
       return {
@@ -190,7 +150,7 @@ export const contentService = {
   // Get title details
   async getTitleDetails(titleId) {
     try {
-      const response = await api.get(`/Titles/${titleId}`);
+      const response = await apiClient.get(`/Titles/${titleId}`);
       return {
         success: true,
         data: response.data
@@ -207,7 +167,7 @@ export const contentService = {
   // Delete user title (if allowed)
   async deleteTitle(titleId) {
     try {
-      const response = await api.delete(`/Titles/${titleId}`);
+      const response = await apiClient.delete(`/Titles/${titleId}`);
       return {
         success: true,
         message: response.data.message || 'Title deleted successfully'
@@ -224,7 +184,7 @@ export const contentService = {
   // Approve pending title (admin only)
   async approveTitle(titleId) {
     try {
-      const response = await api.post(`/TitleApi/approve/${titleId}`);
+      const response = await apiClient.post(`/TitleApi/approve/${titleId}`);
       return {
         success: true,
         message: response.data.message || 'Title approved successfully'
@@ -241,7 +201,7 @@ export const contentService = {
   // Reject pending title (admin only)
   async rejectTitle(titleId, reason) {
     try {
-      const response = await api.post(`/TitleApi/reject/${titleId}`, {
+      const response = await apiClient.post(`/TitleApi/reject/${titleId}`, {
         reason: reason
       });
       return {
@@ -260,7 +220,7 @@ export const contentService = {
   // Approve pending chapter (admin only)
   async approveChapter(chapterId) {
     try {
-      const response = await api.post(`/Titles/chapters/pending/${chapterId}/approve`);
+      const response = await apiClient.post(`/Titles/chapters/pending/${chapterId}/approve`);
       return {
         success: true,
         message: response.data.message || 'Chapter approved successfully'
@@ -277,7 +237,7 @@ export const contentService = {
   // Reject pending chapter (admin only)
   async rejectChapter(chapterId, reason) {
     try {
-      const response = await api.post(`/Titles/chapters/pending/${chapterId}/reject`, {
+      const response = await apiClient.post(`/Titles/chapters/pending/${chapterId}/reject`, {
         reason: reason
       });
       return {

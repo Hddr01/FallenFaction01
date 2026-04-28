@@ -1,6 +1,5 @@
+import apiClient from './apiClient.js'
 // services/teamService.js - Updated with image upload functionality
-import axios from 'axios';
-
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
 const teamApi = axios.create({

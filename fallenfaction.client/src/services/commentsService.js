@@ -1,80 +1,5 @@
+import apiClient from './apiClient.js'
 // services/commentsService.js - Simplified for Infinite Accordion Approach
-import axios from 'axios';
-
-// Create axios instance with base configuration
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',
-  headers: {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json'
-  },
-  withCredentials: true,
-  timeout: 15000
-});
-
-// =============================================================================
-// AXIOS INTERCEPTORS
-// =============================================================================
-
-// Request interceptor to add auth token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    // Log requests in development
-    if (import.meta.env.DEV) {
-      console.log(`📤 API Request: ${config.method?.toUpperCase()} ${config.url}`, {
-        params: config.params,
-        data: config.data
-      });
-    }
-
-    return config;
-  },
-  (error) => {
-    console.error('📤 Request Error:', error);
-    return Promise.reject(error);
-  }
-);
-
-// Response interceptor for error handling and auth
-api.interceptors.response.use(
-  (response) => {
-    if (import.meta.env.DEV) {
-      console.log(`📥 API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, {
-        status: response.status,
-        data: response.data
-      });
-    }
-    return response;
-  },
-  (error) => {
-    console.error('📥 Response Error:', error.response?.data || error.message);
-
-    // Handle 401 Unauthorized - redirect to login
-    if (error.response?.status === 401) {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('authUser');
-
-      if (!window.location.pathname.includes('/account/login')) {
-        window.location.href = '/account/login?returnUrl=' + encodeURIComponent(window.location.pathname);
-      }
-    }
-
-    return Promise.reject(error);
-  }
-);
-
-// =============================================================================
-// DTO MAPPING UTILITIES
-// =============================================================================
-
-/**
- * Maps comment DTO from API response to consistent camelCase format
- */
 const mapCommentFromDto = (dto) => {
   if (!dto) return null;
 
@@ -130,7 +55,7 @@ export const commentsService = {
    */
   async getCommentStats(targetId, targetType) {
     try {
-      const response = await api.get('/Comments/GetCommentStats', {
+      const response = await apiClient.get('/Comments/GetCommentStats', {
         params: { targetId, targetType }
       });
 
@@ -167,7 +92,7 @@ export const commentsService = {
    */
   async getComments(targetId, targetType, page = 1, pageSize = 20, sortBy = 'newest') {
     try {
-      const response = await api.get('/Comments/GetComments', {
+      const response = await apiClient.get('/Comments/GetComments', {
         params: {
           targetId,
           targetType,
@@ -213,7 +138,7 @@ export const commentsService = {
    */
   async getCommentThread(commentId) {
     try {
-      const response = await api.get(`/Comments/GetCommentThread/${commentId}`);
+      const response = await apiClient.get(`/Comments/GetCommentThread/${commentId}`);
 
       const data = response.data;
 
@@ -248,7 +173,7 @@ export const commentsService = {
    */
   async getCommentStatsForAdmin() {
     try {
-      const response = await api.get('/AdminComments/GetStats');
+      const response = await apiClient.get('/AdminComments/GetStats');
 
       const data = response.data;
 
@@ -296,7 +221,7 @@ export const commentsService = {
    */
   async getAllCommentsForAdmin(params = {}) {
     try {
-      const response = await api.get('/AdminComments/GetAllComments', {
+      const response = await apiClient.get('/AdminComments/GetAllComments', {
         params: {
           page: params.page || 1,
           pageSize: params.pageSize || 20,
@@ -376,7 +301,7 @@ export const commentsService = {
         };
       }
 
-      const response = await api.post('/Comments/AddComment', {
+      const response = await apiClient.post('/Comments/AddComment', {
         targetId: parseInt(targetId),
         targetType: parseInt(targetType),
         content: content.trim(),
@@ -440,7 +365,7 @@ export const commentsService = {
    */
   async reactToComment(commentId, isLike) {
     try {
-      const response = await api.post(`/Comments/${commentId}/React`, {
+      const response = await apiClient.post(`/Comments/${commentId}/React`, {
         isLike
       });
 
@@ -472,7 +397,7 @@ export const commentsService = {
    */
   async deleteComment(commentId) {
     try {
-      const response = await api.delete(`/Comments/${commentId}`);
+      const response = await apiClient.delete(`/Comments/${commentId}`);
 
       return {
         success: true,
@@ -495,7 +420,7 @@ export const commentsService = {
    */
   async deleteCommentAsAdmin(commentId, reason = 'Deleted by administrator') {
     try {
-      const response = await api.delete(`/AdminComments/DeleteComment/${commentId}`, {
+      const response = await apiClient.delete(`/AdminComments/DeleteComment/${commentId}`, {
         params: { reason }
       });
 
@@ -519,7 +444,7 @@ export const commentsService = {
    */
   async restoreCommentAsAdmin(commentId) {
     try {
-      const response = await api.post(`/AdminComments/RestoreComment/${commentId}`);
+      const response = await apiClient.post(`/AdminComments/RestoreComment/${commentId}`);
 
       return {
         success: true,
@@ -542,7 +467,7 @@ export const commentsService = {
    */
   async permanentlyDeleteComment(commentId) {
     try {
-      const response = await api.delete(`/AdminComments/PermanentlyDeleteComment/${commentId}`);
+      const response = await apiClient.delete(`/AdminComments/PermanentlyDeleteComment/${commentId}`);
 
       return {
         success: true,
@@ -694,7 +619,7 @@ export const commentsService = {
    * Pin a comment (requires team permission or admin role)
    */
   async pinComment(commentId) {
-    const response = await api.put(`/Comments/${commentId}/pin`);
+    const response = await apiClient.put(`/Comments/${commentId}/pin`);
     return response.data;
   },
 
@@ -702,7 +627,7 @@ export const commentsService = {
    * Unpin a comment
    */
   async unpinComment(commentId) {
-    const response = await api.put(`/Comments/${commentId}/unpin`);
+    const response = await apiClient.put(`/Comments/${commentId}/unpin`);
     return response.data;
   }
 };

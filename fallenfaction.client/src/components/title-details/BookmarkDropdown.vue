@@ -73,6 +73,8 @@
 </template>
 
 <script>
+  import apiClient from '@/services/apiClient.js'
+
   export default {
     name: 'BookmarkDropdown',
     props: {
@@ -82,7 +84,6 @@
       }
     },
     emits: ['bookmark-changed', 'bookmark-loaded'],
-    inject: ['apiClient'], // Inject the apiClient from App.vue
     data() {
       return {
         folderOptions: [],
@@ -168,7 +169,7 @@
           console.log('Loading bookmark folders for title:', this.titleId)
 
           // Use the injected apiClient
-          const response = await this.apiClient.get(`/Bookmarks/GetFolders?titleId=${this.titleId}`)
+          const response = await apiClient.get(`/Bookmarks/GetFolders?titleId=${this.titleId}`)
 
           // Axios automatically handles JSON parsing
           const data = response.data
@@ -228,13 +229,13 @@
         try {
           // Remove from current folder if already bookmarked
           if (this.isBookmarked) {
-            await this.apiClient.post('/Bookmarks/RemoveBookmark', {
+            await apiClient.post('/Bookmarks/RemoveBookmark', {
               bookmarkId: this.currentBookmark.id
             })
           }
 
           // Add to new folder
-          await this.apiClient.post('/Bookmarks/AddBookmark', {
+          await apiClient.post('/Bookmarks/AddBookmark', {
             titleId: this.titleId,
             folderId: folderId
           })
@@ -275,7 +276,7 @@
         this.lastError = null
 
         try {
-          await this.apiClient.post('/Bookmarks/RemoveBookmark', {
+          await apiClient.post('/Bookmarks/RemoveBookmark', {
             bookmarkId: this.currentBookmark.id
           })
 

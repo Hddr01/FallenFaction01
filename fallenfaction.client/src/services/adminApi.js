@@ -1,66 +1,5 @@
+import apiClient from './apiClient.js'
 // services/adminApi.js - FIXED Complete admin API service with chapter management
-import axios from 'axios';
-
-// Create axios instance with base configuration
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',
-  headers: {
-    'Accept': 'application/json',
-  },
-  withCredentials: true,
-  timeout: 10000, // 10 second timeout
-});
-
-// Request interceptor to add auth token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    // Log requests in development
-    if (import.meta.env.DEV) {
-      console.log(`Admin API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`, config.data);
-    }
-
-    return config;
-  },
-  (error) => {
-    console.error('Admin API Request Error:', error);
-    return Promise.reject(error);
-  }
-);
-
-// Response interceptor to handle token expiration
-api.interceptors.response.use(
-  (response) => {
-    // Log responses in development
-    if (import.meta.env.DEV) {
-      console.log(`Admin API Response: ${response.status} ${response.config.url}`, response.data);
-    }
-    return response;
-  },
-  (error) => {
-    console.error('Admin API Error:', error);
-    console.error('Error details:', {
-      status: error.response?.status,
-      message: error.response?.data?.message,
-      data: error.response?.data,
-      url: error.config?.url
-    });
-
-    if (error.response?.status === 401) {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('authUser');
-      if (!window.location.pathname.includes('/account/login')) {
-        window.location.href = '/account/login';
-      }
-    }
-    return Promise.reject(error);
-  }
-);
-
 const adminApi = {
   // TITLE MANAGEMENT METHODS
 
@@ -68,7 +7,7 @@ const adminApi = {
   async getPendingTitles() {
     try {
       console.log('Calling: GET /api/AdminTitle/PendingTitles');
-      const response = await api.get('/AdminTitle/PendingTitles');
+      const response = await apiClient.get('/AdminTitle/PendingTitles');
       return {
         success: true,
         data: response.data
@@ -86,7 +25,7 @@ const adminApi = {
   async getPendingTitleDetails(titleId) {
     try {
       console.log(`Calling: GET /api/AdminTitle/GetPendingTitleDetails?id=${titleId}`);
-      const response = await api.get(`/AdminTitle/GetPendingTitleDetails?id=${titleId}`);
+      const response = await apiClient.get(`/AdminTitle/GetPendingTitleDetails?id=${titleId}`);
       return {
         success: true,
         data: response.data
@@ -103,7 +42,7 @@ const adminApi = {
   async acceptTitle(titleId) {
     try {
       console.log(`Calling: POST /api/TitleApi/approve/${titleId}`);
-      const response = await api.post(`/TitleApi/approve/${titleId}`);
+      const response = await apiClient.post(`/TitleApi/approve/${titleId}`);
       return {
         success: true,
         message: response.data.message || 'Title approved successfully!',
@@ -121,7 +60,7 @@ const adminApi = {
   async rejectTitle(titleId, reason = '') {
     try {
       console.log('Calling: POST /api/AdminTitle/RejectTitle');
-      const response = await api.post('/AdminTitle/RejectTitle', {
+      const response = await apiClient.post('/AdminTitle/RejectTitle', {
         id: titleId,
         reason: reason
       });
@@ -142,7 +81,7 @@ const adminApi = {
   async getApprovedTitles() {
     try {
       console.log('Calling: GET /api/AdminTitle/AdminTitleManagement');
-      const response = await api.get('/AdminTitle/AdminTitleManagement');
+      const response = await apiClient.get('/AdminTitle/AdminTitleManagement');
       return {
         success: true,
         data: response.data
@@ -160,7 +99,7 @@ const adminApi = {
   async getTitleDetails(titleId) {
     try {
       console.log(`Calling: GET /api/AdminTitle/GetTitleDetails/${titleId}`);
-      const response = await api.get(`/AdminTitle/GetTitleDetails/${titleId}`);
+      const response = await apiClient.get(`/AdminTitle/GetTitleDetails/${titleId}`);
       return {
         success: true,
         data: response.data
@@ -225,7 +164,7 @@ const adminApi = {
         });
       }
 
-      const response = await api.post('/AdminTitle/UpdateTitle', formData, {
+      const response = await apiClient.post('/AdminTitle/UpdateTitle', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -248,7 +187,7 @@ const adminApi = {
   async deleteTitle(titleId) {
     try {
       console.log('Calling: POST /api/AdminTitle/DeleteTitle');
-      const response = await api.post('/AdminTitle/DeleteTitle', { id: titleId });
+      const response = await apiClient.post('/AdminTitle/DeleteTitle', { id: titleId });
       return {
         success: true,
         message: response.data.message || 'Title deleted successfully!',
@@ -266,7 +205,7 @@ const adminApi = {
   async toggleTitleAvailability(titleId) {
     try {
       console.log('Calling: POST /api/AdminTitle/ToggleTitleAvailability');
-      const response = await api.post('/AdminTitle/ToggleTitleAvailability', { id: titleId });
+      const response = await apiClient.post('/AdminTitle/ToggleTitleAvailability', { id: titleId });
       return {
         success: true,
         message: response.data.message || 'Title availability updated successfully!',
@@ -284,7 +223,7 @@ const adminApi = {
   async toggleTitleComments(titleId) {
     try {
       console.log('Calling: POST /api/AdminTitle/ToggleTitleComments');
-      const response = await api.post('/AdminTitle/ToggleTitleComments', { id: titleId });
+      const response = await apiClient.post('/AdminTitle/ToggleTitleComments', { id: titleId });
       return {
         success: true,
         message: response.data.message || 'Title comments updated successfully!',
@@ -302,7 +241,7 @@ const adminApi = {
   async toggleChapterComments(titleId) {
     try {
       console.log('Calling: POST /api/AdminTitle/ToggleChapterComments');
-      const response = await api.post('/AdminTitle/ToggleChapterComments', { id: titleId });
+      const response = await apiClient.post('/AdminTitle/ToggleChapterComments', { id: titleId });
       return {
         success: true,
         message: response.data.message || 'Chapter comments updated successfully!',
@@ -320,7 +259,7 @@ const adminApi = {
   async searchTitles(searchString) {
     try {
       console.log(`Calling: GET /api/AdminTitle/SearchTitle?searchString=${searchString}`);
-      const response = await api.get(`/AdminTitle/SearchTitle?searchString=${encodeURIComponent(searchString)}`);
+      const response = await apiClient.get(`/AdminTitle/SearchTitle?searchString=${encodeURIComponent(searchString)}`);
       return {
         success: true,
         data: response.data
@@ -340,7 +279,7 @@ const adminApi = {
   async getPendingChapters() {
     try {
       console.log('Calling: GET /api/Titles/chapters/pending');
-      const response = await api.get('/Titles/chapters/pending');
+      const response = await apiClient.get('/Titles/chapters/pending');
       return {
         success: true,
         data: response.data
@@ -359,7 +298,7 @@ const adminApi = {
   async getPendingChapterDetails(chapterId) {
     try {
       console.log(`Calling: GET /api/Titles/chapters/pending/${chapterId}`);
-      const response = await api.get(`/Titles/chapters/pending/${chapterId}`);
+      const response = await apiClient.get(`/Titles/chapters/pending/${chapterId}`);
       return {
         success: true,
         data: response.data
@@ -377,7 +316,7 @@ const adminApi = {
   async acceptChapter(chapterId) {
     try {
       console.log(`Calling: POST /api/Titles/chapters/pending/${chapterId}/approve`);
-      const response = await api.post(`/Titles/chapters/pending/${chapterId}/approve`);
+      const response = await apiClient.post(`/Titles/chapters/pending/${chapterId}/approve`);
       return {
         success: true,
         message: response.data.message || 'Chapter accepted successfully!',
@@ -396,7 +335,7 @@ const adminApi = {
   async rejectChapter(chapterId, reason = '') {
     try {
       console.log(`Calling: POST /api/Titles/chapters/pending/${chapterId}/reject`);
-      const response = await api.post(`/Titles/chapters/pending/${chapterId}/reject`, {
+      const response = await apiClient.post(`/Titles/chapters/pending/${chapterId}/reject`, {
         reason: reason
       });
       return {
@@ -417,7 +356,7 @@ const adminApi = {
   async massApproveChapters(chapterIds) {
     try {
       console.log(`Calling: POST /api/Titles/chapters/pending/mass-approve`, chapterIds);
-      const response = await api.post('/Titles/chapters/pending/mass-approve', { chapterIds });
+      const response = await apiClient.post('/Titles/chapters/pending/mass-approve', { chapterIds });
       return {
         success: true,
         message: response.data.message || 'Chapters mass-approved successfully!',
@@ -438,7 +377,7 @@ const adminApi = {
   async testConnection() {
     try {
       console.log('Testing admin API connection...');
-      const response = await api.get('/AdminTitle/AdminTitleManagement');
+      const response = await apiClient.get('/AdminTitle/AdminTitleManagement');
       console.log('Admin API connection test successful');
       return { success: true, data: response.data };
     } catch (error) {
@@ -446,7 +385,6 @@ const adminApi = {
       return { success: false, error: error.message };
     }
   },
-
 
   // Add to the adminApi object in adminApi.js
 
@@ -456,7 +394,7 @@ const adminApi = {
   async getPendingTitleChanges() {
     try {
       console.log('Calling: GET /api/AdminTitle/PendingChanges');
-      const response = await api.get('/AdminTitle/PendingChanges');
+      const response = await apiClient.get('/AdminTitle/PendingChanges');
       return {
         success: true,
         data: response.data
@@ -474,7 +412,7 @@ const adminApi = {
   async getPendingChangesForTitle(titleId) {
     try {
       console.log(`Calling: GET /api/AdminTitle/PendingChanges/${titleId}`);
-      const response = await api.get(`/AdminTitle/PendingChanges/${titleId}`);
+      const response = await apiClient.get(`/AdminTitle/PendingChanges/${titleId}`);
       return {
         success: true,
         data: response.data
@@ -491,7 +429,7 @@ const adminApi = {
   async approveTitleChanges(titleId, adminComment = '') {
     try {
       console.log(`Calling: POST /api/AdminTitle/ApproveChanges/${titleId}`);
-      const response = await api.post(`/AdminTitle/ApproveChanges/${titleId}`, {
+      const response = await apiClient.post(`/AdminTitle/ApproveChanges/${titleId}`, {
         adminComment: adminComment
       });
       return {
@@ -511,7 +449,7 @@ const adminApi = {
   async rejectTitleChanges(titleId, rejectionReason, adminComment = '') {
     try {
       console.log(`Calling: POST /api/AdminTitle/RejectChanges/${titleId}`);
-      const response = await api.post(`/AdminTitle/RejectChanges/${titleId}`, {
+      const response = await apiClient.post(`/AdminTitle/RejectChanges/${titleId}`, {
         rejectionReason: rejectionReason,
         adminComment: adminComment
       });
@@ -532,7 +470,7 @@ const adminApi = {
   async testChapterConnection() {
     try {
       console.log('Testing chapter API connection...');
-      const response = await api.get('/Titles/chapters/pending');
+      const response = await apiClient.get('/Titles/chapters/pending');
       console.log('Chapter API connection test successful');
       return { success: true, data: response.data };
     } catch (error) {

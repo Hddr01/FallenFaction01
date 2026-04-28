@@ -75,14 +75,13 @@
 </template>
 
 <script setup>
-  import { ref, onMounted, onUnmounted, provide, getCurrentInstance, nextTick, computed, watch } from 'vue';
+  import { ref, onMounted, onUnmounted, getCurrentInstance, nextTick, computed, watch } from 'vue';
   import { useRouter, useRoute } from 'vue-router';
   import { useAuthStore } from './stores/authStore';
   import NavBar from './layout/NavBar.vue';
   import Footer from './layout/Footer.vue';
   import LoadingScreen from './LoadingScreen.vue';
   import ErrorHandler from './services/ErrorHandler.js';
-  import { createApiClient } from './services/ApiErrorHandler.js';
 
   const router = useRouter();
   const route = useRoute();
@@ -115,12 +114,7 @@
     auth: false
   });
 
-  // Create error handler instance with router
   const errorHandler = new ErrorHandler(router);
-  const apiClient = createApiClient(errorHandler);
-
-  provide('apiClient', apiClient);
-  provide('errorHandler', errorHandler);
 
   let unsubscribeFromErrors;
   let notificationId = 0;
