@@ -512,11 +512,17 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.3s ease;
+    will-change: transform;
   }
 
-  .manga-link:hover .manga-cover-img {
-    transform: scale(1.05);
+  @media (hover: hover) {
+    .manga-cover-img {
+      transition: transform 0.3s ease;
+    }
+
+    .manga-link:hover .manga-cover-img {
+      transform: scale(1.05);
+    }
   }
 
   .carousel-manga-info {

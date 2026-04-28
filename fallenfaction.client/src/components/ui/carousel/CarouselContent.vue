@@ -15,6 +15,7 @@ const { carouselRef, orientation } = useCarousel();
     ref="carouselRef"
     data-slot="carousel-content"
     class="overflow-hidden"
+    style="touch-action: pan-y; will-change: transform;"
   >
     <div
       :class="
@@ -24,6 +25,7 @@ const { carouselRef, orientation } = useCarousel();
     props.class
   )
 "
+      style="will-change: transform;"
       v-bind="$attrs"
     >
       <slot />
