@@ -11,7 +11,6 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.ActionConstraints;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -136,7 +135,16 @@ builder.Services.AddCors(options =>
 
 #region DB
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        sqlOptions =>
+        {
+            sqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 5,
+                maxRetryDelay: TimeSpan.FromSeconds(30),
+                errorNumbersToAdd: null);
+            sqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+        }));
 #endregion
 
 #region Identity
@@ -373,6 +381,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHsts();
+app.UseMiddleware<FallenFaction.Server.Middleware.CrawlerFilterMiddleware>();
 app.UseRouting();
 app.UseResponseCaching();
 app.UseSentryTracing();  // ← traces every request

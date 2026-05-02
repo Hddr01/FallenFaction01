@@ -337,8 +337,11 @@ namespace FallenFaction.Server.Controllers
                 if (!resp.IsSuccessStatusCode) return null;
 
                 var json = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
-                var at = json.RootElement.GetProperty("access_token").GetString() ?? "";
-                var rt = json.RootElement.GetProperty("refresh_token").GetString() ?? "";
+                if (!json.RootElement.TryGetProperty("access_token", out var atProp) ||
+                    !json.RootElement.TryGetProperty("refresh_token", out var rtProp))
+                    return null;
+                var at = atProp.GetString() ?? "";
+                var rt = rtProp.GetString() ?? "";
                 return (at, rt);
             }
             catch (Exception ex)
@@ -363,8 +366,11 @@ namespace FallenFaction.Server.Controllers
                 var resp = await _http.SendAsync(req);
                 if (!resp.IsSuccessStatusCode) return null;
 
-                var json     = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
-                var userId   = json.RootElement.GetProperty("data").GetProperty("id").GetString() ?? "";
+                var json = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+                if (!json.RootElement.TryGetProperty("data", out var dataEl) ||
+                    !dataEl.TryGetProperty("id", out var idEl))
+                    return null;
+                var userId = idEl.GetString() ?? "";
                 var tierName = ExtractTierName(json.RootElement);
                 var amount   = 0m;
 
@@ -379,16 +385,17 @@ namespace FallenFaction.Server.Controllers
 
         private static string? ExtractTierName(JsonElement root)
         {
-            try
+            if (!root.TryGetProperty("included", out var included) ||
+                included.ValueKind != JsonValueKind.Array)
+                return null;
+
+            foreach (var item in included.EnumerateArray())
             {
-                if (!root.TryGetProperty("included", out var included)) return null;
-                foreach (var item in included.EnumerateArray())
-                {
-                    if (item.TryGetProperty("type", out var t) && t.GetString() == "tier")
-                        return item.GetProperty("attributes").GetProperty("title").GetString();
-                }
+                if (item.TryGetProperty("type", out var t) && t.GetString() == "tier" &&
+                    item.TryGetProperty("attributes", out var attrs) &&
+                    attrs.TryGetProperty("title", out var titleEl))
+                    return titleEl.GetString();
             }
-            catch { }
             return null;
         }
 
