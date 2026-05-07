@@ -43,7 +43,7 @@ public class CommentService : ICommentService
                 LastCommentDate = g.Max(c => (DateTime?)c.PostedDate),
                 CommentsEnabled = commentsEnabled
             })
-            .FirstOrDefaultAsync();
+            .SingleOrDefaultAsync();
 
         return stats ?? new CommentStatsDto
         {
