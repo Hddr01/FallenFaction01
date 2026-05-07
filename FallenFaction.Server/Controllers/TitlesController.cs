@@ -624,13 +624,12 @@ namespace FallenFaction.Server.Controllers
                 if (!isAdmin)
                 {
                     var teamIds = pendingChapters.Select(pc => pc.TeamId).Distinct().ToList();
-                    foreach (var teamId in teamIds)
-                    {
-                        var canApprove = await _context.UserTeamRoles
-                            .Where(utr => utr.AppUserId == user.Id && utr.TeamId == teamId && utr.Role == TeamRole.Admin)
-                            .AnyAsync();
-                        if (!canApprove) return Forbid($"You lack admin rights for team {teamId}");
-                    }
+                    var adminTeamIds = await _context.UserTeamRoles
+                        .Where(utr => utr.AppUserId == user.Id && teamIds.Contains(utr.TeamId) && utr.Role == TeamRole.Admin)
+                        .Select(utr => utr.TeamId)
+                        .ToListAsync();
+                    var missingTeamId = teamIds.FirstOrDefault(id => !adminTeamIds.Contains(id));
+                    if (missingTeamId != default) return Forbid($"You lack admin rights for team {missingTeamId}");
                 }
 
                 int approvedCount = 0;
@@ -877,23 +876,18 @@ namespace FallenFaction.Server.Controllers
         {
             try
             {
-                var query = _context.Chapters
+                var baseQuery = _context.Chapters
                     .Include(c => c.Title)
                     .Include(c => c.Team)
-
                     .Where(c => c.TitleId == titleId && c.ChapterNumber == chapterNumber);
 
                 if (volumeNumber.HasValue)
-                {
-                    query = query.Where(c => c.VolumeNumber == volumeNumber.Value);
-                }
+                    baseQuery = baseQuery.Where(c => c.VolumeNumber == volumeNumber.Value);
 
                 if (teamId.HasValue)
-                {
-                    query = query.Where(c => c.TeamId == teamId.Value);
-                }
+                    baseQuery = baseQuery.Where(c => c.TeamId == teamId.Value);
 
-                var chapter = await query.FirstOrDefaultAsync();
+                var chapter = await baseQuery.OrderBy(c => c.Id).FirstOrDefaultAsync();
 
                 if (chapter == null)
                 {
@@ -1585,6 +1579,7 @@ namespace FallenFaction.Server.Controllers
                     .Include(t => t.Artists)
                     .Include(t => t.Categories)
                     .Include(t => t.Tags)
+                    .OrderBy(t => t.Id)
                     .FirstOrDefaultAsync();
 
                 if (title == null)
