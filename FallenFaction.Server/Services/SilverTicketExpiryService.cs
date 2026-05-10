@@ -1,5 +1,6 @@
 using FallenFaction.Server.Data;
 using FallenFaction.Server.Data.Models;
+using FallenFaction.Server.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace FallenFaction.Server.Services
@@ -46,9 +47,10 @@ namespace FallenFaction.Server.Services
 
         private async Task RunExpiryPass()
         {
-            using var scope   = _scopeFactory.CreateScope();
-            var context       = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var now           = DateTime.UtcNow;
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var wallet  = scope.ServiceProvider.GetRequiredService<ITicketWalletService>();
+            var now     = DateTime.UtcNow;
 
             // Find all unexpired Silver earn transactions whose expiry has passed
             // and that haven't already been expired (no paired Expiry transaction)
@@ -75,30 +77,15 @@ namespace FallenFaction.Server.Services
 
             foreach (var batch in expiredBatches)
             {
-                var wallet = await context.UserTickets
-                    .FirstOrDefaultAsync(w => w.UserId == batch.UserId);
+                var actualDeduction = await wallet.DebitSilverCappedAsync(
+                    batch.UserId,
+                    batch.TotalExpired,
+                    TicketTransactionType.Expiry,
+                    $"Silver tickets expired ({batch.TransactionIds.Count} batch(es))");
 
-                if (wallet == null) continue;
-
-                var actualDeduction = Math.Min(wallet.SilverBalance, batch.TotalExpired);
-                if (actualDeduction <= 0) continue;
-
-                wallet.SilverBalance -= actualDeduction;
-                wallet.UpdatedAt      = now;
-
-                context.TicketTransactions.Add(new TicketTransaction
-                {
-                    UserId          = batch.UserId,
-                    TicketType      = TicketType.Silver,
-                    TransactionType = TicketTransactionType.Expiry,
-                    Amount          = -actualDeduction,
-                    BalanceAfter    = wallet.SilverBalance,
-                    Description     = $"Silver tickets expired ({batch.TransactionIds.Count} batch(es))",
-                    CreatedAt       = now
-                });
-
-                _logger.LogInformation("Expired {Amount} Silver tickets for user {UserId}.",
-                    actualDeduction, batch.UserId);
+                if (actualDeduction > 0)
+                    _logger.LogInformation("Expired {Amount} Silver tickets for user {UserId}.",
+                        actualDeduction, batch.UserId);
             }
 
             await context.SaveChangesAsync();

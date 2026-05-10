@@ -275,15 +275,13 @@
 </template>
 
 <script setup>
-  import { ref, computed, onMounted } from 'vue'
+  import { ref } from 'vue'
   import adminApi from '../../services/adminApi.js'
   import { titleDetailsService } from '../../services/titleDetailsService.js'
   import { buildTitleSlug } from '@/utils/titleSlug.js'
+  import { useApi } from '@/composables/useApi.js'
 
   // ── State ─────────────────────────────────────────────────────────────────────
-  const pendingTitles = ref([])
-  const isLoading = ref(true)
-  const error = ref('')
   const successMessage = ref('')
   const isProcessing = ref(false)
 
@@ -329,24 +327,21 @@
   }
 
   // ── Data loading ──────────────────────────────────────────────────────────────
-  const loadPendingTitles = async () => {
-    isLoading.value = true
-    error.value = ''
-    try {
-      const result = await adminApi.getPendingTitles()
-      if (result.success) {
-        pendingTitles.value = result.data
-        // Start similarity checks in the background for all pending titles
-        result.data.forEach(t => checkSimilarityForTitle(t))
-      } else {
-        error.value = result.error
-      }
-    } catch (err) {
-      error.value = 'Failed to load pending titles'
-    } finally {
-      isLoading.value = false
+  // Wrap the service so we can fan out similarity checks as a side effect
+  // before useApi unwraps the standard envelope.
+  const fetchPendingTitles = async () => {
+    const result = await adminApi.getPendingTitles()
+    if (result.success) {
+      result.data.forEach(t => checkSimilarityForTitle(t))
     }
+    return result
   }
+
+  const {
+    data: pendingTitles,
+    loading: isLoading,
+    error
+  } = useApi(fetchPendingTitles, { initialValue: [] })
 
   // Run similarity check and populate cache
   const checkSimilarityForTitle = async (title) => {
@@ -429,8 +424,6 @@
       isProcessing.value = false
     }
   }
-
-  onMounted(loadPendingTitles)
 </script>
 
 <style scoped>
