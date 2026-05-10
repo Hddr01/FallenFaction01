@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json;
 using FallenFaction.Server.Data;
 using FallenFaction.Server.Data.Models;
+using FallenFaction.Server.Services.Interfaces;
 
 namespace FallenFaction.Server.Controllers
 {
@@ -36,6 +37,7 @@ namespace FallenFaction.Server.Controllers
         private readonly IConfiguration _config;
         private readonly ILogger<PatreonController> _logger;
         private readonly IMemoryCache _stateCache;
+        private readonly ITicketWalletService _wallet;
 
         private static readonly HttpClient _http = new();
         private const string StateCachePrefix = "patreon_state_";
@@ -45,13 +47,15 @@ namespace FallenFaction.Server.Controllers
             UserManager<AppUser> userManager,
             IConfiguration config,
             ILogger<PatreonController> logger,
-            IMemoryCache stateCache)
+            IMemoryCache stateCache,
+            ITicketWalletService wallet)
         {
             _context = context;
             _userManager = userManager;
             _config = config;
             _logger = logger;
             _stateCache = stateCache;
+            _wallet = wallet;
         }
 
         // ── GET /api/patreon/link ────────────────────────────────────────────
@@ -290,28 +294,13 @@ namespace FallenFaction.Server.Controllers
                 return;
             }
 
-            // Ensure wallet exists
-            var wallet = await _context.UserTickets.FirstOrDefaultAsync(w => w.UserId == user.Id);
-            if (wallet == null)
-            {
-                wallet = new UserTicket { UserId = user.Id, CreatedAt = DateTime.UtcNow };
-                _context.UserTickets.Add(wallet);
-            }
-
-            wallet.GoldBalance += goldAmount;
-            wallet.UpdatedAt    = DateTime.UtcNow;
-
-            _context.TicketTransactions.Add(new TicketTransaction
-            {
-                UserId          = user.Id,
-                TicketType      = TicketType.Gold,
-                TransactionType = TicketTransactionType.PatreonGrant,
-                Amount          = goldAmount,
-                BalanceAfter    = wallet.GoldBalance,
-                Description     = $"{description} — {tierName} tier",
-                PatreonTierName = tierName,
-                CreatedAt       = DateTime.UtcNow
-            });
+            await _wallet.CreditAsync(
+                user.Id,
+                TicketType.Gold,
+                goldAmount,
+                TicketTransactionType.PatreonGrant,
+                $"{description} — {tierName} tier",
+                patreonTierName: tierName);
 
             _logger.LogInformation("Granted {Gold} Gold tickets to {UserId} via Patreon tier '{Tier}'.",
                 goldAmount, user.Id, tierName);
