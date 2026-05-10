@@ -28,19 +28,22 @@ namespace FallenFaction.Server.Controllers.Api
         private readonly UserManager<AppUser> _userManager;
 
         private readonly ITrustService _trustService;
+        private readonly IApprovalCoordinator _approvals;
 
         public AdminTitleController(
             ApplicationDbContext context,
             IWebHostEnvironment hostingEnvironment,
             ILogger<AdminTitleController> logger,
             UserManager<AppUser> userManager,
-            ITrustService trustService)
+            ITrustService trustService,
+            IApprovalCoordinator approvals)
         {
             _context = context;
             _hostingEnvironment = hostingEnvironment;
             _logger = logger;
             _userManager = userManager;
             _trustService = trustService;
+            _approvals = approvals;
         }
 
         /// <summary>
@@ -1202,209 +1205,20 @@ namespace FallenFaction.Server.Controllers.Api
             try
             {
                 var adminUser = await _userManager.GetUserAsync(User);
-                if (adminUser == null)
+                if (adminUser == null) return Unauthorized();
+
+                var outcome = await _approvals.ApproveTitleEditsAsync(titleId, adminUser, request?.AdminComment);
+                if (!outcome.Success)
+                    return outcome.ErrorKind == ApprovalErrorKind.NotFound
+                        ? NotFound(new { message = outcome.ErrorMessage })
+                        : BadRequest(new { message = outcome.ErrorMessage });
+
+                return Ok(new
                 {
-                    return Unauthorized();
-                }
-
-                var pendingChanges = await _context.TitleChangeLogs
-                    .Where(tc => tc.TitleId == titleId && tc.Status == ChangeLogStatus.Pending)
-                    .Include(tc => tc.Title)
-                        .ThenInclude(t => t.Categories)
-                    .Include(tc => tc.Title)
-                        .ThenInclude(t => t.Tags)
-                    .Include(tc => tc.Title)
-                        .ThenInclude(t => t.Formats)
-                    .Include(tc => tc.Title)
-                        .ThenInclude(t => t.Authors)
-                    .Include(tc => tc.Title)
-                        .ThenInclude(t => t.Artists)
-                    .Include(tc => tc.Title)
-                        .ThenInclude(t => t.Publishers)
-                    .Include(tc => tc.Title)
-                        .ThenInclude(t => t.Teams)
-                    .ToListAsync();
-
-                if (!pendingChanges.Any())
-                {
-                    return NotFound(new { message = "No pending changes found for this title" });
-                }
-
-                var title = pendingChanges.First().Title;
-                var appliedChanges = new List<string>();
-
-                using var transaction = await _context.Database.BeginTransactionAsync();
-
-                try
-                {
-                    foreach (var change in pendingChanges)
-                    {
-                        // Apply the change based on type
-                        switch (change.ChangeType)
-                        {
-                            case "Original Title":
-                                title.OriginalTitle = change.NewValue;
-                                break;
-                            case "English Title":
-                                title.EnglishTitle = change.NewValue;
-                                break;
-                            case "Description":
-                                title.Description = change.NewValue;
-                                break;
-                            case "Alternative Names":
-                                title.AlternativeNames = change.NewValue;
-                                break;
-                            case "Release Date":
-                                title.ReleaseDate = change.NewValue;
-                                break;
-                            case "Status":
-                                title.StatusTitle = change.NewValue;
-                                break;
-                            case "Translation Status":
-                                title.StatusTranslation = change.NewValue;
-                                break;
-                            case "Type":
-                                if (Enum.TryParse<MangaType>(change.NewValue, out var mangaType))
-                                {
-                                    title.Type = mangaType;
-                                }
-                                break;
-                            case "Age Restriction":
-                                if (int.TryParse(change.NewValue, out var ageRestriction))
-                                {
-                                    title.AgeRestriction = ageRestriction;
-                                }
-                                break;
-                            case "Cover Image":
-                                title.CoverImagePath = change.NewValue;
-                                break;
-                            case "Background Image":
-                                title.BackgroundImagePath = change.NewValue;
-                                break;
-                            case "Authors":
-                                var authorIds = change.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                                    .Select(int.Parse).ToList();
-                                var authors = await _context.Set<Author>().Where(a => authorIds.Contains(a.Id)).ToListAsync();
-                                title.Authors.Clear();
-                                foreach (var author in authors)
-                                {
-                                    title.Authors.Add(author);
-                                }
-                                break;
-                            case "Artists":
-                                var artistIds = change.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                                    .Select(int.Parse).ToList();
-                                var artists = await _context.Set<Artist>().Where(a => artistIds.Contains(a.Id)).ToListAsync();
-                                title.Artists.Clear();
-                                foreach (var artist in artists)
-                                {
-                                    title.Artists.Add(artist);
-                                }
-                                break;
-                            case "Publishers":
-                                var publisherIds = change.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                                    .Select(int.Parse).ToList();
-                                var publishers = await _context.Set<Publisher>().Where(p => publisherIds.Contains(p.Id)).ToListAsync();
-                                title.Publishers.Clear();
-                                foreach (var publisher in publishers)
-                                {
-                                    title.Publishers.Add(publisher);
-                                }
-                                break;
-                            case "Teams":
-                                var teamIds = change.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                                    .Select(int.Parse).ToList();
-                                var teams = await _context.Set<Team>().Where(t => teamIds.Contains(t.Id)).ToListAsync();
-                                title.Teams.Clear();
-                                foreach (var team in teams)
-                                {
-                                    title.Teams.Add(team);
-                                }
-                                break;
-                            case "Categories":
-                                var categoryIds = change.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                                    .Select(int.Parse).ToList();
-                                var categories = await _context.Set<Category>().Where(c => categoryIds.Contains(c.Id)).ToListAsync();
-                                title.Categories.Clear();
-                                foreach (var category in categories)
-                                {
-                                    title.Categories.Add(category);
-                                }
-                                break;
-                            case "Tags":
-                                var tagIds = change.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                                    .Select(int.Parse).ToList();
-                                var tags = await _context.Set<Tag>().Where(t => tagIds.Contains(t.Id)).ToListAsync();
-                                title.Tags.Clear();
-                                foreach (var tag in tags)
-                                {
-                                    title.Tags.Add(tag);
-                                }
-                                break;
-                            case "Formats":
-                                var formatIds = change.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                                    .Select(int.Parse).ToList();
-                                var formats = await _context.Set<Format>().Where(f => formatIds.Contains(f.Id)).ToListAsync();
-                                title.Formats.Clear();
-                                foreach (var format in formats)
-                                {
-                                    title.Formats.Add(format);
-                                }
-                                break;
-                            case "External Links":
-                                title.ExternalLinksSerialized = change.NewValue;
-                                break;
-                        }
-
-                        // Update change log status
-                        change.Status = ChangeLogStatus.Approved;
-                        change.ReviewedByUserId = adminUser.Id;
-                        change.ReviewedAt = DateTime.UtcNow;
-                        change.AdminComment = request?.AdminComment ?? "";
-
-                        // Create approved change record
-                        var approvedChange = new ApprovedTitleChange
-                        {
-                            TitleId = titleId,
-                            UpdatedByUserId = change.UpdatedByUserId,
-                            ReviewedByUserId = adminUser.Id,
-                            CreatedAt = change.CreatedAt,
-                            ApprovedAt = DateTime.UtcNow,
-                            ChangeType = change.ChangeType,
-                            OldValue = change.OldValue,
-                            NewValue = change.NewValue,
-                            AdminComment = request?.AdminComment ?? "",
-                            IsAutoApproved = false
-                        };
-
-                        _context.ApprovedTitleChanges.Add(approvedChange);
-                        appliedChanges.Add(change.ChangeType);
-                    }
-
-                    _context.Titles.Update(title);
-                    await _context.SaveChangesAsync();
-                    await transaction.CommitAsync();
-
-                    // Record EditTitle trust approval for each unique submitter
-                    var submitterIds = pendingChanges.Select(c => c.UpdatedByUserId).Distinct();
-                    foreach (var submitterId in submitterIds)
-                        await _trustService.RecordApprovalAsync(submitterId, TrustActionType.EditTitle);
-
-                    _logger.LogInformation("Approved {ChangeCount} changes for title {TitleId} by admin {AdminId}",
-                        appliedChanges.Count, titleId, adminUser.Id);
-
-                    return Ok(new
-                    {
-                        message = $"Successfully approved {appliedChanges.Count} changes",
-                        appliedChanges = appliedChanges,
-                        titleId = titleId
-                    });
-                }
-                catch (Exception)
-                {
-                    await transaction.RollbackAsync();
-                    throw;
-                }
+                    message = $"Successfully approved {outcome.Value} changes",
+                    appliedChanges = outcome.Value,
+                    titleId
+                });
             }
             catch (Exception ex)
             {
@@ -1423,61 +1237,23 @@ namespace FallenFaction.Server.Controllers.Api
             try
             {
                 var adminUser = await _userManager.GetUserAsync(User);
-                if (adminUser == null)
-                {
-                    return Unauthorized();
-                }
+                if (adminUser == null) return Unauthorized();
 
-                var pendingChanges = await _context.TitleChangeLogs
-                    .Where(tc => tc.TitleId == titleId && tc.Status == ChangeLogStatus.Pending)
-                    .ToListAsync();
-
-                if (!pendingChanges.Any())
-                {
-                    return NotFound(new { message = "No pending changes found for this title" });
-                }
-
-                foreach (var change in pendingChanges)
-                {
-                    change.Status = ChangeLogStatus.Rejected;
-                    change.ReviewedByUserId = adminUser.Id;
-                    change.ReviewedAt = DateTime.UtcNow;
-                    change.RejectionReason = request.RejectionReason ?? "Changes not approved";
-                    change.AdminComment = request.AdminComment ?? "";
-
-                    // Create rejected change record
-                    var rejectedChange = new RejectedTitleChange
-                    {
-                        TitleId = titleId,
-                        UpdatedByUserId = change.UpdatedByUserId,
-                        ReviewedByUserId = adminUser.Id,
-                        CreatedAt = change.CreatedAt,
-                        RejectedAt = DateTime.UtcNow,
-                        ChangeType = change.ChangeType,
-                        OldValue = change.OldValue,
-                        NewValue = change.NewValue,
-                        AdminComment = request.AdminComment ?? "",
-                        RejectionReason = request.RejectionReason ?? "Changes not approved"
-                    };
-
-                    _context.RejectedTitleChanges.Add(rejectedChange);
-                }
-
-                await _context.SaveChangesAsync();
-
-                // Record EditTitle trust rejection for each unique submitter
-                var rejectedSubmitterIds = pendingChanges.Select(c => c.UpdatedByUserId).Distinct();
-                foreach (var submitterId in rejectedSubmitterIds)
-                    await _trustService.RecordRejectionAsync(submitterId, TrustActionType.EditTitle);
-
-                _logger.LogInformation("Rejected {ChangeCount} changes for title {TitleId} by admin {AdminId}",
-                    pendingChanges.Count, titleId, adminUser.Id);
+                var outcome = await _approvals.RejectTitleEditsAsync(
+                    titleId,
+                    adminUser,
+                    request.RejectionReason ?? "Changes not approved",
+                    request.AdminComment);
+                if (!outcome.Success)
+                    return outcome.ErrorKind == ApprovalErrorKind.NotFound
+                        ? NotFound(new { message = outcome.ErrorMessage })
+                        : BadRequest(new { message = outcome.ErrorMessage });
 
                 return Ok(new
                 {
-                    message = $"Successfully rejected {pendingChanges.Count} changes",
-                    rejectedCount = pendingChanges.Count,
-                    titleId = titleId
+                    message = $"Successfully rejected {outcome.Value} changes",
+                    rejectedCount = outcome.Value,
+                    titleId
                 });
             }
             catch (Exception ex)
