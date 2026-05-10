@@ -4,28 +4,27 @@ const mapCommentFromDto = (dto) => {
   if (!dto) return null;
 
   return {
-    id: dto.id || dto.Id,
-    content: dto.content || dto.Content,
-    userId: dto.userId || dto.UserId,
-    userName: dto.userName || dto.UserName,
-    userHandle: dto.userHandle || dto.UserHandle,
-    userAvatarUrl: dto.userAvatarUrl || dto.UserAvatarUrl,
-    postedDate: dto.postedDate || dto.PostedDate,
-    likesCount: dto.likesCount || dto.LikesCount || 0,
-    dislikesCount: dto.dislikesCount || dto.DislikesCount || 0,
-    currentUserLiked: dto.currentUserLiked || dto.CurrentUserLiked || false,
-    currentUserDisliked: dto.currentUserDisliked || dto.CurrentUserDisliked || false,
-    isDeleted: dto.isDeleted || dto.IsDeleted || false,
-    deletedAt: dto.deletedAt || dto.DeletedAt,
-    deletedByUserName: dto.deletedByUserName || dto.DeletedByUserName,
-    deletionReason: dto.deletionReason || dto.DeletionReason,
-    parentCommentId: dto.parentCommentId || dto.ParentCommentId,
-    isPinned: dto.isPinned ?? dto.IsPinned ?? false,
-    pinnedAt: dto.pinnedAt || dto.PinnedAt || null,
-    pinnedByUserName: dto.pinnedByUserName || dto.PinnedByUserName || null,
-    pinnedByTeamName: dto.pinnedByTeamName || dto.PinnedByTeamName || null,
-    // Recursively map all nested replies (infinite depth support!)
-    replies: dto.replies?.map(mapCommentFromDto) || dto.Replies?.map(mapCommentFromDto) || []
+    id: dto.id,
+    content: dto.content,
+    userId: dto.userId,
+    userName: dto.userName,
+    userHandle: dto.userHandle,
+    userAvatarUrl: dto.userAvatarUrl,
+    postedDate: dto.postedDate,
+    likesCount: dto.likesCount || 0,
+    dislikesCount: dto.dislikesCount || 0,
+    currentUserLiked: dto.currentUserLiked || false,
+    currentUserDisliked: dto.currentUserDisliked || false,
+    isDeleted: dto.isDeleted || false,
+    deletedAt: dto.deletedAt,
+    deletedByUserName: dto.deletedByUserName,
+    deletionReason: dto.deletionReason,
+    parentCommentId: dto.parentCommentId,
+    isPinned: dto.isPinned ?? false,
+    pinnedAt: dto.pinnedAt || null,
+    pinnedByUserName: dto.pinnedByUserName || null,
+    pinnedByTeamName: dto.pinnedByTeamName || null,
+    replies: dto.replies?.map(mapCommentFromDto) || []
   };
 };
 
@@ -33,15 +32,15 @@ const mapCommentFromDto = (dto) => {
  * Maps pagination data from API response
  */
 const mapPagination = (data) => {
-  const pagination = data.pagination || data.Pagination || {};
+  const pagination = data.pagination || {};
 
   return {
-    totalCount: pagination.totalCount || pagination.TotalCount || 0,
-    page: pagination.page || pagination.Page || 1,
-    pageSize: pagination.pageSize || pagination.PageSize || 20,
-    totalPages: pagination.totalPages || pagination.TotalPages || 0,
-    hasNext: pagination.hasNext || pagination.HasNext || false,
-    hasPrevious: pagination.hasPrevious || pagination.HasPrevious || false
+    totalCount: pagination.totalCount || 0,
+    page: pagination.page || 1,
+    pageSize: pagination.pageSize || 20,
+    totalPages: pagination.totalPages || 0,
+    hasNext: pagination.hasNext || false,
+    hasPrevious: pagination.hasPrevious || false
   };
 };
 
@@ -63,8 +62,8 @@ export const commentsService = {
       return {
         success: true,
         data: {
-          totalComments: data.totalComments || data.TotalComments || 0,
-          commentsEnabled: data.commentsEnabled ?? data.CommentsEnabled ?? true
+          totalComments: data.totalComments || 0,
+          commentsEnabled: data.commentsEnabled ?? true
         }
       };
     } catch (error) {
@@ -107,7 +106,7 @@ export const commentsService = {
       return {
         success: true,
         data: {
-          comments: (data.comments || data.Comments || []).map(mapCommentFromDto),
+          comments: (data.comments || []).map(mapCommentFromDto),
           pagination: mapPagination(data)
         }
       };
@@ -145,15 +144,15 @@ export const commentsService = {
       return {
         success: true,
         data: {
-          comment: mapCommentFromDto(data.comment || data.Comment),
-          parentChain: (data.parentChain || data.ParentChain || []).map(parent => ({
-            id: parent.id || parent.Id,
-            userName: parent.userName || parent.UserName,
-            content: parent.content || parent.Content,
-            isDeleted: parent.isDeleted || parent.IsDeleted
+          comment: mapCommentFromDto(data.comment),
+          parentChain: (data.parentChain || []).map(parent => ({
+            id: parent.id,
+            userName: parent.userName,
+            content: parent.content,
+            isDeleted: parent.isDeleted
           })),
-          targetId: data.targetId || data.TargetId,
-          targetType: data.targetType || data.TargetType
+          targetId: data.targetId,
+          targetType: data.targetType
         }
       };
     } catch (error) {
@@ -180,13 +179,13 @@ export const commentsService = {
       return {
         success: true,
         data: {
-          totalComments: data.totalComments || data.TotalComments || 0,
-          deletedComments: data.deletedComments || data.DeletedComments || 0,
-          reportedComments: data.reportedComments || data.ReportedComments || 0,
-          activeComments: data.activeComments || data.ActiveComments || 0,
-          commentsToday: data.commentsToday || data.CommentsToday || 0,
-          commentsThisWeek: data.commentsThisWeek || data.CommentsThisWeek || 0,
-          commentsThisMonth: data.commentsThisMonth || data.CommentsThisMonth || 0
+          totalComments: data.totalComments || 0,
+          deletedComments: data.deletedComments || 0,
+          reportedComments: data.reportedComments || 0,
+          activeComments: data.activeComments || 0,
+          commentsToday: data.commentsToday || 0,
+          commentsThisWeek: data.commentsThisWeek || 0,
+          commentsThisMonth: data.commentsThisMonth || 0
         }
       };
     } catch (error) {
@@ -238,7 +237,7 @@ export const commentsService = {
       return {
         success: true,
         data: {
-          comments: (data.comments || data.Comments || []).map(mapCommentFromDto),
+          comments: (data.comments || []).map(mapCommentFromDto),
           pagination: mapPagination(data)
         }
       };
@@ -374,11 +373,11 @@ export const commentsService = {
       return {
         success: true,
         data: {
-          commentId: data.commentId || data.CommentId,
-          likesCount: data.likesCount || data.LikesCount || 0,
-          dislikesCount: data.dislikesCount || data.DislikesCount || 0,
-          userLiked: data.userLiked || data.UserLiked || false,
-          userDisliked: data.userDisliked || data.UserDisliked || false
+          commentId: data.commentId,
+          likesCount: data.likesCount || 0,
+          dislikesCount: data.dislikesCount || 0,
+          userLiked: data.userLiked || false,
+          userDisliked: data.userDisliked || false
         }
       };
     } catch (error) {
