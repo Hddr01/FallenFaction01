@@ -105,6 +105,24 @@ describe('useForm', () => {
     expect(message.text).toBe('')
   })
 
+  it('blocks a second handleSubmit while the first is in-flight', async () => {
+    let resolveSubmit
+    const submit = vi.fn(() => new Promise(resolve => { resolveSubmit = resolve }))
+    const { handleSubmit } = useForm({
+      initialValues: { name: 'x' },
+      submit
+    })
+
+    const first = handleSubmit()
+    const second = handleSubmit()
+    expect(submit).toHaveBeenCalledTimes(1)
+
+    resolveSubmit({ success: true })
+    await first
+    await second
+    expect(submit).toHaveBeenCalledTimes(1)
+  })
+
   it('clears prior errors at the start of each submit', async () => {
     let attempt = 0
     const { errors, handleSubmit } = useForm({
