@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Http;
 using System.Collections.Generic;
+using FallenFaction.Server.Services;
 using FallenFaction.Server.Services.Interfaces;
 
 namespace FallenFaction.Server.Controllers.Api
@@ -28,6 +29,7 @@ namespace FallenFaction.Server.Controllers.Api
         private readonly UserManager<AppUser> _userManager;
 
         private readonly ITrustService _trustService;
+        private readonly IPermissionService _permissions;
         private readonly IApprovalCoordinator _approvals;
 
         public AdminTitleController(
@@ -36,6 +38,7 @@ namespace FallenFaction.Server.Controllers.Api
             ILogger<AdminTitleController> logger,
             UserManager<AppUser> userManager,
             ITrustService trustService,
+            IPermissionService permissions,
             IApprovalCoordinator approvals)
         {
             _context = context;
@@ -43,6 +46,7 @@ namespace FallenFaction.Server.Controllers.Api
             _logger = logger;
             _userManager = userManager;
             _trustService = trustService;
+            _permissions = permissions;
             _approvals = approvals;
         }
 
@@ -416,7 +420,7 @@ namespace FallenFaction.Server.Controllers.Api
                 }
 
                 // AUTHORIZATION CHECK: Verify user can edit this title
-                var canEdit = await CanUserEditTitle(currentUser.Id, title);
+                var canEdit = await _permissions.CanEditTitleAsync(currentUser.Id, title);
                 if (!canEdit)
                 {
                     return Forbid("You don't have permission to edit this title");
@@ -478,7 +482,7 @@ namespace FallenFaction.Server.Controllers.Api
                 }
 
                 // Check if user has full access
-                var hasFullAccess = await CanUserViewAllChanges(currentUser.Id, titleId);
+                var hasFullAccess = await _permissions.CanViewAllTitleChangesAsync(currentUser.Id, titleId);
 
                 var query = _context.TitleChangeLogs.Where(tc => tc.TitleId == titleId);
 
@@ -550,7 +554,7 @@ namespace FallenFaction.Server.Controllers.Api
                 }
 
                 // Check if user has special permissions
-                var hasFullAccess = await CanUserViewAllChanges(currentUser.Id, titleId);
+                var hasFullAccess = await _permissions.CanViewAllTitleChangesAsync(currentUser.Id, titleId);
 
                 // Explicitly type as IQueryable<TitleChangeLog>
                 IQueryable<TitleChangeLog> query = _context.TitleChangeLogs
@@ -638,101 +642,6 @@ namespace FallenFaction.Server.Controllers.Api
             }
         }
 
-        /// <summary>
-        /// Check if user can view all changes (including pending/rejected)
-        /// Admins and team members with edit permissions can see everything
-        /// </summary>
-        private async Task<bool> CanUserViewAllChanges(string userId, int titleId)
-        {
-            // Admins can view all change logs
-            var user = await _userManager.FindByIdAsync(userId);
-            var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
-            if (isAdmin)
-            {
-                return true;
-            }
-
-            // Check if user created the title
-            var title = await _context.Titles
-                .Include(t => t.Teams)
-                .FirstOrDefaultAsync(t => t.Id == titleId);
-
-            if (title == null)
-            {
-                return false;
-            }
-
-            if (title.CreatedByUserId == userId)
-            {
-                return true;
-            }
-
-            // Check if user has permissions in any of the title's teams
-            var userTeamIds = await _context.UserTeamRoles
-                .Where(utr => utr.AppUserId == userId)
-                .Where(utr =>
-                    // Team creators have all permissions
-                    utr.Team.CreatorId == userId ||
-                    // Team admins have all permissions
-                    utr.Role == TeamRole.Admin ||
-                    // Members with edit permissions can view all changes
-                    (utr.Role == TeamRole.Member &&
-                     utr.UserTeamRolePermissions.Any(p => p.UserTeamPermission.PermissionName == "CanEditTitle"))
-                )
-                .Select(utr => utr.TeamId)
-                .ToListAsync();
-
-            var titleTeamIds = title.Teams.Select(t => t.Id).ToList();
-            return userTeamIds.Intersect(titleTeamIds).Any();
-        }
-
-        /// <summary>
-        /// Helper method to check if user can view title change log
-        /// </summary>
-        private async Task<bool> CanUserViewTitleChangeLog(string userId, int titleId)
-        {
-            // Admins can view all change logs
-            var user = await _userManager.FindByIdAsync(userId);
-            var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
-            if (isAdmin)
-            {
-                return true;
-            }
-
-            // Check if user created the title
-            var title = await _context.Titles
-                .Include(t => t.Teams)
-                .FirstOrDefaultAsync(t => t.Id == titleId);
-
-            if (title == null)
-            {
-                return false;
-            }
-
-            if (title.CreatedByUserId == userId)
-            {
-                return true;
-            }
-
-            // Check if user has permissions in any of the title's teams
-            var userTeamIds = await _context.UserTeamRoles
-                .Where(utr => utr.AppUserId == userId)
-                .Where(utr =>
-                    // Team creators have all permissions
-                    utr.Team.CreatorId == userId ||
-                    // Team admins have all permissions
-                    utr.Role == TeamRole.Admin ||
-                    // Members with edit permissions can view change logs
-                    (utr.Role == TeamRole.Member &&
-                     utr.UserTeamRolePermissions.Any(p => p.UserTeamPermission.PermissionName == "CanEditTitle"))
-                )
-                .Select(utr => utr.TeamId)
-                .ToListAsync();
-
-            var titleTeamIds = title.Teams.Select(t => t.Id).ToList();
-            return userTeamIds.Intersect(titleTeamIds).Any();
-        }
-
 
         /// <summary>
         /// Update an existing title - UPDATED with authorization checks
@@ -768,7 +677,7 @@ namespace FallenFaction.Server.Controllers.Api
                 }
 
                 // AUTHORIZATION CHECK: Verify user can edit this title
-                var canEdit = await CanUserEditTitle(currentUser.Id, existingTitle);
+                var canEdit = await _permissions.CanEditTitleAsync(currentUser.Id, existingTitle);
                 if (!canEdit)
                 {
                     return Forbid("You don't have permission to edit this title");
@@ -975,44 +884,6 @@ namespace FallenFaction.Server.Controllers.Api
                 return StatusCode(500, new { message = "Error updating title" });
             }
         }
-        /// <summary>
-        /// Check if user can edit specific title
-        /// </summary>
-        private async Task<bool> CanUserEditTitle(string userId, Title title)
-        {
-            // Admins can edit all titles
-            var user = await _userManager.FindByIdAsync(userId);
-            var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
-            if (isAdmin)
-            {
-                return true;
-            }
-
-            // Check if user created the title
-            if (title.CreatedByUserId == userId)
-            {
-                return true;
-            }
-
-            // Check if user has edit permissions in any of the title's teams
-            var userTeamIds = await _context.UserTeamRoles
-                .Where(utr => utr.AppUserId == userId)
-                .Where(utr =>
-                    // Team creators have all permissions
-                    utr.Team.CreatorId == userId ||
-                    // Team admins have all permissions
-                    utr.Role == TeamRole.Admin ||
-                    // Members with specific permission - UPDATED permission name
-                    (utr.Role == TeamRole.Member &&
-                     utr.UserTeamRolePermissions.Any(p => p.UserTeamPermission.PermissionName == "CanEditTitle"))
-                )
-                .Select(utr => utr.TeamId)
-                .ToListAsync();
-
-            var titleTeamIds = title.Teams.Select(t => t.Id).ToList();
-            return userTeamIds.Intersect(titleTeamIds).Any();
-        }
-
         /// <summary>
         /// Get teams user can perform specific action on
         /// </summary>
