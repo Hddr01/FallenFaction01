@@ -77,6 +77,7 @@ builder.Services.AddDataProtection()
 builder.Services.AddResponseCaching();
 builder.Services.AddScoped<ICommentService, CommentService>();
 builder.Services.AddScoped<ITrustService, TrustService>();
+builder.Services.AddScoped<ITicketWalletService, TicketWalletService>();
 
 builder.Services.AddAutoMapper(typeof(AuthMappingProfile));
 

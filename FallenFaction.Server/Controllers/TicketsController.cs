@@ -7,6 +7,7 @@ using System.Security.Claims;
 using FallenFaction.Server.Data;
 using FallenFaction.Server.Data.Models;
 using FallenFaction.Server.DTOs.AI;
+using FallenFaction.Server.Services.Interfaces;
 
 namespace FallenFaction.Server.Controllers
 {
@@ -17,11 +18,16 @@ namespace FallenFaction.Server.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<TicketsController> _logger;
+        private readonly ITicketWalletService _wallet;
 
-        public TicketsController(ApplicationDbContext context, ILogger<TicketsController> logger)
+        public TicketsController(
+            ApplicationDbContext context,
+            ILogger<TicketsController> logger,
+            ITicketWalletService wallet)
         {
             _context = context;
             _logger = logger;
+            _wallet = wallet;
         }
 
         // ── GET /api/tickets/wallet ──────────────────────────────────────────
@@ -97,7 +103,7 @@ namespace FallenFaction.Server.Controllers
 
             if (chapter == null) return NotFound();
 
-            var cost = ComputeUnlockCost(chapter.CharacterCount);
+            var cost = _wallet.ComputeUnlockCost(chapter.CharacterCount);
             return Ok(new ChapterUnlockCostDto
             {
                 ChapterId = chapterId,
@@ -143,73 +149,34 @@ namespace FallenFaction.Server.Controllers
                     return Ok(new UnlockChapterResponseDto { Success = true, TicketsSpent = 0, Message = "Chapter was already unlocked by another user." });
                 }
 
-                var cost = ComputeUnlockCost(chapter.CharacterCount);
+                var cost = _wallet.ComputeUnlockCost(chapter.CharacterCount);
 
-                var wallet = await _context.UserTickets.FirstOrDefaultAsync(w => w.UserId == userId);
-                if (wallet == null || wallet.TotalBalance < cost)
-                    return BadRequest($"Insufficient tickets. Need {cost:F2}, have {wallet?.TotalBalance ?? 0:F2}.");
+                var existingWallet = await _context.UserTickets
+                    .FirstOrDefaultAsync(w => w.UserId == userId);
+                if (existingWallet == null || existingWallet.TotalBalance < cost)
+                    return BadRequest($"Insufficient tickets. Need {cost:F2}, have {existingWallet?.TotalBalance ?? 0:F2}.");
 
-                // Deduct Silver first, then Gold
-                decimal silverSpent = 0, goldSpent = 0;
-                if (wallet.SilverBalance >= cost)
-                {
-                    silverSpent = cost;
-                    wallet.SilverBalance -= cost;
-                }
-                else
-                {
-                    silverSpent = wallet.SilverBalance;
-                    goldSpent = cost - silverSpent;
-                    wallet.SilverBalance = 0;
-                    wallet.GoldBalance -= goldSpent;
-                }
-                wallet.UpdatedAt = DateTime.UtcNow;
+                var debit = await _wallet.DebitSilverThenGoldAsync(
+                    userId!,
+                    cost,
+                    TicketTransactionType.ChapterUnlock,
+                    $"Unlocked Ch.{chapter.ChapterNumber} of {chapter.Title?.EnglishTitle}",
+                    relatedTitleId: chapter.TitleId,
+                    relatedChapterId: chapter.Id);
 
-                // Record ledger entries
-                if (silverSpent > 0)
-                    _context.TicketTransactions.Add(new TicketTransaction
-                    {
-                        UserId = userId!,
-                        TicketType = TicketType.Silver,
-                        TransactionType = TicketTransactionType.ChapterUnlock,
-                        Amount = -silverSpent,
-                        BalanceAfter = wallet.SilverBalance,
-                        Description = $"Unlocked Ch.{chapter.ChapterNumber} of {chapter.Title?.EnglishTitle}",
-                        RelatedChapterId = chapter.Id,
-                        RelatedTitleId = chapter.TitleId,
-                        CreatedAt = DateTime.UtcNow
-                    });
-
-                if (goldSpent > 0)
-                    _context.TicketTransactions.Add(new TicketTransaction
-                    {
-                        UserId = userId!,
-                        TicketType = TicketType.Gold,
-                        TransactionType = TicketTransactionType.ChapterUnlock,
-                        Amount = -goldSpent,
-                        BalanceAfter = wallet.GoldBalance,
-                        Description = $"Unlocked Ch.{chapter.ChapterNumber} of {chapter.Title?.EnglishTitle}",
-                        RelatedChapterId = chapter.Id,
-                        RelatedTitleId = chapter.TitleId,
-                        CreatedAt = DateTime.UtcNow
-                    });
-
-                // Record unlock event
                 _context.AIChapterUnlocks.Add(new AIChapterUnlock
                 {
                     ChapterId = chapter.Id,
                     TitleId = chapter.TitleId,
                     UnlockedByUserId = userId!,
                     TicketCost = cost,
-                    TicketTypeUsed = goldSpent > 0 ? TicketType.Gold : TicketType.Silver,
+                    TicketTypeUsed = debit.GoldSpent > 0 ? TicketType.Gold : TicketType.Silver,
                     CharacterCount = chapter.CharacterCount,
                     UnlockedAt = DateTime.UtcNow
                 });
 
-                // Flip the lock permanently
                 chapter.IsAILocked = false;
 
-                // Award XP to the unlocker
                 await AwardXpAsync(userId!, 15, "Unlocked an AI chapter");
 
                 await _context.SaveChangesAsync();
@@ -219,8 +186,8 @@ namespace FallenFaction.Server.Controllers
                 {
                     Success = true,
                     TicketsSpent = cost,
-                    NewGoldBalance = wallet.GoldBalance,
-                    NewSilverBalance = wallet.SilverBalance,
+                    NewGoldBalance = debit.NewGoldBalance,
+                    NewSilverBalance = debit.NewSilverBalance,
                     Message = $"Chapter unlocked! Spent {cost:F2} tickets."
                 });
             }
@@ -239,40 +206,21 @@ namespace FallenFaction.Server.Controllers
         {
             var adminId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            var wallet = await _context.UserTickets.FirstOrDefaultAsync(w => w.UserId == dto.UserId);
-            if (wallet == null)
-            {
-                wallet = new UserTicket { UserId = dto.UserId, CreatedAt = DateTime.UtcNow };
-                _context.UserTickets.Add(wallet);
-            }
-
             var ticketType = dto.TicketType.Equals("Silver", StringComparison.OrdinalIgnoreCase)
                 ? TicketType.Silver : TicketType.Gold;
 
-            DateTime? expiresAt = null;
-            if (ticketType == TicketType.Silver)
-            {
-                wallet.SilverBalance += dto.Amount;
-                expiresAt = DateTime.UtcNow.AddMonths(dto.ExpiryMonths ?? 3);
-            }
-            else
-            {
-                wallet.GoldBalance += dto.Amount;
-            }
-            wallet.UpdatedAt = DateTime.UtcNow;
+            DateTime? expiresAt = ticketType == TicketType.Silver
+                ? DateTime.UtcNow.AddMonths(dto.ExpiryMonths ?? 3)
+                : null;
 
-            _context.TicketTransactions.Add(new TicketTransaction
-            {
-                UserId = dto.UserId,
-                TicketType = ticketType,
-                TransactionType = TicketTransactionType.AdminGrant,
-                Amount = dto.Amount,
-                BalanceAfter = ticketType == TicketType.Silver ? wallet.SilverBalance : wallet.GoldBalance,
-                Description = dto.Description,
-                PerformedByUserId = adminId,
-                ExpiresAt = expiresAt,
-                CreatedAt = DateTime.UtcNow
-            });
+            await _wallet.CreditAsync(
+                dto.UserId,
+                ticketType,
+                dto.Amount,
+                TicketTransactionType.AdminGrant,
+                dto.Description,
+                expiresAt: expiresAt,
+                performedByUserId: adminId);
 
             await _context.SaveChangesAsync();
             return Ok(new { message = $"Granted {dto.Amount} {ticketType} tickets to user {dto.UserId}." });
@@ -352,12 +300,6 @@ namespace FallenFaction.Server.Controllers
                 xpAmount, userId, reason, user.UserLevel);
         }
 
-        // ── Static helper ─────────────────────────────────────────────────────
-        public static decimal ComputeUnlockCost(int characterCount)
-        {
-            var raw = (characterCount + 500) * 0.0012m;
-            return Math.Max(1m, Math.Round(raw, 2));
-        }
     }
 
     // Small DTO only used internally by the admin endpoint
