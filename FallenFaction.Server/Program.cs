@@ -78,6 +78,8 @@ builder.Services.AddResponseCaching();
 builder.Services.AddScoped<ICommentService, CommentService>();
 builder.Services.AddScoped<ITrustService, TrustService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddScoped<IApprovalCoordinator, ApprovalCoordinator>();
+builder.Services.AddScoped<ITicketWalletService, TicketWalletService>();
 
 builder.Services.AddAutoMapper(typeof(AuthMappingProfile));
 
