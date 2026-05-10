@@ -49,6 +49,7 @@ export function useForm({ initialValues, validate, submit, onSuccess }) {
   })
 
   const handleSubmit = async () => {
+    if (loading.value) return
     clearErrors()
 
     if (validate) {
