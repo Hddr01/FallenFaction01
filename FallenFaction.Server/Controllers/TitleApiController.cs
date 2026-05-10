@@ -20,18 +20,21 @@ namespace FallenFaction.Server.Controllers
         private readonly IWebHostEnvironment _hostingEnvironment;
         private readonly ILogger<TitleApiController> _logger;
         private readonly ITrustService _trustService;
+        private readonly IApprovalCoordinator _approvals;
 
         public TitleApiController(
             ApplicationDbContext context,
             UserManager<AppUser> userManager,
             IWebHostEnvironment hostingEnvironment,
             ILogger<TitleApiController> logger,
-            ITrustService trustService)
+            ITrustService trustService,
+            IApprovalCoordinator approvals)
         {
             _context = context;
             _userManager = userManager;
             _hostingEnvironment = hostingEnvironment;
             _trustService = trustService;
+            _approvals = approvals;
             _logger = logger;
         }
 
@@ -1190,95 +1193,18 @@ namespace FallenFaction.Server.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> ApprovePendingTitle(int id)
         {
-            // Existing implementation remains the same...
             try
             {
-                var pendingTitle = await _context.Set<PendingTitle>()
-                    .Include(t => t.Authors)
-                    .Include(t => t.Artists)
-                    .Include(t => t.Publishers)
-                    .Include(t => t.Teams)
-                    .Include(t => t.Categories)
-                    .Include(t => t.Tags)
-                    .Include(t => t.Formats)
-                    .FirstOrDefaultAsync(t => t.Id == id);
+                var admin = await _userManager.GetUserAsync(User);
+                if (admin == null) return Unauthorized();
 
-                if (pendingTitle == null)
-                {
-                    return NotFound(new { error = "Pending title not found" });
-                }
+                var outcome = await _approvals.ApproveAddTitleAsync(id, admin);
+                if (!outcome.Success)
+                    return outcome.ErrorKind == ApprovalErrorKind.NotFound
+                        ? NotFound(new { error = outcome.ErrorMessage })
+                        : BadRequest(new { error = outcome.ErrorMessage });
 
-                // Validate that CreatedByUserId exists
-                if (string.IsNullOrEmpty(pendingTitle.CreatedByUserId))
-                {
-                    return BadRequest(new { error = "Pending title has no associated creator" });
-                }
-
-                // Create the actual title
-                var title = new Title
-                {
-                    OriginalTitle = pendingTitle.OriginalTitle,
-                    EnglishTitle = pendingTitle.EnglishTitle,
-                    AlternativeNames = pendingTitle.AlternativeNames,
-                    ReleaseDate = pendingTitle.ReleaseDate,
-                    Description = pendingTitle.Description,
-                    StatusTitle = pendingTitle.StatusTitle,
-                    StatusTranslation = pendingTitle.StatusTranslation,
-                    Type = pendingTitle.Type,
-                    AgeRestriction = pendingTitle.AgeRestriction,
-                    CoverImagePath = pendingTitle.CoverImagePath,
-                    BackgroundImagePath = pendingTitle.BackgroundImagePath,
-                    ExternalLinksSerialized = pendingTitle.ExternalLinksSerialized,
-                    CreatedByUserId = pendingTitle.CreatedByUserId,
-                    CreatedAt = DateTime.UtcNow,
-                    // Copy the relationship collections
-                    Authors = pendingTitle.Authors,
-                    Artists = pendingTitle.Artists,
-                    Publishers = pendingTitle.Publishers,
-                    Teams = pendingTitle.Teams,
-                    Categories = pendingTitle.Categories,
-                    Tags = pendingTitle.Tags,
-                    Formats = pendingTitle.Formats
-                };
-
-                _context.Set<Title>().Add(title);
-                await _context.SaveChangesAsync(); // Save to get the new Title ID
-
-                // Migrate pending chapters from pending title to approved title
-                var pendingChapters = await _context.PendingChapters
-                    .Where(pc => pc.PendingTitleId == pendingTitle.Id)
-                    .ToListAsync();
-                foreach (var pc in pendingChapters)
-                {
-                    pc.TitleId = title.Id;
-                    pc.PendingTitleId = null;
-                }
-
-                _context.Set<PendingTitle>().Remove(pendingTitle);
-                await _context.SaveChangesAsync();
-
-                // Write change log
-                var approveLog = new TitleChangeLog
-                {
-                    TitleId = title.Id,
-                    UpdatedByUserId = pendingTitle.CreatedByUserId,
-                    ReviewedByUserId = (await _userManager.GetUserAsync(User))?.Id,
-                    CreatedAt = pendingTitle.CreatedAt,
-                    ReviewedAt = DateTime.UtcNow,
-                    ChangeType = "Add Title",
-                    OldValue = "",
-                    NewValue = title.OriginalTitle,
-                    AdminComment = "Approved by admin",
-                    Status = ChangeLogStatus.Approved,
-                };
-                _context.TitleChangeLogs.Add(approveLog);
-                await _context.SaveChangesAsync();
-
-                // Record admin approval → may promote user to trusted
-                await _trustService.RecordApprovalAsync(pendingTitle.CreatedByUserId, TrustActionType.AddTitle);
-
-                _logger.LogInformation($"Pending title approved: {title.EnglishTitle}");
-
+                var title = outcome.Value!;
                 return Ok(new
                 {
                     message = "Title approved successfully!",
@@ -1288,7 +1214,7 @@ namespace FallenFaction.Server.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error approving pending title {id}");
+                _logger.LogError(ex, "Error approving pending title {Id}", id);
                 return StatusCode(500, new { error = "Failed to approve title." });
             }
         }
@@ -1298,75 +1224,29 @@ namespace FallenFaction.Server.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> RejectPendingTitle(int id, [FromBody] RejectTitleRequest request)
         {
-            // Existing implementation remains the same...
             try
             {
-                var pendingTitle = await _context.Set<PendingTitle>()
-                    .Include(t => t.Authors)
-                    .Include(t => t.Artists)
-                    .Include(t => t.Publishers)
-                    .Include(t => t.Teams)
-                    .Include(t => t.Categories)
-                    .Include(t => t.Tags)
-                    .Include(t => t.Formats)
-                    .FirstOrDefaultAsync(t => t.Id == id);
+                var admin = await _userManager.GetUserAsync(User);
+                if (admin == null) return Unauthorized();
 
-                if (pendingTitle == null)
-                {
-                    return NotFound(new { error = "Pending title not found" });
-                }
+                var outcome = await _approvals.RejectAddTitleAsync(id, admin, request.Reason);
+                if (!outcome.Success)
+                    return outcome.ErrorKind == ApprovalErrorKind.NotFound
+                        ? NotFound(new { error = outcome.ErrorMessage })
+                        : BadRequest(new { error = outcome.ErrorMessage });
 
-                // Create rejected title
-                var rejectedTitle = new RejectedTitle
-                {
-                    OriginalTitle = pendingTitle.OriginalTitle,
-                    EnglishTitle = pendingTitle.EnglishTitle,
-                    AlternativeNames = pendingTitle.AlternativeNames,
-                    ReleaseDate = pendingTitle.ReleaseDate,
-                    Description = pendingTitle.Description,
-                    StatusTitle = "Rejected",
-                    StatusTranslation = pendingTitle.StatusTranslation,
-                    Type = pendingTitle.Type,
-                    AgeRestriction = pendingTitle.AgeRestriction,
-                    CoverImagePath = pendingTitle.CoverImagePath,
-                    BackgroundImagePath = pendingTitle.BackgroundImagePath,
-                    ExternalLinksSerialized = pendingTitle.ExternalLinksSerialized,
-                    CreatedByUserId = pendingTitle.CreatedByUserId,
-                    CreatedAt = pendingTitle.CreatedAt,
-                    RejectedAt = DateTime.UtcNow,
-                    RejectionReason = request.Reason ?? "No reason provided",
-                    // Copy the relationship collections
-                    Authors = pendingTitle.Authors,
-                    Artists = pendingTitle.Artists,
-                    Publishers = pendingTitle.Publishers,
-                    Teams = pendingTitle.Teams,
-                    Categories = pendingTitle.Categories,
-                    Tags = pendingTitle.Tags,
-                    Formats = pendingTitle.Formats
-                };
-
-                _context.Set<RejectedTitle>().Add(rejectedTitle);
-                _context.Set<PendingTitle>().Remove(pendingTitle);
-
-                await _context.SaveChangesAsync();
-
-                // Record rejection → resets trust counter
-                if (!string.IsNullOrEmpty(pendingTitle.CreatedByUserId))
-                    await _trustService.RecordRejectionAsync(pendingTitle.CreatedByUserId, TrustActionType.AddTitle);
-
-                _logger.LogInformation($"Pending title rejected: {rejectedTitle.EnglishTitle}, Reason: {request.Reason}");
-
+                var rejected = outcome.Value!;
                 return Ok(new
                 {
                     message = "Title rejected successfully!",
-                    rejectedTitleId = rejectedTitle.Id,
-                    englishTitle = rejectedTitle.EnglishTitle,
-                    rejectionReason = rejectedTitle.RejectionReason
+                    rejectedTitleId = rejected.Id,
+                    englishTitle = rejected.EnglishTitle,
+                    rejectionReason = rejected.RejectionReason
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error rejecting pending title {id}");
+                _logger.LogError(ex, "Error rejecting pending title {Id}", id);
                 return StatusCode(500, new { error = "Failed to reject title." });
             }
         }
