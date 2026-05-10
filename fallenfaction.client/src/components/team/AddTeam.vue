@@ -101,9 +101,9 @@
 </template>
 
 <script>
-  import { ref, computed, reactive } from 'vue';
   import { useRouter } from 'vue-router';
   import { teamService } from '../../services/teamService';
+  import { useForm } from '@/composables/useForm';
   import { Input } from '@/components/ui/input';
   import { Label } from '@/components/ui/label';
   import { Textarea } from '@/components/ui/textarea';
@@ -120,109 +120,34 @@
     setup() {
       const router = useRouter();
 
-      const form = reactive({
-        name: '',
-        description: ''
+      const { form, errors, message, loading, isValid, handleSubmit } = useForm({
+        initialValues: { name: '', description: '' },
+        validate: f => {
+          const out = {};
+          if (!f.name.trim()) out.name = 'Team name is required';
+          else if (f.name.length > 100) out.name = 'Team name cannot exceed 100 characters';
+          if (!f.description.trim()) out.description = 'Description is required';
+          else if (f.description.length > 500) out.description = 'Description cannot exceed 500 characters';
+          return out;
+        },
+        submit: f => teamService.createTeam({
+          name: f.name.trim(),
+          description: f.description.trim()
+        }),
+        onSuccess: result => {
+          message.text = result.message || 'Team created successfully!';
+          setTimeout(() => router.push('/teams'), 1500);
+        }
       });
 
-      const errors = reactive({
-        name: '',
-        description: ''
-      });
-
-      const message = reactive({
-        text: '',
-        type: ''
-      });
-
-      const loading = ref(false);
-
-      const isFormValid = computed(() => {
-        return form.name.trim().length > 0 &&
-          form.description.trim().length > 0 &&
-          form.name.length <= 100 &&
-          form.description.length <= 500;
-      });
-
-      const validateForm = () => {
-        // Clear previous errors
-        errors.name = '';
-        errors.description = '';
-
-        let isValid = true;
-
-        if (!form.name.trim()) {
-          errors.name = 'Team name is required';
-          isValid = false;
-        } else if (form.name.length > 100) {
-          errors.name = 'Team name cannot exceed 100 characters';
-          isValid = false;
-        }
-
-        if (!form.description.trim()) {
-          errors.description = 'Description is required';
-          isValid = false;
-        } else if (form.description.length > 500) {
-          errors.description = 'Description cannot exceed 500 characters';
-          isValid = false;
-        }
-
-        return isValid;
-      };
-
-      const handleSubmit = async () => {
-        if (!validateForm()) {
-          return;
-        }
-
-        loading.value = true;
-        message.text = '';
-
-        try {
-          const result = await teamService.createTeam({
-            name: form.name.trim(),
-            description: form.description.trim()
-          });
-
-          if (result.success) {
-            message.text = 'Team created successfully!';
-            message.type = 'success';
-
-            // Redirect to team page after short delay
-            setTimeout(() => {
-              router.push(`/teams`);
-            }, 1500);
-          } else {
-            message.text = result.error;
-            message.type = 'error';
-
-            // Handle validation errors
-            if (result.validationErrors) {
-              Object.keys(result.validationErrors).forEach(field => {
-                if (errors.hasOwnProperty(field.toLowerCase())) {
-                  errors[field.toLowerCase()] = result.validationErrors[field][0];
-                }
-              });
-            }
-          }
-        } catch (error) {
-          message.text = 'An unexpected error occurred. Please try again.';
-          message.type = 'error';
-        } finally {
-          loading.value = false;
-        }
-      };
-
-      const handleCancel = () => {
-        router.push('/teams');
-      };
+      const handleCancel = () => router.push('/teams');
 
       return {
         form,
         errors,
         message,
         loading,
-        isFormValid,
+        isFormValid: isValid,
         handleSubmit,
         handleCancel
       };
