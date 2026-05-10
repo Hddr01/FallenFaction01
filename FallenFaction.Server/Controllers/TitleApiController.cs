@@ -20,19 +20,22 @@ namespace FallenFaction.Server.Controllers
         private readonly IWebHostEnvironment _hostingEnvironment;
         private readonly ILogger<TitleApiController> _logger;
         private readonly ITrustService _trustService;
+        private readonly ITitleChangeApplicator _changeApplicator;
 
         public TitleApiController(
             ApplicationDbContext context,
             UserManager<AppUser> userManager,
             IWebHostEnvironment hostingEnvironment,
             ILogger<TitleApiController> logger,
-            ITrustService trustService)
+            ITrustService trustService,
+            ITitleChangeApplicator changeApplicator)
         {
             _context = context;
             _userManager = userManager;
             _hostingEnvironment = hostingEnvironment;
             _trustService = trustService;
             _logger = logger;
+            _changeApplicator = changeApplicator;
         }
 
         // GET: api/TitleApi/form-data - UPDATED with team filtering
@@ -768,85 +771,7 @@ namespace FallenFaction.Server.Controllers
                                     cl.ReviewedAt = DateTime.UtcNow;
                                     cl.AdminComment = "Auto-approved by system (trusted user)";
 
-                                    switch (cl.ChangeType)
-                                    {
-                                        case "Original Title": { editTitle.OriginalTitle = cl.NewValue; break; }
-                                        case "English Title": { editTitle.EnglishTitle = cl.NewValue; break; }
-                                        case "Description": { editTitle.Description = cl.NewValue; break; }
-                                        case "Alternative Names": { editTitle.AlternativeNames = cl.NewValue; break; }
-                                        case "Release Date": { editTitle.ReleaseDate = cl.NewValue; break; }
-                                        case "Status": { editTitle.StatusTitle = cl.NewValue; break; }
-                                        case "Translation Status": { editTitle.StatusTranslation = cl.NewValue; break; }
-                                        case "Type":
-                                        {
-                                            if (Enum.TryParse<MangaType>(cl.NewValue, out var newType)) editTitle.Type = newType;
-                                            break;
-                                        }
-                                        case "Age Restriction":
-                                        {
-                                            if (int.TryParse(cl.NewValue, out var ar)) editTitle.AgeRestriction = ar;
-                                            break;
-                                        }
-                                        case "Cover Image": { editTitle.CoverImagePath = cl.NewValue; break; }
-                                        case "Background Image": { editTitle.BackgroundImagePath = cl.NewValue; break; }
-                                        case "External Links": { editTitle.ExternalLinksSerialized = cl.NewValue; break; }
-                                        case "Authors":
-                                        {
-                                            var ids = cl.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToList();
-                                            var entities = await _context.Set<Author>().Where(a => ids.Contains(a.Id)).ToListAsync();
-                                            editTitle.Authors.Clear();
-                                            foreach (var e in entities) editTitle.Authors.Add(e);
-                                            break;
-                                        }
-                                        case "Artists":
-                                        {
-                                            var ids = cl.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToList();
-                                            var entities = await _context.Set<Artist>().Where(a => ids.Contains(a.Id)).ToListAsync();
-                                            editTitle.Artists.Clear();
-                                            foreach (var e in entities) editTitle.Artists.Add(e);
-                                            break;
-                                        }
-                                        case "Publishers":
-                                        {
-                                            var ids = cl.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToList();
-                                            var entities = await _context.Set<Publisher>().Where(p => ids.Contains(p.Id)).ToListAsync();
-                                            editTitle.Publishers.Clear();
-                                            foreach (var e in entities) editTitle.Publishers.Add(e);
-                                            break;
-                                        }
-                                        case "Teams":
-                                        {
-                                            var ids = cl.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToList();
-                                            var entities = await _context.Set<Team>().Where(t => ids.Contains(t.Id)).ToListAsync();
-                                            editTitle.Teams.Clear();
-                                            foreach (var e in entities) editTitle.Teams.Add(e);
-                                            break;
-                                        }
-                                        case "Categories":
-                                        {
-                                            var ids = cl.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToList();
-                                            var entities = await _context.Set<Category>().Where(c => ids.Contains(c.Id)).ToListAsync();
-                                            editTitle.Categories.Clear();
-                                            foreach (var e in entities) editTitle.Categories.Add(e);
-                                            break;
-                                        }
-                                        case "Tags":
-                                        {
-                                            var ids = cl.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToList();
-                                            var entities = await _context.Set<Tag>().Where(t => ids.Contains(t.Id)).ToListAsync();
-                                            editTitle.Tags.Clear();
-                                            foreach (var e in entities) editTitle.Tags.Add(e);
-                                            break;
-                                        }
-                                        case "Formats":
-                                        {
-                                            var ids = cl.NewValue.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToList();
-                                            var entities = await _context.Set<Format>().Where(f => ids.Contains(f.Id)).ToListAsync();
-                                            editTitle.Formats.Clear();
-                                            foreach (var e in entities) editTitle.Formats.Add(e);
-                                            break;
-                                        }
-                                    }
+                                    await _changeApplicator.ApplyAsync(editTitle, cl, HttpContext.RequestAborted);
 
                                     _context.ApprovedTitleChanges.Add(new ApprovedTitleChange
                                     {
