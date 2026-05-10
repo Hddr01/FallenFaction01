@@ -6,6 +6,7 @@ using FallenFaction.Server.Data;
 using FallenFaction.Server.Data.Models;
 using System.ComponentModel.DataAnnotations;
 using static FallenFaction.Server.Controllers.Api.AdminTitleController;
+using FallenFaction.Server.Services;
 using FallenFaction.Server.Services.Interfaces;
 
 namespace FallenFaction.Server.Controllers
@@ -20,18 +21,21 @@ namespace FallenFaction.Server.Controllers
         private readonly IWebHostEnvironment _hostingEnvironment;
         private readonly ILogger<TitleApiController> _logger;
         private readonly ITrustService _trustService;
+        private readonly IPermissionService _permissions;
 
         public TitleApiController(
             ApplicationDbContext context,
             UserManager<AppUser> userManager,
             IWebHostEnvironment hostingEnvironment,
             ILogger<TitleApiController> logger,
-            ITrustService trustService)
+            ITrustService trustService,
+            IPermissionService permissions)
         {
             _context = context;
             _userManager = userManager;
             _hostingEnvironment = hostingEnvironment;
             _trustService = trustService;
+            _permissions = permissions;
             _logger = logger;
         }
 
@@ -47,44 +51,16 @@ namespace FallenFaction.Server.Controllers
                     return Unauthorized(new { error = "User not found" });
                 }
 
-                // Get all teams where the user is a member with appropriate permissions
-                var userTeams = await _context.UserTeamRoles
-                    .Where(utr => utr.AppUserId == user.Id)
-                    .Include(utr => utr.Team)
-                    .Include(utr => utr.UserTeamRolePermissions)
-                        .ThenInclude(utrp => utrp.UserTeamPermission)
-                    .Where(utr =>
-                        // Team creators (owners) can always add titles
-                        utr.Team.CreatorId == user.Id ||
-                        // Admins can add titles
-                        utr.Role == TeamRole.Admin ||
-                        // Members with specific permissions can add titles
-                        (utr.Role == TeamRole.Member &&
-                         utr.UserTeamRolePermissions.Any(p => p.UserTeamPermission.PermissionName == "CanAddTitle"))
-                    )
-                    .Select(utr => new { utr.Team.Id, utr.Team.Name })
-                    .Distinct()
-                    .ToListAsync();
+                var addTitleTeamIds = await _permissions.GetTeamIdsWithPermissionAsync(user.Id, Permissions.CanAddTitle);
 
-                // Also expose GroupType so the frontend can hide personal groups in UI
-                var userTeamsWithType = await _context.UserTeamRoles
-                    .Where(utr => utr.AppUserId == user.Id)
-                    .Include(utr => utr.Team)
-                    .Include(utr => utr.UserTeamRolePermissions)
-                        .ThenInclude(utrp => utrp.UserTeamPermission)
-                    .Where(utr =>
-                        utr.Team.CreatorId == user.Id ||
-                        utr.Role == TeamRole.Admin ||
-                        (utr.Role == TeamRole.Member &&
-                         utr.UserTeamRolePermissions.Any(p => p.UserTeamPermission.PermissionName == "CanAddTitle"))
-                    )
-                    .Select(utr => new {
-                        utr.Team.Id,
-                        utr.Team.Name,
-                        utr.Team.GroupType,
-                        utr.Team.IsPersonal
+                var userTeamsWithType = await _context.Teams
+                    .Where(t => addTitleTeamIds.Contains(t.Id))
+                    .Select(t => new {
+                        t.Id,
+                        t.Name,
+                        t.GroupType,
+                        t.IsPersonal
                     })
-                    .Distinct()
                     .ToListAsync();
 
                 var formData = new
