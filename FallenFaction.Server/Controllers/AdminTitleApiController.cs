@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Http;
 using System.Collections.Generic;
+using FallenFaction.Server.Services;
 using FallenFaction.Server.Services.Interfaces;
 
 namespace FallenFaction.Server.Controllers.Api
@@ -28,7 +29,8 @@ namespace FallenFaction.Server.Controllers.Api
         private readonly UserManager<AppUser> _userManager;
 
         private readonly ITrustService _trustService;
-        private readonly ITitleChangeApplicator _changeApplicator;
+        private readonly IPermissionService _permissions;
+        private readonly IApprovalCoordinator _approvals;
 
         public AdminTitleController(
             ApplicationDbContext context,
@@ -36,14 +38,16 @@ namespace FallenFaction.Server.Controllers.Api
             ILogger<AdminTitleController> logger,
             UserManager<AppUser> userManager,
             ITrustService trustService,
-            ITitleChangeApplicator changeApplicator)
+            IPermissionService permissions,
+            IApprovalCoordinator approvals)
         {
             _context = context;
             _hostingEnvironment = hostingEnvironment;
             _logger = logger;
             _userManager = userManager;
             _trustService = trustService;
-            _changeApplicator = changeApplicator;
+            _permissions = permissions;
+            _approvals = approvals;
         }
 
         /// <summary>
@@ -416,7 +420,7 @@ namespace FallenFaction.Server.Controllers.Api
                 }
 
                 // AUTHORIZATION CHECK: Verify user can edit this title
-                var canEdit = await CanUserEditTitle(currentUser.Id, title);
+                var canEdit = await _permissions.CanEditTitleAsync(currentUser.Id, title);
                 if (!canEdit)
                 {
                     return Forbid("You don't have permission to edit this title");
@@ -478,7 +482,7 @@ namespace FallenFaction.Server.Controllers.Api
                 }
 
                 // Check if user has full access
-                var hasFullAccess = await CanUserViewAllChanges(currentUser.Id, titleId);
+                var hasFullAccess = await _permissions.CanViewAllTitleChangesAsync(currentUser.Id, titleId);
 
                 var query = _context.TitleChangeLogs.Where(tc => tc.TitleId == titleId);
 
@@ -550,7 +554,7 @@ namespace FallenFaction.Server.Controllers.Api
                 }
 
                 // Check if user has special permissions
-                var hasFullAccess = await CanUserViewAllChanges(currentUser.Id, titleId);
+                var hasFullAccess = await _permissions.CanViewAllTitleChangesAsync(currentUser.Id, titleId);
 
                 // Explicitly type as IQueryable<TitleChangeLog>
                 IQueryable<TitleChangeLog> query = _context.TitleChangeLogs
@@ -638,101 +642,6 @@ namespace FallenFaction.Server.Controllers.Api
             }
         }
 
-        /// <summary>
-        /// Check if user can view all changes (including pending/rejected)
-        /// Admins and team members with edit permissions can see everything
-        /// </summary>
-        private async Task<bool> CanUserViewAllChanges(string userId, int titleId)
-        {
-            // Admins can view all change logs
-            var user = await _userManager.FindByIdAsync(userId);
-            var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
-            if (isAdmin)
-            {
-                return true;
-            }
-
-            // Check if user created the title
-            var title = await _context.Titles
-                .Include(t => t.Teams)
-                .FirstOrDefaultAsync(t => t.Id == titleId);
-
-            if (title == null)
-            {
-                return false;
-            }
-
-            if (title.CreatedByUserId == userId)
-            {
-                return true;
-            }
-
-            // Check if user has permissions in any of the title's teams
-            var userTeamIds = await _context.UserTeamRoles
-                .Where(utr => utr.AppUserId == userId)
-                .Where(utr =>
-                    // Team creators have all permissions
-                    utr.Team.CreatorId == userId ||
-                    // Team admins have all permissions
-                    utr.Role == TeamRole.Admin ||
-                    // Members with edit permissions can view all changes
-                    (utr.Role == TeamRole.Member &&
-                     utr.UserTeamRolePermissions.Any(p => p.UserTeamPermission.PermissionName == "CanEditTitle"))
-                )
-                .Select(utr => utr.TeamId)
-                .ToListAsync();
-
-            var titleTeamIds = title.Teams.Select(t => t.Id).ToList();
-            return userTeamIds.Intersect(titleTeamIds).Any();
-        }
-
-        /// <summary>
-        /// Helper method to check if user can view title change log
-        /// </summary>
-        private async Task<bool> CanUserViewTitleChangeLog(string userId, int titleId)
-        {
-            // Admins can view all change logs
-            var user = await _userManager.FindByIdAsync(userId);
-            var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
-            if (isAdmin)
-            {
-                return true;
-            }
-
-            // Check if user created the title
-            var title = await _context.Titles
-                .Include(t => t.Teams)
-                .FirstOrDefaultAsync(t => t.Id == titleId);
-
-            if (title == null)
-            {
-                return false;
-            }
-
-            if (title.CreatedByUserId == userId)
-            {
-                return true;
-            }
-
-            // Check if user has permissions in any of the title's teams
-            var userTeamIds = await _context.UserTeamRoles
-                .Where(utr => utr.AppUserId == userId)
-                .Where(utr =>
-                    // Team creators have all permissions
-                    utr.Team.CreatorId == userId ||
-                    // Team admins have all permissions
-                    utr.Role == TeamRole.Admin ||
-                    // Members with edit permissions can view change logs
-                    (utr.Role == TeamRole.Member &&
-                     utr.UserTeamRolePermissions.Any(p => p.UserTeamPermission.PermissionName == "CanEditTitle"))
-                )
-                .Select(utr => utr.TeamId)
-                .ToListAsync();
-
-            var titleTeamIds = title.Teams.Select(t => t.Id).ToList();
-            return userTeamIds.Intersect(titleTeamIds).Any();
-        }
-
 
         /// <summary>
         /// Update an existing title - UPDATED with authorization checks
@@ -768,7 +677,7 @@ namespace FallenFaction.Server.Controllers.Api
                 }
 
                 // AUTHORIZATION CHECK: Verify user can edit this title
-                var canEdit = await CanUserEditTitle(currentUser.Id, existingTitle);
+                var canEdit = await _permissions.CanEditTitleAsync(currentUser.Id, existingTitle);
                 if (!canEdit)
                 {
                     return Forbid("You don't have permission to edit this title");
@@ -976,44 +885,6 @@ namespace FallenFaction.Server.Controllers.Api
             }
         }
         /// <summary>
-        /// Check if user can edit specific title
-        /// </summary>
-        private async Task<bool> CanUserEditTitle(string userId, Title title)
-        {
-            // Admins can edit all titles
-            var user = await _userManager.FindByIdAsync(userId);
-            var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
-            if (isAdmin)
-            {
-                return true;
-            }
-
-            // Check if user created the title
-            if (title.CreatedByUserId == userId)
-            {
-                return true;
-            }
-
-            // Check if user has edit permissions in any of the title's teams
-            var userTeamIds = await _context.UserTeamRoles
-                .Where(utr => utr.AppUserId == userId)
-                .Where(utr =>
-                    // Team creators have all permissions
-                    utr.Team.CreatorId == userId ||
-                    // Team admins have all permissions
-                    utr.Role == TeamRole.Admin ||
-                    // Members with specific permission - UPDATED permission name
-                    (utr.Role == TeamRole.Member &&
-                     utr.UserTeamRolePermissions.Any(p => p.UserTeamPermission.PermissionName == "CanEditTitle"))
-                )
-                .Select(utr => utr.TeamId)
-                .ToListAsync();
-
-            var titleTeamIds = title.Teams.Select(t => t.Id).ToList();
-            return userTeamIds.Intersect(titleTeamIds).Any();
-        }
-
-        /// <summary>
         /// Get teams user can perform specific action on
         /// </summary>
         private async Task<List<int>> GetAuthorizedTeamIds(string userId, string permission)
@@ -1205,81 +1076,20 @@ namespace FallenFaction.Server.Controllers.Api
             try
             {
                 var adminUser = await _userManager.GetUserAsync(User);
-                if (adminUser == null)
+                if (adminUser == null) return Unauthorized();
+
+                var outcome = await _approvals.ApproveTitleEditsAsync(titleId, adminUser, request?.AdminComment);
+                if (!outcome.Success)
+                    return outcome.ErrorKind == ApprovalErrorKind.NotFound
+                        ? NotFound(new { message = outcome.ErrorMessage })
+                        : BadRequest(new { message = outcome.ErrorMessage });
+
+                return Ok(new
                 {
-                    return Unauthorized();
-                }
-
-                var pendingChanges = await _changeApplicator
-                    .WithIncludesForApply(_context.TitleChangeLogs
-                        .Where(tc => tc.TitleId == titleId && tc.Status == ChangeLogStatus.Pending))
-                    .ToListAsync();
-
-                if (!pendingChanges.Any())
-                {
-                    return NotFound(new { message = "No pending changes found for this title" });
-                }
-
-                var title = pendingChanges.First().Title;
-                var appliedChanges = new List<string>();
-
-                using var transaction = await _context.Database.BeginTransactionAsync();
-
-                try
-                {
-                    foreach (var change in pendingChanges)
-                    {
-                        await _changeApplicator.ApplyAsync(title, change);
-
-                        // Update change log status
-                        change.Status = ChangeLogStatus.Approved;
-                        change.ReviewedByUserId = adminUser.Id;
-                        change.ReviewedAt = DateTime.UtcNow;
-                        change.AdminComment = request?.AdminComment ?? "";
-
-                        // Create approved change record
-                        var approvedChange = new ApprovedTitleChange
-                        {
-                            TitleId = titleId,
-                            UpdatedByUserId = change.UpdatedByUserId,
-                            ReviewedByUserId = adminUser.Id,
-                            CreatedAt = change.CreatedAt,
-                            ApprovedAt = DateTime.UtcNow,
-                            ChangeType = change.ChangeType,
-                            OldValue = change.OldValue,
-                            NewValue = change.NewValue,
-                            AdminComment = request?.AdminComment ?? "",
-                            IsAutoApproved = false
-                        };
-
-                        _context.ApprovedTitleChanges.Add(approvedChange);
-                        appliedChanges.Add(change.ChangeType);
-                    }
-
-                    _context.Titles.Update(title);
-                    await _context.SaveChangesAsync();
-                    await transaction.CommitAsync();
-
-                    // Record EditTitle trust approval for each unique submitter
-                    var submitterIds = pendingChanges.Select(c => c.UpdatedByUserId).Distinct();
-                    foreach (var submitterId in submitterIds)
-                        await _trustService.RecordApprovalAsync(submitterId, TrustActionType.EditTitle);
-
-                    _logger.LogInformation("Approved {ChangeCount} changes for title {TitleId} by admin {AdminId}",
-                        appliedChanges.Count, titleId, adminUser.Id);
-
-                    return Ok(new
-                    {
-                        message = $"Successfully approved {appliedChanges.Count} changes",
-                        appliedChanges = appliedChanges,
-                        titleId = titleId
-                    });
-                }
-                catch (Exception)
-                {
-                    await transaction.RollbackAsync();
-                    throw;
-                }
+                    message = $"Successfully approved {outcome.Value} changes",
+                    appliedChanges = outcome.Value,
+                    titleId
+                });
             }
             catch (Exception ex)
             {
@@ -1298,61 +1108,23 @@ namespace FallenFaction.Server.Controllers.Api
             try
             {
                 var adminUser = await _userManager.GetUserAsync(User);
-                if (adminUser == null)
-                {
-                    return Unauthorized();
-                }
+                if (adminUser == null) return Unauthorized();
 
-                var pendingChanges = await _context.TitleChangeLogs
-                    .Where(tc => tc.TitleId == titleId && tc.Status == ChangeLogStatus.Pending)
-                    .ToListAsync();
-
-                if (!pendingChanges.Any())
-                {
-                    return NotFound(new { message = "No pending changes found for this title" });
-                }
-
-                foreach (var change in pendingChanges)
-                {
-                    change.Status = ChangeLogStatus.Rejected;
-                    change.ReviewedByUserId = adminUser.Id;
-                    change.ReviewedAt = DateTime.UtcNow;
-                    change.RejectionReason = request.RejectionReason ?? "Changes not approved";
-                    change.AdminComment = request.AdminComment ?? "";
-
-                    // Create rejected change record
-                    var rejectedChange = new RejectedTitleChange
-                    {
-                        TitleId = titleId,
-                        UpdatedByUserId = change.UpdatedByUserId,
-                        ReviewedByUserId = adminUser.Id,
-                        CreatedAt = change.CreatedAt,
-                        RejectedAt = DateTime.UtcNow,
-                        ChangeType = change.ChangeType,
-                        OldValue = change.OldValue,
-                        NewValue = change.NewValue,
-                        AdminComment = request.AdminComment ?? "",
-                        RejectionReason = request.RejectionReason ?? "Changes not approved"
-                    };
-
-                    _context.RejectedTitleChanges.Add(rejectedChange);
-                }
-
-                await _context.SaveChangesAsync();
-
-                // Record EditTitle trust rejection for each unique submitter
-                var rejectedSubmitterIds = pendingChanges.Select(c => c.UpdatedByUserId).Distinct();
-                foreach (var submitterId in rejectedSubmitterIds)
-                    await _trustService.RecordRejectionAsync(submitterId, TrustActionType.EditTitle);
-
-                _logger.LogInformation("Rejected {ChangeCount} changes for title {TitleId} by admin {AdminId}",
-                    pendingChanges.Count, titleId, adminUser.Id);
+                var outcome = await _approvals.RejectTitleEditsAsync(
+                    titleId,
+                    adminUser,
+                    request.RejectionReason ?? "Changes not approved",
+                    request.AdminComment);
+                if (!outcome.Success)
+                    return outcome.ErrorKind == ApprovalErrorKind.NotFound
+                        ? NotFound(new { message = outcome.ErrorMessage })
+                        : BadRequest(new { message = outcome.ErrorMessage });
 
                 return Ok(new
                 {
-                    message = $"Successfully rejected {pendingChanges.Count} changes",
-                    rejectedCount = pendingChanges.Count,
-                    titleId = titleId
+                    message = $"Successfully rejected {outcome.Value} changes",
+                    rejectedCount = outcome.Value,
+                    titleId
                 });
             }
             catch (Exception ex)
