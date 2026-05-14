@@ -91,7 +91,7 @@
             </div>
           </div>
         </div>
-        <a href="https://www.patreon.com" target="_blank" rel="noopener"
+        <a :href="donationUrl" target="_blank" rel="noopener noreferrer"
           class="mt-3 inline-flex items-center gap-2 text-sm text-orange-400 font-medium hover:underline">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
             <path d="M14.82 2.41C18.78 2.41 22 5.65 22 9.62c0 3.96-3.22 7.19-7.18 7.19-3.95 0-7.17-3.23-7.17-7.19 0-3.97 3.22-7.21 7.17-7.21M2 21.6h3.5V2.41H2V21.6z"/>
@@ -99,9 +99,6 @@
           Support on Patreon →
         </a>
       </div>
-
-      <!-- Patreon integration -->
-      <PatreonSection />
 
       <!-- Transaction history -->
       <div class="rounded-xl bg-[var(--color-background-soft)] border border-[var(--color-border)] overflow-hidden">
@@ -174,7 +171,8 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import { getWallet, getTransactions } from '@/services/aiTranslationService';
-import PatreonSection from '@/components/ai/PatreonSection.vue';
+
+const donationUrl = 'https://www.patreon.com/fallenfaction';
 
 const wallet   = ref(null);
 const loading  = ref(false);

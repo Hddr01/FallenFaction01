@@ -32,7 +32,7 @@
           <div class="flex items-center gap-2">
             <span v-if="wallet?.canVote" class="text-green-400 text-sm font-medium">✓ You can vote</span>
             <span v-else-if="authStore.isAuthenticated" class="text-yellow-400 text-sm">
-              Need Level 2 or Patreon
+              Need Level 2
             </span>
             <span v-else class="text-[var(--color-text)] opacity-50 text-sm">Login to vote</span>
           </div>

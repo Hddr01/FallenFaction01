@@ -61,7 +61,7 @@
               :style="{ width: xpProgress(wallet) + '%' }"/>
           </div>
           <p v-if="!wallet.canVote" class="text-xs text-[var(--color-text)] opacity-50 mt-1.5">
-            Reach Level 2 or link Patreon to vote on novel requests
+            Reach Level 2 to vote on novel requests
           </p>
           <p v-else class="text-xs text-green-400 mt-1.5">✓ You can vote on translation requests</p>
         </div>
@@ -84,12 +84,12 @@
             </svg>
             Transaction History
           </router-link>
-          <a href="https://www.patreon.com" target="_blank" rel="noopener"
+          <a :href="donationUrl" target="_blank" rel="noopener noreferrer"
             class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[var(--color-background)] transition text-sm text-orange-400 font-medium">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
               <path d="M14.82 2.41C18.78 2.41 22 5.65 22 9.62c0 3.96-3.22 7.19-7.18 7.19-3.95 0-7.17-3.23-7.17-7.19 0-3.97 3.22-7.21 7.17-7.21M2 21.6h3.5V2.41H2V21.6z"/>
             </svg>
-            Get Tickets via Patreon
+            Support on Patreon
           </a>
         </div>
       </div>
@@ -100,6 +100,8 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { getWallet } from '@/services/aiTranslationService';
+
+const donationUrl = 'https://www.patreon.com/fallenfaction';
 
 const wallet      = ref(null);
 const open        = ref(false);

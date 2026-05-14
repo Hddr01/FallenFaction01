@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Identity;
-using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FallenFaction.Server.Data.Models
 {
@@ -55,7 +54,7 @@ namespace FallenFaction.Server.Data.Models
         /// <summary>
         /// Cumulative XP earned across all activities (reading, commenting, rating, etc.).
         /// Level thresholds: L1=0, L2=100, L3=300, L4=700, L5=1500.
-        /// Level 2+ or Patreon supporter can vote on translation requests.
+        /// Level 2+ can vote on translation requests.
         /// </summary>
         public int XpPoints { get; set; } = 0;
 
@@ -76,7 +75,7 @@ namespace FallenFaction.Server.Data.Models
         };
 
         /// <summary>Returns true if this user can vote on translation requests.</summary>
-        public bool CanVote => UserLevel >= 2 || PatreonUserId != null;
+        public bool CanVote => UserLevel >= 2;
 
         // ── Ticket system ────────────────────────────────────────────────────
         public UserTicket? Wallet { get; set; }
@@ -84,14 +83,5 @@ namespace FallenFaction.Server.Data.Models
         public ICollection<TranslationRequest> TranslationRequests { get; set; } = new HashSet<TranslationRequest>();
         public ICollection<AIChapterUnlock> AIChapterUnlocks { get; set; } = new HashSet<AIChapterUnlock>();
         public ICollection<TranslationRequestVote> TranslationRequestVotes { get; set; } = new HashSet<TranslationRequestVote>();
-
-        // ── Patreon integration ──────────────────────────────────────────────
-        public string? PatreonUserId { get; set; }
-        public string? PatreonAccessToken { get; set; }
-        public string? PatreonRefreshToken { get; set; }
-        public DateTime? PatreonLinkedAt { get; set; }
-        public string? PatreonTierName { get; set; }
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal PatreonMonthlyAmount { get; set; } = 0;
     }
 }

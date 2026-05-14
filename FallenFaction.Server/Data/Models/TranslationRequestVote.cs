@@ -6,7 +6,7 @@ namespace FallenFaction.Server.Data.Models
     /// <summary>
     /// Tracks which users have voted on which novel requests.
     /// Unique index on (RequestId, UserId) prevents double-voting.
-    /// Eligibility: UserLevel >= 2 OR PatreonUserId is not null.
+    /// Eligibility: UserLevel >= 2.
     /// </summary>
     public class TranslationRequestVote
     {

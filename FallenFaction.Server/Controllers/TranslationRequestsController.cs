@@ -156,9 +156,9 @@ namespace FallenFaction.Server.Controllers
 
             if (user == null) return Unauthorized();
 
-            // Vote eligibility: Level 2+ or Patreon supporter
+            // Vote eligibility: Level 2+
             if (!user.CanVote)
-                return StatusCode(403, "You need to reach Level 2 or link Patreon to vote.");
+                return StatusCode(403, "You need to reach Level 2 to vote.");
 
             var request = await _context.TranslationRequests.FindAsync(id);
             if (request == null) return NotFound();

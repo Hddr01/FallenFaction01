@@ -37,13 +37,13 @@ namespace FallenFaction.Server.Controllers
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var user = await _context.Users
-                .Select(u => new { u.Id, u.UserLevel, u.XpPoints, u.PatreonUserId })
+                .Select(u => new { u.Id, u.UserLevel, u.XpPoints })
                 .FirstOrDefaultAsync(u => u.Id == userId);
 
             if (user == null) return Unauthorized();
 
             var wallet = await _context.UserTickets.FirstOrDefaultAsync(w => w.UserId == userId);
-            var canVote = user.UserLevel >= 2 || user.PatreonUserId != null;
+            var canVote = user.UserLevel >= 2;
 
             return Ok(new WalletDto
             {
