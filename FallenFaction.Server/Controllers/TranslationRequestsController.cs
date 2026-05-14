@@ -344,7 +344,7 @@ namespace FallenFaction.Server.Controllers
             {
                 Id                    = r.Id,
                 RequestedByUserId     = r.RequestedByUserId,
-                RequestedByUserName   = r.RequestedByUser?.UserName ?? "Unknown",
+                RequestedByUserName   = r.RequestedByUser?.ProfileName ?? r.RequestedByUser?.UserName ?? "Unknown",
                 SourceUrl             = r.SourceUrl,
                 ProposedTitle         = r.ProposedTitle,
                 OriginalLanguageTitle = r.OriginalLanguageTitle,

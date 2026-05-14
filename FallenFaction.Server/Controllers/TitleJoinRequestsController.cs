@@ -426,7 +426,7 @@ namespace FallenFaction.Server.Controllers
             RequestingTeamName   = r.RequestingTeam?.Name ?? "",
             RequestingTeamAvatar = r.RequestingTeam?.AvatarImagePath,
             RequestedByUserId    = r.RequestedByUserId,
-            RequestedByUserName  = r.RequestedByUser?.UserName ?? "",
+            RequestedByUserName  = r.RequestedByUser?.ProfileName ?? r.RequestedByUser?.UserName ?? "",
             Message              = r.Message,
             Status               = r.Status.ToString(),
             AutoRejectedReason   = r.AutoRejectedReason,

@@ -72,7 +72,7 @@ namespace FallenFaction.Server.Controllers
                         Value = r.Value,
                         TitleId = r.TitleId,
                         UserId = r.UserId,
-                        UserName = r.User.UserName ?? "Anonymous",
+                        UserName = r.User.ProfileName ?? r.User.UserName ?? "Anonymous",
                         CreatedAt = r.CreatedAt,
                         UpdatedAt = r.UpdatedAt
                     })

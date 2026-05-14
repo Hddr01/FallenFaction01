@@ -345,7 +345,7 @@ namespace FallenFaction.Server.Controllers
                         IsTitleApproved = c.TitleId.HasValue,
                         TeamName = c.Team.Name,
                         c.CreatedDate,
-                        UpdatedByUserName = c.UpdatedByUser.UserName,
+                        UpdatedByUserName = c.UpdatedByUser.ProfileName ?? c.UpdatedByUser.UserName,
                         // Approximate word count from pre-stored character count (no Content load).
                         // CharacterCount / 5.5 ≈ average English words. 0 if content not yet set.
                         WordCount = c.CharacterCount > 0 ? (int)(c.CharacterCount / 5.5) : 0,
@@ -398,7 +398,7 @@ namespace FallenFaction.Server.Controllers
                     TeamName = pendingChapter.Team.Name,
                     CreatedDate = pendingChapter.CreatedDate,
                     UpdatedByUserId = pendingChapter.UpdatedByUserId,
-                    UpdatedByUserName = pendingChapter.UpdatedByUser.UserName,
+                    UpdatedByUserName = pendingChapter.UpdatedByUser.ProfileName ?? pendingChapter.UpdatedByUser.UserName,
                     Content = pendingChapter.Content
                 };
 
