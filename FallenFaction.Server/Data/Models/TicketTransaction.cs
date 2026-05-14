@@ -5,15 +5,13 @@ namespace FallenFaction.Server.Data.Models
 {
     public enum TicketType
     {
-        Gold = 1,
         Silver = 2
     }
 
     public enum TicketTransactionType
     {
         // ── Earning ──────────────────────────────────────────────────────────
-        PatreonGrant = 1,       // Monthly Patreon tier → Gold
-        AdminGrant = 2,         // Manual admin grant → Gold or Silver
+        AdminGrant = 2,         // Manual admin grant → Silver
         Contribution = 3,       // API key / community contribution → Silver
         Refund = 4,             // Admin refund of a prior spend
 
@@ -64,10 +62,6 @@ namespace FallenFaction.Server.Data.Models
 
         /// <summary>For Silver tickets: when this batch expires.</summary>
         public DateTime? ExpiresAt { get; set; }
-
-        /// <summary>For Patreon grants: the Patreon tier name at time of grant.</summary>
-        [StringLength(100)]
-        public string? PatreonTierName { get; set; }
 
         /// <summary>Admin who performed the grant/adjustment, if applicable.</summary>
         public string? PerformedByUserId { get; set; }

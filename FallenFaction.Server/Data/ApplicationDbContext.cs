@@ -673,7 +673,6 @@ namespace FallenFaction.Server.Data
                       .HasForeignKey<UserTicket>(e => e.UserId)
                       .OnDelete(DeleteBehavior.Cascade);
 
-                entity.Property(e => e.GoldBalance).HasDefaultValue(0m);
                 entity.Property(e => e.SilverBalance).HasDefaultValue(0m);
             });
 

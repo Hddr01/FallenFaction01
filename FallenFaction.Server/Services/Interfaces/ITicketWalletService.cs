@@ -11,10 +11,10 @@ namespace FallenFaction.Server.Services.Interfaces
         // Caller owns SaveChanges (the new wallet is tracked, not yet persisted).
         Task<UserTicket> GetOrCreateWalletAsync(string userId, CancellationToken ct = default);
 
-        // Spends `cost` Silver-then-Gold. Mutates the wallet, writes ledger row(s).
+        // Spends `cost` Silver. Mutates the wallet, writes a ledger row.
         // Caller owns SaveChanges and any surrounding transaction.
-        // Throws InvalidOperationException if the combined balance is below `cost`.
-        Task<TicketDebitResult> DebitSilverThenGoldAsync(
+        // Throws InvalidOperationException if the balance is below `cost`.
+        Task<TicketDebitResult> DebitAsync(
             string userId,
             decimal cost,
             TicketTransactionType transactionType,
@@ -43,13 +43,10 @@ namespace FallenFaction.Server.Services.Interfaces
             string description,
             DateTime? expiresAt = null,
             string? performedByUserId = null,
-            string? patreonTierName = null,
             CancellationToken ct = default);
     }
 
     public readonly record struct TicketDebitResult(
         decimal SilverSpent,
-        decimal GoldSpent,
-        decimal NewSilverBalance,
-        decimal NewGoldBalance);
+        decimal NewSilverBalance);
 }

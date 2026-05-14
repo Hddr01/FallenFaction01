@@ -150,8 +150,7 @@
                 <router-link to="/profile/wallet" class="wallet-link">Get tickets →</router-link>
               </div>
               <div v-else class="balance-info">
-                Balance: <span class="gold">{{ wallet?.goldBalance ?? 0 }}G</span>
-                + <span class="silver">{{ wallet?.silverBalance ?? 0 }}S</span>
+                Balance: <span class="silver">{{ wallet?.silverBalance ?? 0 }}S</span>
               </div>
 
               <p v-if="unlockError" class="unlock-error">{{ unlockError }}</p>
@@ -334,9 +333,7 @@
   const unlockCost = ref(null)
   const unlocking = ref(false)
   const unlockError = ref('')
-  const walletBalance = computed(() =>
-    (wallet.value?.goldBalance ?? 0) + (wallet.value?.silverBalance ?? 0)
-  )
+  const walletBalance = computed(() => wallet.value?.silverBalance ?? 0)
 
   // Refs for tap zone measurement
   const readerBodyRef = ref(null)
@@ -548,7 +545,7 @@
       if (res.data.success) {
         // Reload the chapter — it's now unlocked
         await loadChapter()
-        wallet.value = { goldBalance: res.data.newGoldBalance, silverBalance: res.data.newSilverBalance }
+        wallet.value = { silverBalance: res.data.newSilverBalance }
       } else {
         unlockError.value = res.data.message ?? 'Unlock failed.'
       }

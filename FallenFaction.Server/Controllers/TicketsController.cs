@@ -31,7 +31,7 @@ namespace FallenFaction.Server.Controllers
         }
 
         // ── GET /api/tickets/wallet ──────────────────────────────────────────
-        /// <summary>Returns the current user's Gold + Silver balance + level info.</summary>
+        /// <summary>Returns the current user's Silver balance + level info.</summary>
         [HttpGet("wallet")]
         public async Task<ActionResult<WalletDto>> GetWallet()
         {
@@ -47,9 +47,8 @@ namespace FallenFaction.Server.Controllers
 
             return Ok(new WalletDto
             {
-                GoldBalance = wallet?.GoldBalance ?? 0,
                 SilverBalance = wallet?.SilverBalance ?? 0,
-                TotalBalance = (wallet?.GoldBalance ?? 0) + (wallet?.SilverBalance ?? 0),
+                TotalBalance = wallet?.SilverBalance ?? 0,
                 CanVote = canVote,
                 UserLevel = user.UserLevel,
                 XpPoints = user.XpPoints
@@ -82,7 +81,6 @@ namespace FallenFaction.Server.Controllers
                     RelatedTitleId = t.RelatedTitleId,
                     RelatedChapterId = t.RelatedChapterId,
                     ExpiresAt = t.ExpiresAt,
-                    PatreonTierName = t.PatreonTierName,
                     CreatedAt = t.CreatedAt
                 })
                 .ToListAsync();
@@ -115,8 +113,7 @@ namespace FallenFaction.Server.Controllers
 
         // ── POST /api/tickets/unlock ─────────────────────────────────────────
         /// <summary>
-        /// Spend tickets to unlock an AI chapter permanently for everyone.
-        /// Silver tickets are spent first, then Gold.
+        /// Spend Silver tickets to unlock an AI chapter permanently for everyone.
         /// </summary>
         [HttpPost("unlock")]
         [EnableRateLimiting("ticket-unlock")]
@@ -156,7 +153,7 @@ namespace FallenFaction.Server.Controllers
                 if (existingWallet == null || existingWallet.TotalBalance < cost)
                     return BadRequest($"Insufficient tickets. Need {cost:F2}, have {existingWallet?.TotalBalance ?? 0:F2}.");
 
-                var debit = await _wallet.DebitSilverThenGoldAsync(
+                var debit = await _wallet.DebitAsync(
                     userId!,
                     cost,
                     TicketTransactionType.ChapterUnlock,
@@ -170,7 +167,7 @@ namespace FallenFaction.Server.Controllers
                     TitleId = chapter.TitleId,
                     UnlockedByUserId = userId!,
                     TicketCost = cost,
-                    TicketTypeUsed = debit.GoldSpent > 0 ? TicketType.Gold : TicketType.Silver,
+                    TicketTypeUsed = TicketType.Silver,
                     CharacterCount = chapter.CharacterCount,
                     UnlockedAt = DateTime.UtcNow
                 });
@@ -186,7 +183,6 @@ namespace FallenFaction.Server.Controllers
                 {
                     Success = true,
                     TicketsSpent = cost,
-                    NewGoldBalance = debit.NewGoldBalance,
                     NewSilverBalance = debit.NewSilverBalance,
                     Message = $"Chapter unlocked! Spent {cost:F2} tickets."
                 });
@@ -206,12 +202,8 @@ namespace FallenFaction.Server.Controllers
         {
             var adminId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            var ticketType = dto.TicketType.Equals("Silver", StringComparison.OrdinalIgnoreCase)
-                ? TicketType.Silver : TicketType.Gold;
-
-            DateTime? expiresAt = ticketType == TicketType.Silver
-                ? DateTime.UtcNow.AddMonths(dto.ExpiryMonths ?? 3)
-                : null;
+            var ticketType = TicketType.Silver;
+            DateTime? expiresAt = DateTime.UtcNow.AddMonths(dto.ExpiryMonths ?? 3);
 
             await _wallet.CreditAsync(
                 dto.UserId,

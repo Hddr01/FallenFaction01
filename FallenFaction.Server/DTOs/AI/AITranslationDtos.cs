@@ -6,7 +6,6 @@ namespace FallenFaction.Server.DTOs.AI
 
     public class WalletDto
     {
-        public decimal GoldBalance { get; set; }
         public decimal SilverBalance { get; set; }
         public decimal TotalBalance { get; set; }
         public bool CanVote { get; set; }
@@ -25,7 +24,6 @@ namespace FallenFaction.Server.DTOs.AI
         public int? RelatedTitleId { get; set; }
         public int? RelatedChapterId { get; set; }
         public DateTime? ExpiresAt { get; set; }
-        public string? PatreonTierName { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 
@@ -61,7 +59,6 @@ namespace FallenFaction.Server.DTOs.AI
     {
         public bool Success { get; set; }
         public decimal TicketsSpent { get; set; }
-        public decimal NewGoldBalance { get; set; }
         public decimal NewSilverBalance { get; set; }
         public string Message { get; set; } = string.Empty;
     }

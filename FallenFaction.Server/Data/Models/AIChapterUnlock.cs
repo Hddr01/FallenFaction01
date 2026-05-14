@@ -38,7 +38,7 @@ namespace FallenFaction.Server.Data.Models
         [Column(TypeName = "decimal(18,2)")]
         public decimal TicketCost { get; set; }
 
-        /// <summary>Which ticket type was used (Gold or Silver, or a mix — recorded as primary).</summary>
+        /// <summary>Which ticket type was used. Currently always Silver.</summary>
         public TicketType TicketTypeUsed { get; set; }
 
         /// <summary>Chapter character count at time of unlock (for audit).</summary>

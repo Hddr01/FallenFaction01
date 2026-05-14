@@ -6,24 +6,12 @@
       <div class="mb-6">
         <h1 class="text-3xl font-bold text-[var(--color-heading)]">Ticket Wallet</h1>
         <p class="text-[var(--color-text)] opacity-70 mt-1">
-          Manage your Gold and Silver tickets for AI chapter unlocks
+          Manage your Silver tickets for AI chapter unlocks
         </p>
       </div>
 
       <!-- Balance cards -->
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <!-- Gold -->
-        <div class="rounded-xl bg-gradient-to-br from-yellow-500/10 to-yellow-500/5 border border-yellow-500/20 p-5">
-          <div class="flex items-center gap-2 mb-3">
-            <div class="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center font-bold text-black text-sm">G</div>
-            <span class="text-sm font-medium text-yellow-400">Gold Tickets</span>
-          </div>
-          <div class="text-3xl font-bold text-yellow-400">
-            {{ loading ? '–' : formatBal(wallet?.goldBalance) }}
-          </div>
-          <p class="text-xs text-yellow-400/50 mt-1">Never expire · From Patreon</p>
-        </div>
-
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <!-- Silver -->
         <div class="rounded-xl bg-gradient-to-br from-slate-500/10 to-slate-500/5 border border-slate-500/20 p-5">
           <div class="flex items-center gap-2 mb-3">
@@ -67,17 +55,6 @@
       <div class="mb-6 rounded-xl bg-[var(--color-background-soft)] border border-[var(--color-border)] p-4">
         <h3 class="font-semibold text-[var(--color-heading)] mb-3 text-sm">How to get tickets</h3>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div class="flex items-start gap-3">
-            <div class="w-8 h-8 rounded-lg bg-yellow-500/15 flex items-center justify-center shrink-0">
-              <span class="text-yellow-400 text-xs font-bold">G</span>
-            </div>
-            <div>
-              <div class="text-sm font-medium text-[var(--color-heading)]">Gold Tickets</div>
-              <p class="text-xs text-[var(--color-text)] opacity-50 mt-0.5">
-                Support on Patreon — your tier grants Gold tickets each month automatically.
-              </p>
-            </div>
-          </div>
           <div class="flex items-start gap-3">
             <div class="w-8 h-8 rounded-lg bg-slate-500/15 flex items-center justify-center shrink-0">
               <span class="text-slate-300 text-xs font-bold">S</span>

@@ -27,7 +27,7 @@ namespace FallenFaction.Server.Services
             return wallet;
         }
 
-        public async Task<TicketDebitResult> DebitSilverThenGoldAsync(
+        public async Task<TicketDebitResult> DebitAsync(
             string userId,
             decimal cost,
             TicketTransactionType transactionType,
@@ -37,34 +37,21 @@ namespace FallenFaction.Server.Services
             CancellationToken ct = default)
         {
             var wallet = await GetOrCreateWalletAsync(userId, ct);
-            if (wallet.TotalBalance < cost)
+            if (wallet.SilverBalance < cost)
                 throw new InvalidOperationException(
-                    $"Insufficient tickets for user {userId}: need {cost}, have {wallet.TotalBalance}.");
+                    $"Insufficient tickets for user {userId}: need {cost}, have {wallet.SilverBalance}.");
 
-            decimal silverSpent, goldSpent;
-            if (wallet.SilverBalance >= cost)
-            {
-                silverSpent = cost;
-                goldSpent = 0;
-                wallet.SilverBalance -= cost;
-            }
-            else
-            {
-                silverSpent = wallet.SilverBalance;
-                goldSpent = cost - silverSpent;
-                wallet.SilverBalance = 0;
-                wallet.GoldBalance -= goldSpent;
-            }
+            wallet.SilverBalance -= cost;
             wallet.UpdatedAt = DateTime.UtcNow;
 
             var now = DateTime.UtcNow;
-            if (silverSpent > 0)
+            if (cost > 0)
                 _db.TicketTransactions.Add(new TicketTransaction
                 {
                     UserId = userId,
                     TicketType = TicketType.Silver,
                     TransactionType = transactionType,
-                    Amount = -silverSpent,
+                    Amount = -cost,
                     BalanceAfter = wallet.SilverBalance,
                     Description = description,
                     RelatedTitleId = relatedTitleId,
@@ -72,21 +59,7 @@ namespace FallenFaction.Server.Services
                     CreatedAt = now
                 });
 
-            if (goldSpent > 0)
-                _db.TicketTransactions.Add(new TicketTransaction
-                {
-                    UserId = userId,
-                    TicketType = TicketType.Gold,
-                    TransactionType = transactionType,
-                    Amount = -goldSpent,
-                    BalanceAfter = wallet.GoldBalance,
-                    Description = description,
-                    RelatedTitleId = relatedTitleId,
-                    RelatedChapterId = relatedChapterId,
-                    CreatedAt = now
-                });
-
-            return new TicketDebitResult(silverSpent, goldSpent, wallet.SilverBalance, wallet.GoldBalance);
+            return new TicketDebitResult(cost, wallet.SilverBalance);
         }
 
         public async Task<decimal> DebitSilverCappedAsync(
@@ -130,15 +103,11 @@ namespace FallenFaction.Server.Services
             string description,
             DateTime? expiresAt = null,
             string? performedByUserId = null,
-            string? patreonTierName = null,
             CancellationToken ct = default)
         {
             var wallet = await GetOrCreateWalletAsync(userId, ct);
 
-            if (type == TicketType.Silver)
-                wallet.SilverBalance += amount;
-            else
-                wallet.GoldBalance += amount;
+            wallet.SilverBalance += amount;
             wallet.UpdatedAt = DateTime.UtcNow;
 
             _db.TicketTransactions.Add(new TicketTransaction
@@ -147,11 +116,10 @@ namespace FallenFaction.Server.Services
                 TicketType = type,
                 TransactionType = transactionType,
                 Amount = amount,
-                BalanceAfter = type == TicketType.Silver ? wallet.SilverBalance : wallet.GoldBalance,
+                BalanceAfter = wallet.SilverBalance,
                 Description = description,
                 ExpiresAt = expiresAt,
                 PerformedByUserId = performedByUserId,
-                PatreonTierName = patreonTierName,
                 CreatedAt = DateTime.UtcNow
             });
         }

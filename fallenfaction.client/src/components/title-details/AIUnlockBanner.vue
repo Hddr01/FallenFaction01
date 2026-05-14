@@ -40,8 +40,6 @@
       <div v-if="lockedCount > 0" class="flex items-center gap-2">
         <div v-if="wallet" class="text-xs text-[var(--color-text)] opacity-50">
           Balance:
-          <span class="text-yellow-400 font-medium">{{ formatBal(wallet.goldBalance) }}G</span>
-          +
           <span class="text-slate-300 font-medium">{{ formatBal(wallet.silverBalance) }}S</span>
         </div>
 
@@ -120,10 +118,6 @@
               <span :class="wallet && wallet.silverBalance >= estimatedCost ? 'text-green-400' : 'text-[var(--color-text)]'">
                 {{ formatBal(wallet?.silverBalance ?? 0) }}
               </span>
-            </div>
-            <div class="flex justify-between text-sm">
-              <span class="text-[var(--color-text)] opacity-60">Gold balance</span>
-              <span class="text-yellow-400">{{ formatBal(wallet?.goldBalance ?? 0) }}</span>
             </div>
             <div class="border-t border-[var(--color-border)] pt-2 flex justify-between text-sm font-medium">
               <span class="text-[var(--color-text)] opacity-70">After unlock</span>
@@ -207,10 +201,9 @@ const estimatedCost = computed(() => {
   return sample.reduce((s, c) => s + c.cost, 0)
 })
 
-const hasEnough = computed(() => {
-  const total = (wallet.value?.goldBalance ?? 0) + (wallet.value?.silverBalance ?? 0)
-  return total >= estimatedCost.value
-})
+const hasEnough = computed(() =>
+  (wallet.value?.silverBalance ?? 0) >= estimatedCost.value
+)
 
 function formatBal(n) {
   return n == null ? '0' : Number(n).toFixed(Number(n) % 1 === 0 ? 0 : 2)
@@ -274,7 +267,6 @@ async function runBatchUnlock() {
         batchDone.value++
         // Update local wallet
         if (wallet.value) {
-          wallet.value.goldBalance   = res.data.newGoldBalance
           wallet.value.silverBalance = res.data.newSilverBalance
         }
         emit('unlocked', ch.id)

@@ -4,15 +4,6 @@
     <button @click="open = !open"
       class="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--color-border)] hover:border-[var(--color-accent)] transition bg-[var(--color-background-soft)]"
       title="Your ticket wallet">
-      <!-- Gold -->
-      <span class="flex items-center gap-1 text-sm font-semibold text-yellow-400">
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-          <circle cx="12" cy="12" r="10"/>
-          <text x="12" y="16" text-anchor="middle" font-size="11" fill="var(--color-heading)" font-family="serif" font-weight="bold">G</text>
-        </svg>
-        {{ wallet ? formatBal(wallet.goldBalance) : '–' }}
-      </span>
-      <span class="text-[var(--color-border)]">|</span>
       <!-- Silver -->
       <span class="flex items-center gap-1 text-sm font-semibold text-slate-300">
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -38,15 +29,9 @@
             </span>
           </div>
           <!-- Balances -->
-          <div class="grid grid-cols-2 gap-2">
-            <div class="rounded-lg bg-yellow-500/10 border border-yellow-500/20 p-2.5 text-center">
-              <div class="text-yellow-400 font-bold text-lg">{{ wallet ? formatBal(wallet.goldBalance) : '–' }}</div>
-              <div class="text-yellow-400/70 text-xs mt-0.5">Gold Tickets</div>
-            </div>
-            <div class="rounded-lg bg-slate-500/10 border border-slate-500/20 p-2.5 text-center">
-              <div class="text-slate-300 font-bold text-lg">{{ wallet ? formatBal(wallet.silverBalance) : '–' }}</div>
-              <div class="text-slate-400/70 text-xs mt-0.5">Silver Tickets</div>
-            </div>
+          <div class="rounded-lg bg-slate-500/10 border border-slate-500/20 p-2.5 text-center">
+            <div class="text-slate-300 font-bold text-lg">{{ wallet ? formatBal(wallet.silverBalance) : '–' }}</div>
+            <div class="text-slate-400/70 text-xs mt-0.5">Silver Tickets</div>
           </div>
         </div>
 
