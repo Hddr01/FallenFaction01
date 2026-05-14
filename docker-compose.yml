@@ -47,6 +47,15 @@ services:
       Resend__FromEmail: "noreply@fallenfaction.com"
       Resend__AdminEmail: "contact@fallenfaction.com"
       Resend__DmcaEmail: "dmca@fallenfaction.com"
+      # X.509 certificate (base64-encoded .pfx, private key, no password) that
+      # encrypts the persisted Data Protection key ring at rest.
+      # Required in Production — backend fails fast on startup if unset.
+      # Generate once and store in the VPS .env:
+      #   openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
+      #     -keyout dp.key -out dp.crt -subj '/CN=FallenFaction'
+      #   openssl pkcs12 -export -out dp.pfx -inkey dp.key -in dp.crt -passout pass:
+      #   base64 -w0 dp.pfx
+      DATA_PROTECTION_KEY: ${DATA_PROTECTION_KEY}
       # Uncomment when you add OAuth:
       # Authentication__Google__ClientId: ${GOOGLE_CLIENT_ID}
       # Authentication__Google__ClientSecret: ${GOOGLE_CLIENT_SECRET}

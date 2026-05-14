@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Globalization;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.RateLimiting;
 
@@ -68,9 +69,63 @@ builder.Services.AddControllers(options =>
 // Persist encryption keys to a Docker volume so they survive container restarts.
 // Without this, ASP.NET generates new keys on every restart, invalidating all
 // existing auth cookies / JWT validation material, and logs a noisy warning.
-builder.Services.AddDataProtection()
+//
+// The persisted key ring XML is additionally encrypted at rest with an X.509
+// certificate via ProtectKeysWithCertificate — the built-in, cross-platform
+// at-rest encryption path in .NET 9. (ProtectKeysWithAes256CbcHmacSha256 is
+// .NET 10+ only and is not available on this framework.)
+//
+// DATA_PROTECTION_KEY holds a base64-encoded PKCS#12 (.pfx) certificate with a
+// private key and no password. Generate once and store it in the VPS .env:
+//
+//   openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
+//     -keyout /tmp/dp.key -out /tmp/dp.crt -subj '/CN=FallenFaction'
+//   openssl pkcs12 -export -out /tmp/dp.pfx -inkey /tmp/dp.key \
+//     -in /tmp/dp.crt -passout pass:
+//   base64 -w0 /tmp/dp.pfx        # <-- value for DATA_PROTECTION_KEY
+//
+// IMPORTANT: back up this certificate. If it is lost or replaced, every key
+// already persisted under it becomes unreadable and all issued auth tokens are
+// invalidated. Existing PLAINTEXT keys already in the volume (written before
+// this change) remain readable afterwards — only newly generated keys are
+// encrypted — so deploying this does not force-log-out current users.
+var dpMasterKey = builder.Configuration["DataProtection:MasterKey"]
+    ?? Environment.GetEnvironmentVariable("DATA_PROTECTION_KEY");
+
+var dpBuilder = builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo("/app/dataprotection-keys"))
     .SetApplicationName("FallenFaction");
+
+if (!string.IsNullOrEmpty(dpMasterKey))
+{
+    var pfxBytes = Convert.FromBase64String(dpMasterKey);
+    // MachineKeySet + PersistKeySet is the Linux-container-safe flag combination:
+    // the private key handle must outlive this constructor scope so the Data
+    // Protection system can use it when the key ring is loaded at startup.
+    var dpCertificate = X509CertificateLoader.LoadPkcs12(
+        pfxBytes,
+        password: null,
+        keyStorageFlags: X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.PersistKeySet);
+
+    if (!dpCertificate.HasPrivateKey)
+    {
+        throw new InvalidOperationException(
+            "DATA_PROTECTION_KEY certificate has no private key. The PKCS#12 bundle " +
+            "must include the private key (use 'openssl pkcs12 -export' with -inkey).");
+    }
+
+    dpBuilder.ProtectKeysWithCertificate(dpCertificate);
+}
+else if (!builder.Environment.IsDevelopment())
+{
+    // Fail fast in production if no key is configured — never persist keys in plaintext.
+    throw new InvalidOperationException(
+        "DATA_PROTECTION_KEY environment variable is required in production. " +
+        "It must be a base64-encoded PKCS#12 certificate with a private key. Generate with: " +
+        "openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -keyout dp.key -out dp.crt " +
+        "-subj '/CN=FallenFaction' && openssl pkcs12 -export -out dp.pfx -inkey dp.key " +
+        "-in dp.crt -passout pass: && base64 -w0 dp.pfx");
+}
 #endregion
 
 #region Services
