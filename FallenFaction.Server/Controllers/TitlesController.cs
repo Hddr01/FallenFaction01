@@ -528,25 +528,60 @@ namespace FallenFaction.Server.Controllers
                     .Where(pc => pc.TitleId.HasValue)
                     .Chunk(chunkSize);
 
+                var strategy = _context.Database.CreateExecutionStrategy();
+
                 foreach (var chunk in chunks)
                 {
-                    using var transaction = await _context.Database.BeginTransactionAsync();
-                    try
+                    await strategy.ExecuteAsync(async () =>
                     {
-                        foreach (var pendingChapter in chunk)
+                        using var transaction = await _context.Database.BeginTransactionAsync();
+                        try
                         {
-                            if (pendingChapter.OriginalChapterId.HasValue)
+                            foreach (var pendingChapter in chunk)
                             {
-                                originalChaptersMap.TryGetValue(pendingChapter.OriginalChapterId.Value, out var original);
-                                if (original != null)
+                                if (pendingChapter.OriginalChapterId.HasValue)
                                 {
-                                    original.Name = pendingChapter.Name;
-                                    original.VolumeNumber = pendingChapter.VolumeNumber;
-                                    original.ChapterNumber = pendingChapter.ChapterNumber;
-                                    original.TeamId = pendingChapter.TeamId;
-                                    original.Content = pendingChapter.Content;
-                                    original.LastUpdatedAt = DateTime.UtcNow;
-                                    original.UpdatedByUserId = user.Id;
+                                    originalChaptersMap.TryGetValue(pendingChapter.OriginalChapterId.Value, out var original);
+                                    if (original != null)
+                                    {
+                                        original.Name = pendingChapter.Name;
+                                        original.VolumeNumber = pendingChapter.VolumeNumber;
+                                        original.ChapterNumber = pendingChapter.ChapterNumber;
+                                        original.TeamId = pendingChapter.TeamId;
+                                        original.Content = pendingChapter.Content;
+                                        original.LastUpdatedAt = DateTime.UtcNow;
+                                        original.UpdatedByUserId = user.Id;
+
+                                        _context.TitleChangeLogs.Add(new TitleChangeLog
+                                        {
+                                            TitleId = pendingChapter.TitleId!.Value,
+                                            UpdatedByUserId = pendingChapter.UpdatedByUserId,
+                                            ReviewedByUserId = user.Id,
+                                            CreatedAt = pendingChapter.CreatedDate,
+                                            ReviewedAt = DateTime.UtcNow,
+                                            ChangeType = "Edit Chapter",
+                                            OldValue = $"Ch.{original.ChapterNumber}",
+                                            NewValue = $"Ch.{pendingChapter.ChapterNumber} - {pendingChapter.Name}",
+                                            AdminComment = "Mass-Approved by admin",
+                                            Status = ChangeLogStatus.Approved,
+                                        });
+                                    }
+                                }
+                                else
+                                {
+                                    var chapter = new Chapter
+                                    {
+                                        Name = pendingChapter.Name,
+                                        VolumeNumber = pendingChapter.VolumeNumber,
+                                        ChapterNumber = pendingChapter.ChapterNumber,
+                                        TitleId = pendingChapter.TitleId!.Value,
+                                        TeamId = pendingChapter.TeamId,
+                                        CreatedDate = DateTime.UtcNow,
+                                        ReleaseDate = DateTime.UtcNow,
+                                        UpdatedByUserId = user.Id,
+                                        Content = pendingChapter.Content
+                                    };
+                                    _context.Chapters.Add(chapter);
 
                                     _context.TitleChangeLogs.Add(new TitleChangeLog
                                     {
@@ -555,59 +590,29 @@ namespace FallenFaction.Server.Controllers
                                         ReviewedByUserId = user.Id,
                                         CreatedAt = pendingChapter.CreatedDate,
                                         ReviewedAt = DateTime.UtcNow,
-                                        ChangeType = "Edit Chapter",
-                                        OldValue = $"Ch.{original.ChapterNumber}",
+                                        ChangeType = "Add Chapter",
+                                        OldValue = "",
                                         NewValue = $"Ch.{pendingChapter.ChapterNumber} - {pendingChapter.Name}",
                                         AdminComment = "Mass-Approved by admin",
                                         Status = ChangeLogStatus.Approved,
                                     });
+
+                                    await _trustService.RecordApprovalAsync(pendingChapter.UpdatedByUserId, TrustActionType.AddChapter);
                                 }
-                            }
-                            else
-                            {
-                                var chapter = new Chapter
-                                {
-                                    Name = pendingChapter.Name,
-                                    VolumeNumber = pendingChapter.VolumeNumber,
-                                    ChapterNumber = pendingChapter.ChapterNumber,
-                                    TitleId = pendingChapter.TitleId!.Value,
-                                    TeamId = pendingChapter.TeamId,
-                                    CreatedDate = DateTime.UtcNow,
-                                    ReleaseDate = DateTime.UtcNow,
-                                    UpdatedByUserId = user.Id,
-                                    Content = pendingChapter.Content
-                                };
-                                _context.Chapters.Add(chapter);
 
-                                _context.TitleChangeLogs.Add(new TitleChangeLog
-                                {
-                                    TitleId = pendingChapter.TitleId!.Value,
-                                    UpdatedByUserId = pendingChapter.UpdatedByUserId,
-                                    ReviewedByUserId = user.Id,
-                                    CreatedAt = pendingChapter.CreatedDate,
-                                    ReviewedAt = DateTime.UtcNow,
-                                    ChangeType = "Add Chapter",
-                                    OldValue = "",
-                                    NewValue = $"Ch.{pendingChapter.ChapterNumber} - {pendingChapter.Name}",
-                                    AdminComment = "Mass-Approved by admin",
-                                    Status = ChangeLogStatus.Approved,
-                                });
-
-                                await _trustService.RecordApprovalAsync(pendingChapter.UpdatedByUserId, TrustActionType.AddChapter);
+                                _context.PendingChapters.Remove(pendingChapter);
+                                approvedCount++;
                             }
 
-                            _context.PendingChapters.Remove(pendingChapter);
-                            approvedCount++;
+                            await _context.SaveChangesAsync();
+                            await transaction.CommitAsync();
                         }
-
-                        await _context.SaveChangesAsync();
-                        await transaction.CommitAsync();
-                    }
-                    catch
-                    {
-                        await transaction.RollbackAsync();
-                        throw;
-                    }
+                        catch
+                        {
+                            await transaction.RollbackAsync();
+                            throw;
+                        }
+                    });
                 }
 
                 _logger.LogInformation("Mass-approved {Count} chapters by {User}", approvedCount, user.UserName);
