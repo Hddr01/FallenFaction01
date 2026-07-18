@@ -352,17 +352,28 @@ using (var scope = app.Services.CreateScope())
             await roleManager.CreateAsync(new IdentityRole(role));
     }
 
-    if (!userManager.Users.Any(u => u.Email == "admin@fallenfaction.com"))
+    // Admin credentials come from configuration (AdminUser:Email / AdminUser:Password)
+    // or the ADMIN_PASSWORD env var. No hardcoded default: if no password is configured
+    // we skip creating the admin so no known credential ships in the repo.
+    var adminEmail = app.Configuration["AdminUser:Email"] ?? "admin@fallenfaction.com";
+    var adminPassword = app.Configuration["AdminUser:Password"]
+        ?? Environment.GetEnvironmentVariable("ADMIN_PASSWORD");
+
+    if (string.IsNullOrWhiteSpace(adminPassword))
+    {
+        Console.WriteLine("[Startup] Admin user not seeded: set AdminUser:Password (or the ADMIN_PASSWORD environment variable) to create the initial admin account.");
+    }
+    else if (!userManager.Users.Any(u => u.Email == adminEmail))
     {
         var admin = new AppUser
         {
             UserName = "admin",
-            Email = "admin@fallenfaction.com",
+            Email = adminEmail,
             EmailConfirmed = true,
             IsActive = true
         };
 
-        var result = await userManager.CreateAsync(admin, "REDACTED");
+        var result = await userManager.CreateAsync(admin, adminPassword);
         if (result.Succeeded)
             await userManager.AddToRoleAsync(admin, "Admin");
     }

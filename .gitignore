@@ -369,3 +369,6 @@ appsettings.Secrets.json
 
 # Local build script contains Sentry DSN — never commit
 build.ps1
+
+# archives / source snapshots
+*.zip
