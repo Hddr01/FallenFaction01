@@ -25,6 +25,8 @@ export interface ClaimedJob {
   sourceChapterTitle?: string | null;
   sourceText: string;
   sourceLanguage: string;
+  /** Absent on servers that predate per-title target languages; treat as "en". */
+  targetLanguage?: string;
   styleGuide?: string | null;
   synopsis?: string | null;
   leaseExpiresAt: string;

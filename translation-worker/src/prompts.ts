@@ -1,6 +1,6 @@
 import type { ClaimedJob, GlossaryTerm, ReviewIssue } from "./types";
 
-// System prompts depend only on the source language, so they stay byte-identical across
+// System prompts depend only on the source and target language, so they stay byte-identical across
 // calls (prompt-cache friendly) and short (CLI backends pass them as a command-line argument).
 // Everything per-chapter goes into the user prompt.
 
@@ -9,68 +9,103 @@ export function languageName(code: string): string {
     case "zh": return "Chinese";
     case "ja": return "Japanese";
     case "ko": return "Korean";
+    case "en": return "English";
+    case "pl": return "Polish";
+    case "uk": return "Ukrainian";
+    case "de": return "German";
+    case "es": return "Spanish";
+    case "fr": return "French";
     default: return code;
   }
 }
 
-export function translatorSystem(lang: string): string {
+const isCjk = (code: string) => ["zh", "ja", "ko"].includes(code.toLowerCase());
+const isEnglish = (code: string) => code.toLowerCase() === "en";
+
+function dialogueRule(target: string): string {
+  switch (target.toLowerCase()) {
+    case "en": return "Dialogue uses English double quotes; convert 「」『』“” and similar marks accordingly. Keep 【】 system text as [ ].";
+    case "pl": return "Dialogue uses Polish quotation marks „…” (nested: ‚…’); convert 「」『』\"“” and similar marks accordingly. Keep 【】 system text as [ ].";
+    default: return `Dialogue follows standard ${languageName(target)} punctuation conventions. Keep 【】 system text as [ ].`;
+  }
+}
+
+// Inflected languages decline names and terms, so an exact-string glossary match is too strict.
+function inflectionRule(target: string): string {
+  return isEnglish(target)
+    ? ""
+    : `\n- Glossary renderings may be inflected (case, number, gender) to fit ${languageName(target)} grammar; the base form must stay the glossary one.`;
+}
+
+export function translatorSystem(lang: string, target = "en"): string {
   const L = languageName(lang);
-  return `You are a senior literary translator who turns ${L} web novels into polished, natural English for an English-speaking readership.
+  const T = languageName(target);
+  const readership = isEnglish(target) ? "an English-speaking" : `a ${T}-speaking`;
+  return `You are a senior literary translator who turns ${L} web novels into polished, natural ${T} for ${readership} readership.
 
 Fidelity rules (non-negotiable):
 - Translate every sentence. Never skip, summarize, condense, or add content. Repetitive passages, status windows, lists and in-chapter author notes are translated too.
-- Keep the paragraph structure: each source paragraph becomes exactly one English paragraph, in the same order, separated by a blank line.
-- Use the glossary renderings exactly for every listed term. Entries marked LOCKED are mandatory with no variation.
+- Keep the paragraph structure: each source paragraph becomes exactly one ${T} paragraph, in the same order, separated by a blank line.
+- Use the glossary renderings exactly for every listed term. Entries marked LOCKED are mandatory with no variation.${inflectionRule(target)}
 - Stay consistent with the story so far (names, relationships, who knows what).
 
 Style:
-- Fluent, idiomatic English prose a native reader enjoys, not a literal gloss. Restructure sentences when source syntax reads awkwardly, but keep meaning, tone and voice.
-- Dialogue uses English double quotes; convert 「」『』“” and similar marks accordingly. Keep 【】 system text as [ ].
+- Fluent, idiomatic ${T} prose a native reader enjoys, not a literal gloss. Restructure sentences when source syntax reads awkwardly, but keep meaning, tone and voice.
+- ${dialogueRule(target)}
 - Preserve each speaker's register (arrogant young master, formal elder, crude bandit...).
 - Render idioms by meaning, not word for word, unless the literal image matters to the scene.
 - No translator notes, footnotes, or commentary of any kind.
 
 Output format, exactly:
-Title: <English chapter title, without any "Chapter N" prefix>
+Title: <${T} chapter title, without any "Chapter N" prefix>
 
 <chapter body>
 
 Nothing before the Title line and nothing after the body.`;
 }
 
-export function continuationSystem(lang: string): string {
-  return translatorSystem(lang).replace(
+export function continuationSystem(lang: string, target = "en"): string {
+  return translatorSystem(lang, target).replace(
     /Output format, exactly:[\s\S]*$/,
-    "Output format: only the English text of the given part, paragraphs separated by blank lines. No title line, nothing before or after.",
+    `Output format: only the ${languageName(target)} text of the given part, paragraphs separated by blank lines. No title line, nothing before or after.`,
   );
 }
 
-export function terminologySystem(lang: string): string {
+export function terminologySystem(lang: string, target = "en"): string {
   const L = languageName(lang);
-  return `You maintain the terminology glossary for a ${L}-to-English web novel translation. Consistency across hundreds of chapters depends on you.
+  const T = languageName(target);
+  const names = isCjk(lang)
+    ? `- Chinese personal names: pinyin without tone marks, family name first, given-name syllables joined (林动 -> Lin Dong, 萧炎 -> Xiao Yan).
+- Japanese names: Hepburn romanization, source order. Korean names: Revised Romanization, family name first.`
+    : `- Personal names: keep them exactly as written in the source (Fang Yuan -> Fang Yuan); do not translate or re-spell them.`;
+  const terms = isEnglish(target)
+    ? `- Sects, places, techniques, realms, items: translate the meaning into evocative English that follows genre conventions (青阳镇 -> Qingyang Town, 天元宗 -> Heavenly Origin Sect, 筑基 -> Foundation Establishment).`
+    : `- Sects, places, techniques, realms, ranks, items: translate the meaning into evocative, natural ${T} that follows the genre conventions of ${T} fantasy and cultivation novels. Give the base (nominative) form.`;
+  return `You maintain the terminology glossary for a ${L}-to-${T} web novel translation. Consistency across hundreds of chapters depends on you.
 
 Find proper nouns and recurring special terms in the chapter that are NOT already in the provided glossary: character names, titles and epithets, places, sects/clans/organizations, cultivation realms and ranks, techniques and skills, artifacts and items, unique in-world concepts.
 
 Rendering conventions:
-- Chinese personal names: pinyin without tone marks, family name first, given-name syllables joined (林动 -> Lin Dong, 萧炎 -> Xiao Yan).
-- Japanese names: Hepburn romanization, source order. Korean names: Revised Romanization, family name first.
-- Sects, places, techniques, realms, items: translate the meaning into evocative English that follows genre conventions (青阳镇 -> Qingyang Town, 天元宗 -> Heavenly Origin Sect, 筑基 -> Foundation Establishment).
+${names}
+${terms}
 - Match the style of the existing glossary entries.
 
 Skip common words, generic nouns, pronouns and one-off descriptions. Copy each source term exactly as it appears in the chapter. Return an empty list when nothing qualifies.`;
 }
 
-export function reviewSystem(lang: string): string {
+export function reviewSystem(lang: string, target = "en"): string {
   const L = languageName(lang);
-  return `You are an exacting editor reviewing an English translation of a ${L} web novel chapter against its source.
+  const T = languageName(target);
+  const glossaryNote = isEnglish(target) ? "" : ` (inflected forms of the glossary rendering are correct, not an issue)`;
+  return `You are an exacting editor reviewing ${isEnglish(target) ? "an English" : `a ${T}`} translation of a ${L} web novel chapter against its source.
 
 Check, in priority order:
 1. omission: a source sentence or paragraph missing, condensed or summarized in the translation
 2. mistranslation: meaning changed, wrong subject or object, reversed negation, wrong numbers
-3. glossary: a glossary term rendered differently from its glossary entry
+3. glossary: a glossary term rendered differently from its glossary entry${glossaryNote}
 4. untranslated: source-language text left in the translation
 5. addition: content that is not in the source
-6. fluency: stiff, unnatural or ungrammatical English
+6. fluency: stiff, unnatural or ungrammatical ${T}
 7. formatting: paragraphs merged or split wrongly, broken dialogue punctuation
 
 Severity: critical = readers would notice lost or wrong meaning (missing paragraph, wrong speaker); major = a clear error within a sentence; minor = polish.

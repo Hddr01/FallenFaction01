@@ -14,7 +14,7 @@ Admin (needs FF_ADMIN_TOKEN, or FF_ADMIN_EMAIL + FF_ADMIN_PASSWORD):
   create-worker <name>                 create a worker and print its key (shown once)
   workers                              list workers
   revoke-worker <id>                   revoke a key; its in-flight job returns to the queue
-  profile <titleId> --lang zh [--style-file f] [--synopsis-file f] [--require-review] [--min-score 7]
+  profile <titleId> --lang zh [--target en] [--style-file f] [--synopsis-file f] [--require-review] [--min-score 7]
   ingest <titleId> (--dir <folder> | --json <file>) [--volume 1] [--no-title-line]
   glossary <titleId> [--import terms.json]   show, or import [{sourceTerm, translation, category, notes}]
   status <titleId>                     job counts and what blocks the title
@@ -31,6 +31,7 @@ const { positionals, values } = parseArgs({
   options: {
     once: { type: "boolean" },
     lang: { type: "string" },
+    target: { type: "string" },
     "style-file": { type: "string" },
     "synopsis-file": { type: "string" },
     "require-review": { type: "boolean" },
@@ -83,6 +84,7 @@ switch (command) {
     const titleId = need(arg, "titleId");
     print(await admin().call("PUT", `/titles/${titleId}/profile`, {
       sourceLanguage: values.lang ?? "zh",
+      targetLanguage: values.target ?? "en",
       styleGuide: values["style-file"] ? readFileSync(values["style-file"], "utf8") : null,
       synopsis: values["synopsis-file"] ? readFileSync(values["synopsis-file"], "utf8") : null,
       requireReview: !!values["require-review"],

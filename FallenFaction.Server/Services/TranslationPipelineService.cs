@@ -164,6 +164,7 @@ namespace FallenFaction.Server.Services
                 SourceChapterTitle = job.SourceChapterTitle,
                 SourceText = job.SourceText,
                 SourceLanguage = profile?.SourceLanguage ?? "zh",
+                TargetLanguage = profile?.TargetLanguage ?? "en",
                 StyleGuide = profile?.StyleGuide,
                 Synopsis = profile?.Synopsis,
                 LeaseExpiresAt = job.LeaseExpiresAt ?? DateTime.UtcNow.Add(LeaseDuration),
@@ -500,6 +501,7 @@ namespace FallenFaction.Server.Services
                 .Select(p => new TranslationProfileDto
                 {
                     SourceLanguage = p.SourceLanguage,
+                    TargetLanguage = p.TargetLanguage,
                     StyleGuide = p.StyleGuide,
                     Synopsis = p.Synopsis,
                     RequireReview = p.RequireReview,
@@ -520,6 +522,7 @@ namespace FallenFaction.Server.Services
             }
 
             profile.SourceLanguage = dto.SourceLanguage.Trim().ToLowerInvariant();
+            profile.TargetLanguage = string.IsNullOrWhiteSpace(dto.TargetLanguage) ? "en" : dto.TargetLanguage.Trim().ToLowerInvariant();
             profile.StyleGuide = dto.StyleGuide;
             profile.Synopsis = dto.Synopsis;
             profile.RequireReview = dto.RequireReview;

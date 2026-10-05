@@ -44,6 +44,7 @@ namespace FallenFaction.Server.Migrations
                 {
                     TitleId = table.Column<int>(type: "int", nullable: false),
                     SourceLanguage = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    TargetLanguage = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
                     StyleGuide = table.Column<string>(type: "nvarchar(4000)", maxLength: 4000, nullable: true),
                     Synopsis = table.Column<string>(type: "nvarchar(4000)", maxLength: 4000, nullable: true),
                     RequireReview = table.Column<bool>(type: "bit", nullable: false),

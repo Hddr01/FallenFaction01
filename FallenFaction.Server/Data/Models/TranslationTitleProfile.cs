@@ -18,6 +18,10 @@ namespace FallenFaction.Server.Data.Models
         [Required, StringLength(10)]
         public string SourceLanguage { get; set; } = "zh";
 
+        /// <summary>ISO code of the language chapters are translated into (en, pl, …).</summary>
+        [Required, StringLength(10)]
+        public string TargetLanguage { get; set; } = "en";
+
         /// <summary>Free-form instructions: tone, honorific policy, tense, POV quirks…</summary>
         [StringLength(4000)]
         public string? StyleGuide { get; set; }

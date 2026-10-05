@@ -41,6 +41,7 @@ namespace FallenFaction.Server.DTOs.AI
         public string? SourceChapterTitle { get; set; }
         public string SourceText { get; set; } = string.Empty;
         public string SourceLanguage { get; set; } = "zh";
+        public string TargetLanguage { get; set; } = "en";
         public string? StyleGuide { get; set; }
         public string? Synopsis { get; set; }
         public DateTime LeaseExpiresAt { get; set; }
@@ -156,6 +157,9 @@ namespace FallenFaction.Server.DTOs.AI
     {
         [Required, StringLength(10)]
         public string SourceLanguage { get; set; } = "zh";
+
+        [StringLength(10)]
+        public string TargetLanguage { get; set; } = "en";
 
         [StringLength(4000)]
         public string? StyleGuide { get; set; }

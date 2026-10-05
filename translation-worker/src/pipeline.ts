@@ -31,6 +31,7 @@ interface Draft {
 export async function translateJob(job: ClaimedJob, backend: LlmBackend, opts: PipelineOptions): Promise<CompleteJobPayload> {
   const log = opts.log ?? (() => {});
   const lang = job.sourceLanguage;
+  const target = job.targetLanguage ?? "en";
   const models = new Set<string>();
   const started = Date.now();
 
@@ -38,7 +39,7 @@ export async function translateJob(job: ClaimedJob, backend: LlmBackend, opts: P
   let newTerms: GlossaryTerm[] = [];
   try {
     const res = await backend.complete({
-      system: terminologySystem(lang),
+      system: terminologySystem(lang, target),
       prompt: terminologyPrompt(job),
       tier: "assist",
       jsonSchema: terminologySchema as unknown as Record<string, unknown>,
@@ -64,7 +65,7 @@ export async function translateJob(job: ClaimedJob, backend: LlmBackend, opts: P
   for (let i = 0; i < chunks.length; i++) {
     const previousTail = i > 0 ? bodies[i - 1].slice(-1500) : undefined;
     const res = await backend.complete({
-      system: i === 0 ? translatorSystem(lang) : continuationSystem(lang),
+      system: i === 0 ? translatorSystem(lang, target) : continuationSystem(lang, target),
       prompt: translatePrompt(job, glossary, { text: chunks[i], index: i, total: chunks.length, previousTail }),
       tier: "translate",
       signal: opts.signal,
@@ -90,7 +91,7 @@ export async function translateJob(job: ClaimedJob, backend: LlmBackend, opts: P
   const serious = firstReview.issues.filter(i => i.severity !== "minor");
   if (firstReview.score < opts.reviseBelow || serious.length > 0) {
     const res = await backend.complete({
-      system: translatorSystem(lang),
+      system: translatorSystem(lang, target),
       prompt: revisePrompt(job, glossary, draft.title, draft.body, firstReview.issues),
       tier: "translate",
       signal: opts.signal,
@@ -149,7 +150,7 @@ async function review(
   models: Set<string>,
 ): Promise<ReviewResult> {
   const res = await backend.complete({
-    system: reviewSystem(job.sourceLanguage),
+    system: reviewSystem(job.sourceLanguage, job.targetLanguage ?? "en"),
     prompt: reviewPrompt(job, glossary, draft.title, draft.body),
     tier: "assist",
     jsonSchema: reviewSchema as unknown as Record<string, unknown>,
