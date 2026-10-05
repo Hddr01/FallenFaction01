@@ -210,7 +210,7 @@
           </button>
         </div>
         <div class="chapter-list">
-          <div v-for="chapter in chaptersList" :key="chapter.id" class="chapter-item"
+          <div v-for="chapter in chaptersInLanguage" :key="chapter.id" class="chapter-item"
                :class="{ 'active': chapter.chapterNumber === chapterData?.chapterNumber }"
                @click="goToChapter(chapter)">
             <div class="chapter-title">
@@ -324,6 +324,10 @@
   const error = ref('')
   const chapterData = ref(null)
   const chaptersList = ref([])
+  // The popup only lists chapters in the language being read
+  const chaptersInLanguage = computed(() =>
+    chaptersList.value.filter(c => (c.language || 'en') === (chapterData.value?.language || 'en'))
+  )
   const isAuthenticated = ref(false)
   const showReportModal = ref(false)
   const currentUserId = ref('')

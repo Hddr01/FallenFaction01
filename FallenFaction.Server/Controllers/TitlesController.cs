@@ -669,7 +669,8 @@ namespace FallenFaction.Server.Controllers
             int chapterNumber,
             [FromQuery] int? volumeNumber = null,
             [FromQuery] int? teamId = null,
-            [FromQuery] int? page = null)
+            [FromQuery] int? page = null,
+            [FromQuery] string? language = null)
         {
             try
             {
@@ -678,13 +679,20 @@ namespace FallenFaction.Server.Controllers
                     .Include(c => c.Team)
                     .Where(c => c.TitleId == titleId && c.ChapterNumber == chapterNumber);
 
+                if (!string.IsNullOrWhiteSpace(language))
+                    baseQuery = baseQuery.Where(c => c.Language == language.Trim().ToLower());
+
                 if (volumeNumber.HasValue)
                     baseQuery = baseQuery.Where(c => c.VolumeNumber == volumeNumber.Value);
 
                 if (teamId.HasValue)
                     baseQuery = baseQuery.Where(c => c.TeamId == teamId.Value);
 
-                var chapter = await baseQuery.OrderBy(c => c.Id).FirstOrDefaultAsync();
+                // Without an explicit language, English wins over translations of the same number
+                var chapter = await baseQuery
+                    .OrderBy(c => c.Language == "en" ? 0 : 1)
+                    .ThenBy(c => c.Id)
+                    .FirstOrDefaultAsync();
 
                 if (chapter == null)
                 {
@@ -748,6 +756,7 @@ namespace FallenFaction.Server.Controllers
                         Name = c.Name ?? string.Empty,
                         VolumeNumber = c.VolumeNumber,
                         ChapterNumber = c.ChapterNumber,
+                        Language = c.Language,
                         TitleId = c.TitleId,
                         TitleName = string.Empty, // not needed on the list
                         TeamId = c.TeamId,
@@ -898,7 +907,7 @@ namespace FallenFaction.Server.Controllers
         {
             // Project only nav fields — avoids loading Content column for every chapter
             var orderedChapters = await _context.Chapters
-                .Where(c => c.TitleId == chapterDto.TitleId)
+                .Where(c => c.TitleId == chapterDto.TitleId && c.Language == chapterDto.Language)
                 .OrderBy(c => c.VolumeNumber)
                 .ThenBy(c => c.ChapterNumber)
                 .Select(c => new {
@@ -1790,6 +1799,7 @@ namespace FallenFaction.Server.Controllers
                         c.Name,
                         c.VolumeNumber,
                         c.ChapterNumber,
+                        c.Language,
                         c.TeamId,
                         TeamName = c.Team.Name,
                         c.ReleaseDate

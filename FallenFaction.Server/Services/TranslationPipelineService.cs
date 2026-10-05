@@ -294,9 +294,14 @@ namespace FallenFaction.Server.Services
             var content = job.TranslatedContent ?? string.Empty;
             var name = string.IsNullOrWhiteSpace(job.TranslatedTitle) ? $"Chapter {job.ChapterNumber}" : job.TranslatedTitle;
             var now = DateTime.UtcNow;
+            var language = await _db.TranslationTitleProfiles
+                .Where(p => p.TitleId == job.TitleId)
+                .Select(p => p.TargetLanguage)
+                .FirstOrDefaultAsync(ct) ?? "en";
 
             var chapter = await _db.Chapters.FirstOrDefaultAsync(c =>
                 c.TitleId == job.TitleId &&
+                c.Language == language &&
                 c.VolumeNumber == job.VolumeNumber &&
                 c.ChapterNumber == job.ChapterNumber, ct);
 
@@ -305,6 +310,7 @@ namespace FallenFaction.Server.Services
             {
                 var chaptersBefore = await _db.Chapters.CountAsync(c =>
                     c.TitleId == job.TitleId &&
+                    c.Language == language &&
                     (c.VolumeNumber < job.VolumeNumber ||
                      (c.VolumeNumber == job.VolumeNumber && c.ChapterNumber < job.ChapterNumber)), ct);
 
@@ -314,6 +320,7 @@ namespace FallenFaction.Server.Services
                     TeamId = team?.Id,
                     VolumeNumber = job.VolumeNumber,
                     ChapterNumber = job.ChapterNumber,
+                    Language = language,
                     CreatedDate = now,
                     ReleaseDate = now,
                     IsAILocked = title.TitleCategory == TitleCategory.AITranslation && chaptersBefore >= FreeChapterCount

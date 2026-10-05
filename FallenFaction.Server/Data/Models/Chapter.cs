@@ -49,6 +49,14 @@ namespace FallenFaction.Server.Data.Models
         public string Content { get; set; } = string.Empty;
 
         /// <summary>
+        /// ISO code of the language this chapter is written in (en, pl, …). A title can carry
+        /// the same chapter number in several languages; readers pick one on the title page.
+        /// </summary>
+        [Required]
+        [StringLength(10)]
+        public string Language { get; set; } = "en";
+
+        /// <summary>
         /// True = this chapter's AI translation requires tickets to read.
         /// False = free for everyone (either non-AI title, or already unlocked).
         /// Only applies to titles with TitleCategory.AITranslation.

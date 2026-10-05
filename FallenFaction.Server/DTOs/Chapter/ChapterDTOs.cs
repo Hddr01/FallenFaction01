@@ -8,6 +8,7 @@ namespace FallenFaction.Server.DTOs.Chapter
         public string Name { get; set; } = string.Empty;
         public int VolumeNumber { get; set; }
         public int ChapterNumber { get; set; }
+        public string Language { get; set; } = "en";
         public int TitleId { get; set; }
         public string TitleName { get; set; } = string.Empty;
         public string TitleEnglishName { get; set; } = string.Empty;
@@ -66,6 +67,7 @@ namespace FallenFaction.Server.DTOs.Chapter
                 Name = chapter.Name ?? string.Empty,
                 VolumeNumber = chapter.VolumeNumber,
                 ChapterNumber = chapter.ChapterNumber,
+                Language = chapter.Language,
                 TitleId = chapter.TitleId,
                 TitleName = chapter.Title?.OriginalTitle ?? chapter.Title?.EnglishTitle ?? string.Empty,
                 TitleEnglishName = chapter.Title?.EnglishTitle ?? chapter.Title?.OriginalTitle ?? string.Empty,

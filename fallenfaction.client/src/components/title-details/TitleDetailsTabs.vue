@@ -416,7 +416,23 @@
               </div>
             </div>
 
-            <ChaptersComponent :chapters="tabData.chapters.data"
+            <!-- Language selector — only when the title has chapters in more than one language -->
+            <div v-if="chapterLanguages.length > 1" class="mb-4">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm text-[var(--color-text)] opacity-60 shrink-0">Language:</span>
+                <button
+                  v-for="lang in chapterLanguages" :key="lang"
+                  @click="selectedLanguage = lang"
+                  :class="['px-3 py-1.5 rounded-full text-xs font-medium transition border',
+                    selectedLanguage === lang
+                      ? 'bg-[var(--color-accent)] text-white border-transparent'
+                      : 'border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-background-mute)]']">
+                  {{ languageLabel(lang) }}
+                </button>
+              </div>
+            </div>
+
+            <ChaptersComponent :chapters="chaptersInLanguage"
                                :title-slug="buildTitleSlug(props.titleData.originalTitle, props.titleId)"
                                :title-id="props.titleId"
                                :is-ai-title="props.titleData.titleCategory === 4"
@@ -693,6 +709,26 @@
   const isTranslationTitle = computed(() =>
     props.titleData.titleCategory === 1
   )
+
+  // ── Language filter (Chapters tab) ─────────────────────────────────────────
+  // A title can carry the same chapter numbers in several languages; show one at a time.
+  const selectedLanguage = ref('en')
+
+  const chapterLanguages = computed(() => {
+    const langs = [...new Set(tabData.value.chapters.data.map(c => c.language || 'en'))]
+    // English first, the rest alphabetically
+    return langs.sort((a, b) => (a === 'en' ? -1 : b === 'en' ? 1 : a.localeCompare(b)))
+  })
+
+  const chaptersInLanguage = computed(() => {
+    const langs = chapterLanguages.value
+    if (langs.length <= 1) return tabData.value.chapters.data
+    const lang = langs.includes(selectedLanguage.value) ? selectedLanguage.value : langs[0]
+    return tabData.value.chapters.data.filter(c => (c.language || 'en') === lang)
+  })
+
+  const LANGUAGE_LABELS = { en: 'English', pl: 'Polski', uk: 'Українська', de: 'Deutsch', es: 'Español', fr: 'Français' }
+  const languageLabel = (code) => LANGUAGE_LABELS[code] || code.toUpperCase()
 
   // ── Join Request Modal ────────────────────────────────────────────────────────
   const joinModal = ref({

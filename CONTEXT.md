@@ -8,7 +8,7 @@ A community platform for reading, translating, and publishing web novels. Users 
 
 **Title** — The top-level content entity. A novel, light novel, web novel, or short story. Has a type (Novel, LightNovel, WebNovel, ShortStory, Wuxia, Xianxia, Xuanhuan, ClassicFiction) and a category (Translation, Original, Fanfic, AITranslation). A Fanfic references its source Title via `SourceTitleId`. A Title is either published (live) or pending approval.
 
-**Chapter** — A single episode/chapter belonging to a Title. Has a volume number, chapter number, and full text content. Chapters can be AI-locked, meaning users must spend Tickets to read them. Character count drives ticket cost.
+**Chapter** — A single episode/chapter belonging to a Title. Has a volume number, chapter number, language (`en` by default; the same number can exist once per language, e.g. an AI-translated `pl` copy) and full text content. Chapters can be AI-locked, meaning users must spend Tickets to read them. Character count drives ticket cost.
 
 **Team** — A group that owns and publishes Titles and Chapters. Four types: Personal (auto-created per user, hidden), Translation (public, human translators), Creator (public, original authors), AITranslation (system-owned, admin-managed). Each team has members with roles.
 
@@ -48,7 +48,7 @@ A community platform for reading, translating, and publishing web novels. Users 
 
 **TranslationGlossaryEntry** — Per-Title term memory (names, places, sects, techniques, ranks). Worker-proposed terms never overwrite existing ones; admin-edited terms are Locked and mandatory. A claimed job receives only the terms that occur in its source text.
 
-**TranslationTitleProfile** — Per-Title source language, style guide, synopsis, `RequireReview`, and `MinQaScore` (default 7).
+**TranslationTitleProfile** — Per-Title source language, target language (default `en`; the pipeline publishes into chapters of that language and never overwrites another language), style guide, synopsis, `RequireReview`, and `MinQaScore` (default 7).
 
 **Publishing** — `TranslationPipelineService` writes the Chapter directly (not through PendingChapter, whose approval drops `IsAILocked`/`CharacterCount`). It applies the AI rule (first 50 chapters free), writes a TitleChangeLog, and updates an existing chapter in place on re-translation, keeping its lock state.
 
