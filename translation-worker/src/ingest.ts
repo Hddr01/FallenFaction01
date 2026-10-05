@@ -57,6 +57,29 @@ export function readJsonFile(path: string, defaultVolume: number): RawChapter[] 
   });
 }
 
+/**
+ * Splits chapters into enqueue requests: at most 50 chapters and ~4 MB of JSON each
+ * (the server caps request bodies at 10 MB; CJK text is ~3 bytes per character).
+ */
+export function batchChapters(chapters: RawChapter[], maxCount = 50, maxBytes = 4 * 1024 * 1024): RawChapter[][] {
+  const batches: RawChapter[][] = [];
+  let current: RawChapter[] = [];
+  let bytes = 0;
+  for (const c of chapters) {
+    const size = Buffer.byteLength(JSON.stringify(c), "utf8");
+    if (size > maxBytes) throw new Error(`Chapter ${c.chapterNumber} alone is ${(size / 1048576).toFixed(1)} MB; split it first.`);
+    if (current.length > 0 && (current.length >= maxCount || bytes + size > maxBytes)) {
+      batches.push(current);
+      current = [];
+      bytes = 0;
+    }
+    current.push(c);
+    bytes += size;
+  }
+  if (current.length > 0) batches.push(current);
+  return batches;
+}
+
 // Scrapers often hand back HTML paragraphs; the pipeline wants one paragraph per line.
 export function stripHtml(text: string): string {
   if (!/<[a-z][\s\S]*>/i.test(text)) return text;

@@ -83,7 +83,8 @@ bun run cli revoke-worker 3
 
 | Variable | Default | |
 |---|---|---|
-| `FF_BACKEND` | `claude-cli` | `claude-cli`, `anthropic-api` (needs `ANTHROPIC_API_KEY`), `codex-cli` (**experimental, untested**) |
+| `FF_BACKEND` | `claude-cli` | `claude-cli` (tested end to end), `anthropic-api` (needs `ANTHROPIC_API_KEY`; **written but not yet run against the live API**, so smoke-test one chapter with `worker --once` first), `codex-cli` (**experimental, untested**) |
+| `FF_CLAUDE_BIN` | `claude` | path to the Claude Code executable. On a PC where `claude` is an npm `.cmd` shim, point this at the real `claude.exe` so the empty isolation arguments survive Windows argument quoting |
 | `FF_MODEL_TRANSLATE` | `opus` / `claude-opus-5` | translation and revision |
 | `FF_MODEL_ASSIST` | `sonnet` / `claude-sonnet-5` | terminology and review |
 | `FF_REVISE_BELOW` | `10` | revise whenever the review is below this score or reports a major issue; `8.5` saves quota |

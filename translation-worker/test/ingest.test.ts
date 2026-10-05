@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readJsonFile, readTxtFolder, stripHtml } from "../src/ingest";
+import { batchChapters, readJsonFile, readTxtFolder, stripHtml } from "../src/ingest";
 
 describe("readTxtFolder", () => {
   test("numbers chapters from filenames, natural sort, first line as title", () => {
@@ -39,4 +39,23 @@ describe("readJsonFile", () => {
 
 test("stripHtml leaves plain text alone", () => {
   expect(stripHtml("a < b\nc")).toBe("a < b\nc");
+});
+
+describe("batchChapters", () => {
+  const ch = (n: number, chars: number) => ({ volumeNumber: 1, chapterNumber: n, sourceText: "字".repeat(chars) });
+
+  test("splits by count", () => {
+    const batches = batchChapters(Array.from({ length: 120 }, (_, i) => ch(i + 1, 10)));
+    expect(batches.map(b => b.length)).toEqual([50, 50, 20]);
+  });
+
+  test("splits by UTF-8 bytes, not characters", () => {
+    // 3 chapters × 1000 CJK chars ≈ 3 KB each; a 7 KB cap fits two per batch
+    const batches = batchChapters([ch(1, 1000), ch(2, 1000), ch(3, 1000)], 50, 7000);
+    expect(batches.map(b => b.length)).toEqual([2, 1]);
+  });
+
+  test("rejects a single oversized chapter", () => {
+    expect(() => batchChapters([ch(1, 5000)], 50, 1000)).toThrow(/split it first/);
+  });
 });

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { AdminApi } from "./api";
 import { createBackend, loadConfig } from "./config";
-import { readJsonFile, readTxtFolder, type RawChapter } from "./ingest";
+import { batchChapters, readJsonFile, readTxtFolder, type RawChapter } from "./ingest";
 import { runWorker } from "./worker";
 
 const USAGE = `FallenFaction translation worker
@@ -100,10 +100,11 @@ switch (command) {
     else { console.error(`ingest needs --dir or --json\n\n${USAGE}`); process.exit(2); }
 
     console.log(`Read ${chapters.length} chapter(s). Enqueueing…`);
+    const api = admin();
     let enqueued = 0, skipped = 0;
-    for (let i = 0; i < chapters.length; i += 50) {
-      const r = await admin().call<{ enqueued: number; skippedExisting: number }>(
-        "POST", `/titles/${titleId}/jobs`, { chapters: chapters.slice(i, i + 50) });
+    for (const batch of batchChapters(chapters)) {
+      const r = await api.call<{ enqueued: number; skippedExisting: number }>(
+        "POST", `/titles/${titleId}/jobs`, { chapters: batch });
       enqueued += r.enqueued;
       skipped += r.skippedExisting;
     }

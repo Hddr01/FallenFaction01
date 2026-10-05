@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -360,7 +361,7 @@ namespace FallenFaction.Server.Services
                     .Where(g => g.TitleId == titleId)
                     .Select(g => g.SourceTerm)
                     .ToListAsync(ct))
-                .ToHashSet(StringComparer.Ordinal);
+                .ToHashSet(GlossaryTermComparer);
 
             var added = 0;
             foreach (var term in terms)
@@ -554,7 +555,7 @@ namespace FallenFaction.Server.Services
 
             var existing = await _db.TranslationGlossaryEntries
                 .Where(g => g.TitleId == titleId)
-                .ToDictionaryAsync(g => g.SourceTerm, StringComparer.Ordinal, ct);
+                .ToDictionaryAsync(g => g.SourceTerm, GlossaryTermComparer, ct);
 
             var now = DateTime.UtcNow;
             var changed = 0;
@@ -725,6 +726,16 @@ namespace FallenFaction.Server.Services
                 CreatedAt = j.CreatedAt,
                 CompletedAt = j.CompletedAt
             };
+
+        // Must treat terms as equal exactly when the DB's unique index does. The default SQL Server
+        // collation (Latin1_General_CI_AS) ignores case, kana type and width, so ひらがな/カタカナ or
+        // full-/half-width variants of one term would otherwise slip past an Ordinal check and then
+        // fail the whole completion on the unique key.
+        private static readonly StringComparer GlossaryTermComparer =
+            CultureInfo.InvariantCulture.CompareInfo.GetStringComparer(
+                CompareOptions.IgnoreCase |
+                CompareOptions.IgnoreKanaType |
+                CompareOptions.IgnoreWidth);
 
         private static readonly Regex ExcessBlankLines = new(@"\n{3,}", RegexOptions.Compiled);
 
