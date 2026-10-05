@@ -5,6 +5,7 @@ using FallenFaction.Server.Mappings;
 using FallenFaction.Server.Services;
 using FallenFaction.Server.Services.Interfaces;
 using Resend;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -81,6 +82,7 @@ builder.Services.AddScoped<ITitleChangeApplicator, TitleChangeApplicator>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IApprovalCoordinator, ApprovalCoordinator>();
 builder.Services.AddScoped<ITicketWalletService, TicketWalletService>();
+builder.Services.AddScoped<ITranslationPipelineService, TranslationPipelineService>();
 
 builder.Services.AddAutoMapper(typeof(AuthMappingProfile));
 
@@ -199,7 +201,9 @@ builder.Services.AddAuthentication(options =>
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
     };
-});
+})
+// Translation workers authenticate with an API key, not a user JWT (opt-in per controller)
+.AddScheme<AuthenticationSchemeOptions, WorkerKeyAuthenticationHandler>(WorkerKeyAuthenticationHandler.SchemeName, null);
 #endregion
 
 builder.Services.AddAuthorization();

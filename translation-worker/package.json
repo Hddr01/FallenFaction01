@@ -1,0 +1,18 @@
+{
+  "name": "fallenfaction-translation-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "worker": "bun run src/cli.ts worker",
+    "cli": "bun run src/cli.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.6.0"
+  }
+}

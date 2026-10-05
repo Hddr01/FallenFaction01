@@ -40,6 +40,22 @@ A community platform for reading, translating, and publishing web novels. Users 
 
 ---
 
+## Translation Pipeline (external workers)
+
+**TranslationJob** — One raw chapter queued for machine translation. Queued → Claimed (worker holds a 20-min lease, renewed by heartbeat) → Published, or NeedsReview (QA gate failed), or Failed (3 attempts used). Jobs of one Title are claimed strictly in (Volume, Chapter) order; a Failed job blocks the later chapters of its Title until an admin retries it. NeedsReview does not block.
+
+**TranslationWorker** — A machine allowed to claim jobs. Authenticates with the `X-Worker-Key` header (own auth scheme `WorkerKey`, never a user JWT); only the key's SHA-256 hash is stored.
+
+**TranslationGlossaryEntry** — Per-Title term memory (names, places, sects, techniques, ranks). Worker-proposed terms never overwrite existing ones; admin-edited terms are Locked and mandatory. A claimed job receives only the terms that occur in its source text.
+
+**TranslationTitleProfile** — Per-Title source language, style guide, synopsis, `RequireReview`, and `MinQaScore` (default 7).
+
+**Publishing** — `TranslationPipelineService` writes the Chapter directly (not through PendingChapter, whose approval drops `IsAILocked`/`CharacterCount`). It applies the AI rule (first 50 chapters free), writes a TitleChangeLog, and updates an existing chapter in place on re-translation, keeping its lock state.
+
+**translation-worker/** — Bun CLI that claims jobs and runs terminology → translate → review → revise → validators through a pluggable backend (`claude-cli` headless Claude Code, `anthropic-api`, experimental `codex-cli`). See its README.
+
+---
+
 ## Ticket Economy
 
 **Ticket** — The platform currency. Two types:

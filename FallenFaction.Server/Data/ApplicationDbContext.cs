@@ -56,6 +56,12 @@ namespace FallenFaction.Server.Data
         public DbSet<TranslationRequestVote> TranslationRequestVotes { get; set; }
         public DbSet<TitleTeamJoinRequest> TitleTeamJoinRequests { get; set; }
 
+        // ── Translation pipeline (external workers) ─────────────────────────────
+        public DbSet<TranslationJob> TranslationJobs { get; set; }
+        public DbSet<TranslationWorker> TranslationWorkers { get; set; }
+        public DbSet<TranslationGlossaryEntry> TranslationGlossaryEntries { get; set; }
+        public DbSet<TranslationTitleProfile> TranslationTitleProfiles { get; set; }
+
 
 
         public IQueryable<Chapter> GetUserChapters(string userId)
@@ -752,6 +758,60 @@ namespace FallenFaction.Server.Data
                       .OnDelete(DeleteBehavior.NoAction);
 
                 entity.HasIndex(e => e.TitleId).HasDatabaseName("IX_AIChapterUnlocks_TitleId");
+            });
+
+            // ── Translation pipeline ────────────────────────────────────────────
+            builder.Entity<TranslationJob>(entity =>
+            {
+                // One job per chapter slot — re-enqueueing the same chapter is a no-op
+                entity.HasIndex(e => new { e.TitleId, e.VolumeNumber, e.ChapterNumber })
+                      .IsUnique()
+                      .HasDatabaseName("IX_TranslationJobs_Title_Vol_Ch");
+
+                entity.HasIndex(e => new { e.Status, e.LeaseExpiresAt })
+                      .HasDatabaseName("IX_TranslationJobs_Status_Lease");
+
+                entity.Property(e => e.Status).HasConversion<int>();
+
+                entity.HasOne(e => e.Title)
+                      .WithMany()
+                      .HasForeignKey(e => e.TitleId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.ClaimedByWorker)
+                      .WithMany()
+                      .HasForeignKey(e => e.ClaimedByWorkerId)
+                      .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(e => e.ResultChapter)
+                      .WithMany()
+                      .HasForeignKey(e => e.ResultChapterId)
+                      .OnDelete(DeleteBehavior.NoAction);
+            });
+
+            builder.Entity<TranslationWorker>(entity =>
+            {
+                entity.HasIndex(e => e.KeyHash).IsUnique().HasDatabaseName("IX_TranslationWorkers_KeyHash");
+            });
+
+            builder.Entity<TranslationGlossaryEntry>(entity =>
+            {
+                entity.HasIndex(e => new { e.TitleId, e.SourceTerm })
+                      .IsUnique()
+                      .HasDatabaseName("IX_TranslationGlossary_Title_Term");
+
+                entity.HasOne(e => e.Title)
+                      .WithMany()
+                      .HasForeignKey(e => e.TitleId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            builder.Entity<TranslationTitleProfile>(entity =>
+            {
+                entity.HasOne(e => e.Title)
+                      .WithOne()
+                      .HasForeignKey<TranslationTitleProfile>(e => e.TitleId)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
 
             builder.Entity<TranslationRequestVote>(entity =>

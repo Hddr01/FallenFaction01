@@ -1777,6 +1777,150 @@ namespace FallenFaction.Server.Migrations
                     b.ToTable("TitleTeamJoinRequests");
                 });
 
+            modelBuilder.Entity("FallenFaction.Server.Data.Models.TranslationGlossaryEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("FirstSeenChapter")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsLocked")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("SourceTerm")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("TitleId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Translation")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TitleId", "SourceTerm")
+                        .IsUnique()
+                        .HasDatabaseName("IX_TranslationGlossary_Title_Term");
+
+                    b.ToTable("TranslationGlossaryEntries");
+                });
+
+            modelBuilder.Entity("FallenFaction.Server.Data.Models.TranslationJob", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ChapterNumber")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ClaimedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ClaimedByWorkerId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime?>("LeaseExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModelInfo")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("QaReport")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("QaScore")
+                        .HasColumnType("decimal(4,2)");
+
+                    b.Property<int?>("ResultChapterId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SourceChapterTitle")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("SourceText")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Summary")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<int>("TitleId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TranslatedContent")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TranslatedTitle")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("VolumeNumber")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClaimedByWorkerId");
+
+                    b.HasIndex("ResultChapterId");
+
+                    b.HasIndex("Status", "LeaseExpiresAt")
+                        .HasDatabaseName("IX_TranslationJobs_Status_Lease");
+
+                    b.HasIndex("TitleId", "VolumeNumber", "ChapterNumber")
+                        .IsUnique()
+                        .HasDatabaseName("IX_TranslationJobs_Title_Vol_Ch");
+
+                    b.ToTable("TranslationJobs");
+                });
+
             modelBuilder.Entity("FallenFaction.Server.Data.Models.TranslationRequest", b =>
                 {
                     b.Property<int>("Id")
@@ -1915,6 +2059,82 @@ namespace FallenFaction.Server.Migrations
                         .HasDatabaseName("IX_TranslationRequestVotes_RequestId_UserId");
 
                     b.ToTable("TranslationRequestVotes");
+                });
+
+            modelBuilder.Entity("FallenFaction.Server.Data.Models.TranslationTitleProfile", b =>
+                {
+                    b.Property<int>("TitleId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("MinQaScore")
+                        .HasColumnType("decimal(4,2)");
+
+                    b.Property<bool>("RequireReview")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("SourceLanguage")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("StyleGuide")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("Synopsis")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("TitleId");
+
+                    b.ToTable("TranslationTitleProfiles");
+                });
+
+            modelBuilder.Entity("FallenFaction.Server.Data.Models.TranslationWorker", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("KeyHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("KeyPrefix")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<DateTime?>("LastSeenAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KeyHash")
+                        .IsUnique()
+                        .HasDatabaseName("IX_TranslationWorkers_KeyHash");
+
+                    b.ToTable("TranslationWorkers");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.UserNotificationRead", b =>
@@ -3068,6 +3288,42 @@ namespace FallenFaction.Server.Migrations
                     b.Navigation("Title");
                 });
 
+            modelBuilder.Entity("FallenFaction.Server.Data.Models.TranslationGlossaryEntry", b =>
+                {
+                    b.HasOne("FallenFaction.Server.Data.Models.Title", "Title")
+                        .WithMany()
+                        .HasForeignKey("TitleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Title");
+                });
+
+            modelBuilder.Entity("FallenFaction.Server.Data.Models.TranslationJob", b =>
+                {
+                    b.HasOne("FallenFaction.Server.Data.Models.TranslationWorker", "ClaimedByWorker")
+                        .WithMany()
+                        .HasForeignKey("ClaimedByWorkerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FallenFaction.Server.Data.Models.Chapter", "ResultChapter")
+                        .WithMany()
+                        .HasForeignKey("ResultChapterId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("FallenFaction.Server.Data.Models.Title", "Title")
+                        .WithMany()
+                        .HasForeignKey("TitleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ClaimedByWorker");
+
+                    b.Navigation("ResultChapter");
+
+                    b.Navigation("Title");
+                });
+
             modelBuilder.Entity("FallenFaction.Server.Data.Models.TranslationRequest", b =>
                 {
                     b.HasOne("FallenFaction.Server.Data.Models.Team", "ReleasedTeam")
@@ -3117,6 +3373,17 @@ namespace FallenFaction.Server.Migrations
                     b.Navigation("Request");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("FallenFaction.Server.Data.Models.TranslationTitleProfile", b =>
+                {
+                    b.HasOne("FallenFaction.Server.Data.Models.Title", "Title")
+                        .WithOne()
+                        .HasForeignKey("FallenFaction.Server.Data.Models.TranslationTitleProfile", "TitleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Title");
                 });
 
             modelBuilder.Entity("FallenFaction.Server.Data.Models.UserNotificationRead", b =>
