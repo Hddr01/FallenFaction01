@@ -1,4 +1,5 @@
 // composables/useTheme.js
+import { computed } from 'vue'
 import { useThemeStore } from '../stores/themeStore.js'
 
 export function initTheme() {
@@ -13,5 +14,9 @@ export function useTheme() {
     store.applyTheme(store.isDark ? 'light' : 'dark')
   }
 
-  return { isDark: store.isDark, toggleTheme }
+  // A live ref, not `store.isDark` (Pinia unwraps that to a plain boolean snapshot):
+  // ChapterReader reads isDark.value and watches it.
+  const isDark = computed(() => store.isDark)
+
+  return { isDark, toggleTheme }
 }
